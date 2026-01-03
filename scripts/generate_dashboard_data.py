@@ -381,18 +381,6 @@ def compute_max_drawdown(history: List[Dict[str, object]]) -> Tuple[float, float
     return max_dd, max_dd_pct
 
 
-def compute_avg_ev_per_100(rows: List[Dict[str, object]]) -> float:
-    evs = []
-    for r in rows:
-        p = r["prob_iso"] if r["prob_iso"] is not None else r["prob_raw"]
-        odds = r["odds_home"]
-        if p is None or odds is None:
-            continue
-        ev = (p * (odds - 1.0) - (1.0 - p)) * 100.0
-        evs.append(ev)
-    return sum(evs) / len(evs) if evs else 0.0
-
-
 def write_json(path: Path, payload: Dict[str, object]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as f:
@@ -437,7 +425,6 @@ def main() -> None:
     accuracy_thresholds = build_accuracy_thresholds(played_rows)
     calibration = build_calibration_metrics(played_rows)
     home_win_rates = build_home_win_rates_last20(played_rows)
-    avg_ev_per_100 = compute_avg_ev_per_100(played_rows)
 
     bet_log_rows = []
     if sources.bet_log and sources.bet_log.exists():
@@ -465,8 +452,6 @@ def main() -> None:
         "kpis": {
             "total_bets": bet_log_summary["totalBets"],
             "win_rate": bet_log_summary["winRate"],
-            "roi_pct": bet_log_summary["roiPct"],
-            "avg_ev_per_100": avg_ev_per_100,
             "avg_profit_per_bet_eur": bet_log_summary["avgProfitPerBetEur"],
             "max_drawdown_eur": max_dd_eur,
             "max_drawdown_pct": max_dd_pct,
