@@ -17,6 +17,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      BASE_URL: /hoops-insight/
     steps:
       - name: Checkout hoops-insight
         uses: actions/checkout@v4
@@ -50,6 +52,12 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Sanity check dist contents
+        run: ls -la dist
+
+      - name: Sanity check dist index
+        run: test -f dist/index.html
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
