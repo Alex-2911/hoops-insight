@@ -10,14 +10,15 @@ const Index = () => {
   const [summary, setSummary] = useState<SummaryPayload | null>(null);
   const [tables, setTables] = useState<TablesPayload | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const baseUrl = import.meta.env.BASE_URL ?? "/";
 
   useEffect(() => {
     let alive = true;
     const load = async () => {
       try {
         const [summaryRes, tablesRes] = await Promise.all([
-          fetch("/data/summary.json"),
-          fetch("/data/tables.json"),
+          fetch(`${baseUrl}data/summary.json`),
+          fetch(`${baseUrl}data/tables.json`),
         ]);
 
         if (!summaryRes.ok || !tablesRes.ok) {

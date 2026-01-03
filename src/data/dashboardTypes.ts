@@ -11,8 +11,6 @@ export interface SummaryPayload {
   kpis: {
     total_bets: number;
     win_rate: number;
-    roi_pct: number;
-    avg_ev_per_100: number;
     avg_profit_per_bet_eur: number;
     max_drawdown_eur: number;
     max_drawdown_pct: number;
