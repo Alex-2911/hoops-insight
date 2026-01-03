@@ -1,0 +1,828 @@
+{
+  "historical_stats": [
+    {
+      "date": "2025-10-21",
+      "accuracy": 0.5,
+      "totalGames": 2,
+      "correctGames": 1
+    },
+    {
+      "date": "2025-10-22",
+      "accuracy": 0.6666666666666666,
+      "totalGames": 12,
+      "correctGames": 8
+    },
+    {
+      "date": "2025-10-23",
+      "accuracy": 0.5,
+      "totalGames": 2,
+      "correctGames": 1
+    },
+    {
+      "date": "2025-10-24",
+      "accuracy": 0.4166666666666667,
+      "totalGames": 12,
+      "correctGames": 5
+    },
+    {
+      "date": "2025-10-25",
+      "accuracy": 0.6,
+      "totalGames": 5,
+      "correctGames": 3
+    },
+    {
+      "date": "2025-10-26",
+      "accuracy": 0.7777777777777778,
+      "totalGames": 9,
+      "correctGames": 7
+    },
+    {
+      "date": "2025-10-27",
+      "accuracy": 0.5454545454545454,
+      "totalGames": 11,
+      "correctGames": 6
+    },
+    {
+      "date": "2025-10-28",
+      "accuracy": 0.8,
+      "totalGames": 5,
+      "correctGames": 4
+    },
+    {
+      "date": "2025-10-29",
+      "accuracy": 0.5,
+      "totalGames": 10,
+      "correctGames": 5
+    },
+    {
+      "date": "2025-10-30",
+      "accuracy": 0.75,
+      "totalGames": 4,
+      "correctGames": 3
+    },
+    {
+      "date": "2025-10-31",
+      "accuracy": 0.5,
+      "totalGames": 8,
+      "correctGames": 4
+    },
+    {
+      "date": "2025-11-01",
+      "accuracy": 0.3333333333333333,
+      "totalGames": 6,
+      "correctGames": 2
+    },
+    {
+      "date": "2025-11-02",
+      "accuracy": 0.875,
+      "totalGames": 8,
+      "correctGames": 7
+    },
+    {
+      "date": "2025-11-03",
+      "accuracy": 0.3333333333333333,
+      "totalGames": 9,
+      "correctGames": 3
+    },
+    {
+      "date": "2025-11-04",
+      "accuracy": 0.8333333333333334,
+      "totalGames": 6,
+      "correctGames": 5
+    },
+    {
+      "date": "2025-11-05",
+      "accuracy": 0.7272727272727273,
+      "totalGames": 11,
+      "correctGames": 8
+    },
+    {
+      "date": "2025-11-06",
+      "accuracy": 1.0,
+      "totalGames": 1,
+      "correctGames": 1
+    },
+    {
+      "date": "2025-11-07",
+      "accuracy": 0.6363636363636364,
+      "totalGames": 11,
+      "correctGames": 7
+    },
+    {
+      "date": "2025-11-08",
+      "accuracy": 0.75,
+      "totalGames": 8,
+      "correctGames": 6
+    },
+    {
+      "date": "2025-11-09",
+      "accuracy": 0.2857142857142857,
+      "totalGames": 7,
+      "correctGames": 2
+    },
+    {
+      "date": "2025-11-10",
+      "accuracy": 0.4444444444444444,
+      "totalGames": 9,
+      "correctGames": 4
+    },
+    {
+      "date": "2025-11-11",
+      "accuracy": 0.6666666666666666,
+      "totalGames": 6,
+      "correctGames": 4
+    },
+    {
+      "date": "2025-11-12",
+      "accuracy": 0.4166666666666667,
+      "totalGames": 12,
+      "correctGames": 5
+    },
+    {
+      "date": "2025-11-13",
+      "accuracy": 0.3333333333333333,
+      "totalGames": 3,
+      "correctGames": 1
+    },
+    {
+      "date": "2025-11-14",
+      "accuracy": 0.6666666666666666,
+      "totalGames": 9,
+      "correctGames": 6
+    },
+    {
+      "date": "2025-11-15",
+      "accuracy": 0.2,
+      "totalGames": 5,
+      "correctGames": 1
+    },
+    {
+      "date": "2025-11-16",
+      "accuracy": 0.625,
+      "totalGames": 8,
+      "correctGames": 5
+    },
+    {
+      "date": "2025-11-17",
+      "accuracy": 0.75,
+      "totalGames": 8,
+      "correctGames": 6
+    },
+    {
+      "date": "2025-11-18",
+      "accuracy": 0.5,
+      "totalGames": 6,
+      "correctGames": 3
+    },
+    {
+      "date": "2025-11-19",
+      "accuracy": 0.4444444444444444,
+      "totalGames": 9,
+      "correctGames": 4
+    },
+    {
+      "date": "2025-11-20",
+      "accuracy": 0.75,
+      "totalGames": 4,
+      "correctGames": 3
+    },
+    {
+      "date": "2025-11-21",
+      "accuracy": 0.4444444444444444,
+      "totalGames": 9,
+      "correctGames": 4
+    },
+    {
+      "date": "2025-11-22",
+      "accuracy": 0.3333333333333333,
+      "totalGames": 6,
+      "correctGames": 2
+    },
+    {
+      "date": "2025-11-23",
+      "accuracy": 0.7142857142857143,
+      "totalGames": 7,
+      "correctGames": 5
+    },
+    {
+      "date": "2025-11-24",
+      "accuracy": 0.5555555555555556,
+      "totalGames": 9,
+      "correctGames": 5
+    },
+    {
+      "date": "2025-11-25",
+      "accuracy": 0.6666666666666666,
+      "totalGames": 3,
+      "correctGames": 2
+    },
+    {
+      "date": "2025-11-26",
+      "accuracy": 0.4444444444444444,
+      "totalGames": 9,
+      "correctGames": 4
+    },
+    {
+      "date": "2025-11-28",
+      "accuracy": 0.6,
+      "totalGames": 10,
+      "correctGames": 6
+    },
+    {
+      "date": "2025-11-29",
+      "accuracy": 0.7142857142857143,
+      "totalGames": 7,
+      "correctGames": 5
+    },
+    {
+      "date": "2025-11-30",
+      "accuracy": 0.375,
+      "totalGames": 8,
+      "correctGames": 3
+    },
+    {
+      "date": "2025-12-01",
+      "accuracy": 0.75,
+      "totalGames": 8,
+      "correctGames": 6
+    },
+    {
+      "date": "2025-12-02",
+      "accuracy": 0.6666666666666666,
+      "totalGames": 6,
+      "correctGames": 4
+    },
+    {
+      "date": "2025-12-03",
+      "accuracy": 0.4444444444444444,
+      "totalGames": 9,
+      "correctGames": 4
+    },
+    {
+      "date": "2025-12-04",
+      "accuracy": 0.2,
+      "totalGames": 5,
+      "correctGames": 1
+    },
+    {
+      "date": "2025-12-05",
+      "accuracy": 0.6363636363636364,
+      "totalGames": 11,
+      "correctGames": 7
+    },
+    {
+      "date": "2025-12-06",
+      "accuracy": 0.5714285714285714,
+      "totalGames": 7,
+      "correctGames": 4
+    },
+    {
+      "date": "2025-12-07",
+      "accuracy": 0.2857142857142857,
+      "totalGames": 7,
+      "correctGames": 2
+    },
+    {
+      "date": "2025-12-08",
+      "accuracy": 0.5,
+      "totalGames": 2,
+      "correctGames": 1
+    },
+    {
+      "date": "2025-12-09",
+      "accuracy": 0.5,
+      "totalGames": 2,
+      "correctGames": 1
+    },
+    {
+      "date": "2025-12-10",
+      "accuracy": 0.0,
+      "totalGames": 1,
+      "correctGames": 0
+    },
+    {
+      "date": "2025-12-11",
+      "accuracy": 0.75,
+      "totalGames": 4,
+      "correctGames": 3
+    },
+    {
+      "date": "2025-12-12",
+      "accuracy": 0.42857142857142855,
+      "totalGames": 7,
+      "correctGames": 3
+    },
+    {
+      "date": "2025-12-13",
+      "accuracy": 0.0,
+      "totalGames": 2,
+      "correctGames": 0
+    },
+    {
+      "date": "2025-12-14",
+      "accuracy": 0.5714285714285714,
+      "totalGames": 7,
+      "correctGames": 4
+    },
+    {
+      "date": "2025-12-15",
+      "accuracy": 0.4,
+      "totalGames": 5,
+      "correctGames": 2
+    },
+    {
+      "date": "2025-12-17",
+      "accuracy": 0.5,
+      "totalGames": 2,
+      "correctGames": 1
+    },
+    {
+      "date": "2025-12-18",
+      "accuracy": 0.6363636363636364,
+      "totalGames": 11,
+      "correctGames": 7
+    },
+    {
+      "date": "2025-12-19",
+      "accuracy": 0.4,
+      "totalGames": 5,
+      "correctGames": 2
+    },
+    {
+      "date": "2025-12-20",
+      "accuracy": 0.4444444444444444,
+      "totalGames": 9,
+      "correctGames": 4
+    },
+    {
+      "date": "2025-12-21",
+      "accuracy": 0.6666666666666666,
+      "totalGames": 6,
+      "correctGames": 4
+    },
+    {
+      "date": "2025-12-22",
+      "accuracy": 0.8571428571428571,
+      "totalGames": 7,
+      "correctGames": 6
+    },
+    {
+      "date": "2025-12-23",
+      "accuracy": 0.46153846153846156,
+      "totalGames": 13,
+      "correctGames": 6
+    },
+    {
+      "date": "2025-12-25",
+      "accuracy": 0.6,
+      "totalGames": 5,
+      "correctGames": 3
+    },
+    {
+      "date": "2025-12-26",
+      "accuracy": 0.5,
+      "totalGames": 8,
+      "correctGames": 4
+    },
+    {
+      "date": "2025-12-27",
+      "accuracy": 0.5,
+      "totalGames": 8,
+      "correctGames": 4
+    },
+    {
+      "date": "2025-12-28",
+      "accuracy": 1.0,
+      "totalGames": 6,
+      "correctGames": 6
+    },
+    {
+      "date": "2025-12-29",
+      "accuracy": 0.5,
+      "totalGames": 10,
+      "correctGames": 5
+    }
+  ],
+  "accuracy_threshold_stats": [
+    {
+      "label": "> 0.60",
+      "thresholdType": "gt",
+      "threshold": 0.6,
+      "accuracy": 0.7534246575342466,
+      "sampleSize": 146
+    },
+    {
+      "label": "<= 0.40",
+      "thresholdType": "lt",
+      "threshold": 0.4,
+      "accuracy": 0.2872340425531915,
+      "sampleSize": 94
+    }
+  ],
+  "calibration_metrics": {
+    "asOfDate": "2025-12-29",
+    "brierBefore": 0.225921343088744,
+    "brierAfter": 0.21813149758915618,
+    "logLossBefore": 0.6449360916470601,
+    "logLossAfter": 0.625808712855337,
+    "fittedGames": 467
+  },
+  "home_win_rates_last20": [
+    {
+      "team": "NYK",
+      "totalLast20Games": 20,
+      "totalHomeGames": 8,
+      "homeWins": 7,
+      "homeWinRate": 0.875
+    },
+    {
+      "team": "HOU",
+      "totalLast20Games": 20,
+      "totalHomeGames": 8,
+      "homeWins": 7,
+      "homeWinRate": 0.875
+    },
+    {
+      "team": "DET",
+      "totalLast20Games": 20,
+      "totalHomeGames": 8,
+      "homeWins": 7,
+      "homeWinRate": 0.875
+    },
+    {
+      "team": "OKC",
+      "totalLast20Games": 20,
+      "totalHomeGames": 12,
+      "homeWins": 10,
+      "homeWinRate": 0.8333333333333334
+    },
+    {
+      "team": "BOS",
+      "totalLast20Games": 20,
+      "totalHomeGames": 10,
+      "homeWins": 8,
+      "homeWinRate": 0.8
+    },
+    {
+      "team": "PHO",
+      "totalLast20Games": 17,
+      "totalHomeGames": 9,
+      "homeWins": 7,
+      "homeWinRate": 0.7777777777777778
+    },
+    {
+      "team": "MIN",
+      "totalLast20Games": 20,
+      "totalHomeGames": 12,
+      "homeWins": 9,
+      "homeWinRate": 0.75
+    },
+    {
+      "team": "DAL",
+      "totalLast20Games": 20,
+      "totalHomeGames": 8,
+      "homeWins": 6,
+      "homeWinRate": 0.75
+    },
+    {
+      "team": "LAL",
+      "totalLast20Games": 20,
+      "totalHomeGames": 8,
+      "homeWins": 6,
+      "homeWinRate": 0.75
+    },
+    {
+      "team": "ORL",
+      "totalLast20Games": 20,
+      "totalHomeGames": 10,
+      "homeWins": 7,
+      "homeWinRate": 0.7
+    },
+    {
+      "team": "SAS",
+      "totalLast20Games": 20,
+      "totalHomeGames": 9,
+      "homeWins": 6,
+      "homeWinRate": 0.6666666666666666
+    },
+    {
+      "team": "MIA",
+      "totalLast20Games": 20,
+      "totalHomeGames": 11,
+      "homeWins": 7,
+      "homeWinRate": 0.6363636363636364
+    },
+    {
+      "team": "TOR",
+      "totalLast20Games": 20,
+      "totalHomeGames": 12,
+      "homeWins": 7,
+      "homeWinRate": 0.5833333333333334
+    },
+    {
+      "team": "MEM",
+      "totalLast20Games": 20,
+      "totalHomeGames": 7,
+      "homeWins": 4,
+      "homeWinRate": 0.5714285714285714
+    },
+    {
+      "team": "CLE",
+      "totalLast20Games": 20,
+      "totalHomeGames": 12,
+      "homeWins": 6,
+      "homeWinRate": 0.5
+    },
+    {
+      "team": "PHI",
+      "totalLast20Games": 20,
+      "totalHomeGames": 12,
+      "homeWins": 6,
+      "homeWinRate": 0.5
+    },
+    {
+      "team": "GSW",
+      "totalLast20Games": 20,
+      "totalHomeGames": 8,
+      "homeWins": 4,
+      "homeWinRate": 0.5
+    },
+    {
+      "team": "DEN",
+      "totalLast20Games": 20,
+      "totalHomeGames": 9,
+      "homeWins": 4,
+      "homeWinRate": 0.4444444444444444
+    },
+    {
+      "team": "CHO",
+      "totalLast20Games": 20,
+      "totalHomeGames": 9,
+      "homeWins": 4,
+      "homeWinRate": 0.4444444444444444
+    },
+    {
+      "team": "WAS",
+      "totalLast20Games": 20,
+      "totalHomeGames": 9,
+      "homeWins": 4,
+      "homeWinRate": 0.4444444444444444
+    },
+    {
+      "team": "LAC",
+      "totalLast20Games": 20,
+      "totalHomeGames": 7,
+      "homeWins": 3,
+      "homeWinRate": 0.42857142857142855
+    },
+    {
+      "team": "UTA",
+      "totalLast20Games": 20,
+      "totalHomeGames": 13,
+      "homeWins": 5,
+      "homeWinRate": 0.38461538461538464
+    },
+    {
+      "team": "SAC",
+      "totalLast20Games": 20,
+      "totalHomeGames": 8,
+      "homeWins": 3,
+      "homeWinRate": 0.375
+    },
+    {
+      "team": "POR",
+      "totalLast20Games": 20,
+      "totalHomeGames": 11,
+      "homeWins": 4,
+      "homeWinRate": 0.36363636363636365
+    },
+    {
+      "team": "IND",
+      "totalLast20Games": 20,
+      "totalHomeGames": 11,
+      "homeWins": 4,
+      "homeWinRate": 0.36363636363636365
+    },
+    {
+      "team": "BRK",
+      "totalLast20Games": 20,
+      "totalHomeGames": 11,
+      "homeWins": 4,
+      "homeWinRate": 0.36363636363636365
+    },
+    {
+      "team": "NOP",
+      "totalLast20Games": 20,
+      "totalHomeGames": 14,
+      "homeWins": 5,
+      "homeWinRate": 0.35714285714285715
+    },
+    {
+      "team": "MIL",
+      "totalLast20Games": 20,
+      "totalHomeGames": 9,
+      "homeWins": 3,
+      "homeWinRate": 0.3333333333333333
+    },
+    {
+      "team": "CHI",
+      "totalLast20Games": 20,
+      "totalHomeGames": 10,
+      "homeWins": 3,
+      "homeWinRate": 0.3
+    },
+    {
+      "team": "ATL",
+      "totalLast20Games": 20,
+      "totalHomeGames": 11,
+      "homeWins": 3,
+      "homeWinRate": 0.2727272727272727
+    }
+  ],
+  "bet_log_summary": {
+    "asOfDate": "2025-11-30",
+    "totalBets": 47,
+    "totalStakedEur": 4611.44,
+    "totalProfitEur": 31.620500000000014,
+    "roiPct": 0.6856968755963434,
+    "avgStakeEur": 98.11574468085105,
+    "avgProfitPerBetEur": 0.6727765957446812,
+    "winRate": 0.6170212765957447
+  },
+  "bankroll_history": [
+    {
+      "date": "2025-10-30",
+      "balance": 1036.0,
+      "betsPlaced": 3,
+      "profit": 35.999999999999986
+    },
+    {
+      "date": "2025-10-31",
+      "balance": 1021.7493999999999,
+      "betsPlaced": 4,
+      "profit": -14.250599999999999
+    },
+    {
+      "date": "2025-11-01",
+      "balance": 1038.2494,
+      "betsPlaced": 1,
+      "profit": 16.500000000000004
+    },
+    {
+      "date": "2025-11-02",
+      "balance": 1140.6594,
+      "betsPlaced": 1,
+      "profit": 102.41
+    },
+    {
+      "date": "2025-11-04",
+      "balance": 1156.6848,
+      "betsPlaced": 1,
+      "profit": 16.025400000000005
+    },
+    {
+      "date": "2025-11-05",
+      "balance": 1233.4888,
+      "betsPlaced": 1,
+      "profit": 76.80399999999999
+    },
+    {
+      "date": "2025-11-06",
+      "balance": 1325.9592,
+      "betsPlaced": 1,
+      "profit": 92.4704
+    },
+    {
+      "date": "2025-11-07",
+      "balance": 1585.8524,
+      "betsPlaced": 2,
+      "profit": 259.89320000000004
+    },
+    {
+      "date": "2025-11-08",
+      "balance": 1595.3112,
+      "betsPlaced": 1,
+      "profit": 9.458800000000002
+    },
+    {
+      "date": "2025-11-09",
+      "balance": 1435.7812,
+      "betsPlaced": 1,
+      "profit": -159.53
+    },
+    {
+      "date": "2025-11-10",
+      "balance": 1292.2012,
+      "betsPlaced": 1,
+      "profit": -143.58
+    },
+    {
+      "date": "2025-11-11",
+      "balance": 1424.0056,
+      "betsPlaced": 1,
+      "profit": 131.80440000000002
+    },
+    {
+      "date": "2025-11-12",
+      "balance": 1139.2056,
+      "betsPlaced": 2,
+      "profit": -284.8
+    },
+    {
+      "date": "2025-11-13",
+      "balance": 1200.7224,
+      "betsPlaced": 1,
+      "profit": 61.5168
+    },
+    {
+      "date": "2025-11-14",
+      "balance": 1230.7424,
+      "betsPlaced": 1,
+      "profit": 30.019999999999992
+    },
+    {
+      "date": "2025-11-16",
+      "balance": 1107.6724,
+      "betsPlaced": 1,
+      "profit": -123.07
+    },
+    {
+      "date": "2025-11-17",
+      "balance": 1143.2758,
+      "betsPlaced": 1,
+      "profit": 35.6034
+    },
+    {
+      "date": "2025-11-18",
+      "balance": 1328.641,
+      "betsPlaced": 2,
+      "profit": 185.36519999999996
+    },
+    {
+      "date": "2025-11-19",
+      "balance": 1062.9209999999998,
+      "betsPlaced": 2,
+      "profit": -265.72
+    },
+    {
+      "date": "2025-11-20",
+      "balance": 1196.2793,
+      "betsPlaced": 2,
+      "profit": 133.35829999999999
+    },
+    {
+      "date": "2025-11-21",
+      "balance": 1260.8795,
+      "betsPlaced": 2,
+      "profit": 64.6002
+    },
+    {
+      "date": "2025-11-22",
+      "balance": 1370.5778,
+      "betsPlaced": 1,
+      "profit": 109.69830000000002
+    },
+    {
+      "date": "2025-11-23",
+      "balance": 1535.0497999999998,
+      "betsPlaced": 2,
+      "profit": 164.47199999999998
+    },
+    {
+      "date": "2025-11-24",
+      "balance": 1361.5947999999999,
+      "betsPlaced": 3,
+      "profit": -173.45499999999998
+    },
+    {
+      "date": "2025-11-25",
+      "balance": 1390.5288999999998,
+      "betsPlaced": 1,
+      "profit": 28.93409999999999
+    },
+    {
+      "date": "2025-11-26",
+      "balance": 1423.9008999999999,
+      "betsPlaced": 2,
+      "profit": 33.37200000000004
+    },
+    {
+      "date": "2025-11-28",
+      "balance": 1146.2404999999999,
+      "betsPlaced": 4,
+      "profit": -277.6604
+    },
+    {
+      "date": "2025-11-29",
+      "balance": 1031.6205,
+      "betsPlaced": 1,
+      "profit": -114.62
+    },
+    {
+      "date": "2025-11-30",
+      "balance": 1031.6205,
+      "betsPlaced": 1,
+      "profit": 0.0
+    }
+  ]
+}
