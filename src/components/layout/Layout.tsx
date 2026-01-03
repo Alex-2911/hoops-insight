@@ -14,8 +14,8 @@ export const Layout = ({ children }: LayoutProps) => {
       </main>
       <footer className="border-t border-border py-8 mt-16">
         <div className="container mx-auto px-4 text-center text-muted-foreground text-sm">
-          <p>Basketball Prediction Pipeline 2026 • Data-driven NBA betting insights</p>
-          <p className="mt-2 text-xs">For educational purposes only. Please gamble responsibly.</p>
+          <p>NBA Results & Statistics • Historical analysis only</p>
+          <p className="mt-2 text-xs">No future predictions are provided. For educational purposes only.</p>
         </div>
       </footer>
     </div>
