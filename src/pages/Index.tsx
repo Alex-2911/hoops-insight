@@ -1,24 +1,88 @@
+import { useEffect, useMemo, useState } from "react";
 import { StatCard } from "@/components/cards/StatCard";
-import {
-  summaryStats,
-  historicalStats,
-  accuracyThresholdStats,
-  calibrationMetrics,
-  homeWinRatesLast20,
-  betLogSummary,
-  bankrollHistory,
-} from "@/data/mockData";
+import type {
+  SummaryPayload,
+  TablesPayload,
+} from "@/data/dashboardTypes";
 import { Target, TrendingUp, Activity, BarChart3 } from "lucide-react";
 
 const Index = () => {
+  const [summary, setSummary] = useState<SummaryPayload | null>(null);
+  const [tables, setTables] = useState<TablesPayload | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    const load = async () => {
+      try {
+        const [summaryRes, tablesRes] = await Promise.all([
+          fetch("/data/summary.json"),
+          fetch("/data/tables.json"),
+        ]);
+
+        if (!summaryRes.ok || !tablesRes.ok) {
+          throw new Error("Failed to load dashboard data.");
+        }
+
+        const summaryJson = (await summaryRes.json()) as SummaryPayload;
+        const tablesJson = (await tablesRes.json()) as TablesPayload;
+
+        if (alive) {
+          setSummary(summaryJson);
+          setTables(tablesJson);
+        }
+      } catch (err) {
+        if (alive) {
+          setLoadError(err instanceof Error ? err.message : "Failed to load data.");
+        }
+      }
+    };
+
+    load();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const summaryStats = summary?.summary_stats ?? {
+    total_games: 0,
+    overall_accuracy: 0,
+    as_of_date: "—",
+  };
+
+  const historicalStats = tables?.historical_stats ?? [];
+  const accuracyThresholdStats = tables?.accuracy_threshold_stats ?? [];
+  const calibrationMetrics = tables?.calibration_metrics ?? {
+    asOfDate: "—",
+    brierBefore: 0,
+    brierAfter: 0,
+    logLossBefore: 0,
+    logLossAfter: 0,
+    fittedGames: 0,
+  };
+  const homeWinRatesLast20 = tables?.home_win_rates_last20 ?? [];
+  const betLogSummary = tables?.bet_log_summary ?? {
+    asOfDate: "—",
+    totalBets: 0,
+    totalStakedEur: 0,
+    totalProfitEur: 0,
+    roiPct: 0,
+    avgStakeEur: 0,
+    avgProfitPerBetEur: 0,
+    winRate: 0,
+  };
+  const bankrollHistory = tables?.bankroll_history ?? [];
+
   const lastHist = historicalStats[historicalStats.length - 1];
   const lastBankroll = bankrollHistory[bankrollHistory.length - 1];
 
-  const overallAccuracyPct = (summaryStats.overallAccuracy * 100).toFixed(2);
+  const overallAccuracyPct = (summaryStats.overall_accuracy * 100).toFixed(2);
 
-  const topHomeTeams = [...homeWinRatesLast20]
-    .sort((a, b) => b.homeWinRate - a.homeWinRate)
-    .slice(0, 8);
+  const topHomeTeams = useMemo(() => {
+    return [...homeWinRatesLast20]
+      .sort((a, b) => b.homeWinRate - a.homeWinRate)
+      .slice(0, 8);
+  }, [homeWinRatesLast20]);
 
   return (
     <>
@@ -46,6 +110,11 @@ const Index = () => {
               outcomes. It serves purely for historical model accuracy and
               statistical analysis of NBA games.
             </p>
+            {loadError && (
+              <p className="mt-3 text-sm text-red-400">
+                Data unavailable: {loadError}
+              </p>
+            )}
           </div>
         </div>
       </section>
@@ -53,33 +122,33 @@ const Index = () => {
       {/* Top stats */}
       <section className="container mx-auto px-4 py-10">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard
-            title="Overall Accuracy"
-            value={`${overallAccuracyPct}%`}
-            subtitle={`Played games: ${summaryStats.totalGames}`}
-            icon={<Target className="w-6 h-6" />}
-          />
+            <StatCard
+              title="Overall Accuracy"
+              value={`${overallAccuracyPct}%`}
+              subtitle={`Played games: ${summaryStats.total_games}`}
+              icon={<Target className="w-6 h-6" />}
+            />
 
-          <StatCard
-            title="Last Update"
-            value={summaryStats.asOfDate}
-            subtitle={lastHist ? `Last day acc: ${(lastHist.accuracy * 100).toFixed(0)}%` : "—"}
-            icon={<TrendingUp className="w-6 h-6" />}
-          />
+            <StatCard
+              title="Last Update"
+              value={summaryStats.as_of_date}
+              subtitle={lastHist ? `Last day acc: ${(lastHist.accuracy * 100).toFixed(0)}%` : "—"}
+              icon={<TrendingUp className="w-6 h-6" />}
+            />
 
-          <StatCard
-            title="Calibration (Brier)"
-            value={`${calibrationMetrics.brierAfter.toFixed(3)}`}
-            subtitle={`Before: ${calibrationMetrics.brierBefore.toFixed(3)}`}
-            icon={<BarChart3 className="w-6 h-6" />}
-          />
+              <StatCard
+                title="Calibration (Brier)"
+                value={`${calibrationMetrics.brierAfter.toFixed(3)}`}
+                subtitle={`Before: ${calibrationMetrics.brierBefore.toFixed(3)}`}
+                icon={<BarChart3 className="w-6 h-6" />}
+              />
 
-          <StatCard
-            title="Bankroll (Historical)"
-            value={lastBankroll ? `€${lastBankroll.balance.toFixed(2)}` : "—"}
-            subtitle={lastBankroll ? `Last day P/L: €${lastBankroll.profit.toFixed(2)}` : "—"}
-            icon={<Activity className="w-6 h-6" />}
-          />
+              <StatCard
+                title="Bankroll (Historical)"
+                value={lastBankroll ? `€${lastBankroll.balance.toFixed(2)}` : "—"}
+                subtitle={lastBankroll ? `Last day P/L: €${lastBankroll.profit.toFixed(2)}` : "—"}
+                icon={<Activity className="w-6 h-6" />}
+              />
         </div>
       </section>
 
@@ -181,7 +250,7 @@ const Index = () => {
           </div>
 
           <div className="text-xs text-muted-foreground mt-4">
-            Showing top {topHomeTeams.length} teams by home win rate (mock data).
+            Showing top {topHomeTeams.length} teams by home win rate (historical).
           </div>
         </div>
       </section>

@@ -36,6 +36,33 @@ npm i
 npm run dev
 ```
 
+## Stats-only data pipeline
+
+This dashboard reads historical-only artifacts from `public/data/*.json`.
+Generate these files from the Basketball_prediction pipeline outputs:
+
+```sh
+# Python (stats exporter)
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+# Generate dashboard data (played games only)
+npm run gen:data
+
+# Run the frontend
+npm run dev
+```
+
+By default, the exporter expects Basketball_prediction data at:
+`../Basketball_prediction/2026/output/LightGBM`
+
+Override with:
+
+```sh
+python3 scripts/generate_dashboard_data.py --source-root "/path/to/Basketball_prediction/2026"
+```
+
 **Edit a file directly in GitHub**
 
 - Navigate to the desired file(s).
