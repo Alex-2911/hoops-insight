@@ -29,16 +29,15 @@ const Index = () => {
           <div className="max-w-3xl mx-auto text-center animate-fade-in">
             <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-full text-sm font-medium mb-6">
               <Activity className="w-4 h-4" />
-              Hoops Insight • Statistics Dashboard
+              Hoops Insight • Results & Statistics
             </div>
 
             <h1 className="text-4xl md:text-5xl font-bold mb-4 leading-tight">
-              Historical NBA Model Performance
+              Historical NBA Results & Model Statistics
             </h1>
 
             <p className="text-lg text-muted-foreground mb-2">
-              This dashboard shows historical accuracy, calibration quality, and
-              statistical summaries only.
+              This page displays historical results and statistical summaries only.
             </p>
 
             <p className="text-sm text-muted-foreground">
