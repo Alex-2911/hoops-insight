@@ -71,6 +71,25 @@ export interface BankrollEntry {
   profit: number;
 }
 
+export interface LocalMatchedGame {
+  date: string;
+  home_team: string;
+  away_team: string;
+  home_win_rate: number;
+  prob_iso: number;
+  prob_used: number;
+  odds_1: number;
+  ev_eur_per_100: number;
+  win: number;
+  pnl: number;
+}
+
+export interface LocalMatchedGamesWindow {
+  windowSize: number;
+  n_trades: number;
+  games: LocalMatchedGame[];
+}
+
 export interface TablesPayload {
   historical_stats: HistoricalStat[];
   accuracy_threshold_stats: AccuracyThresholdStat[];
@@ -78,4 +97,5 @@ export interface TablesPayload {
   home_win_rates_last20: HomeWinRate[];
   bet_log_summary: BetLogSummary;
   bankroll_history: BankrollEntry[];
+  local_matched_games: LocalMatchedGamesWindow;
 }

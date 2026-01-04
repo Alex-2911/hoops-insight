@@ -824,5 +824,155 @@
       "betsPlaced": 1,
       "profit": 0.0
     }
-  ]
+  ],
+  "local_matched_games": {
+    "windowSize": 200,
+    "n_trades": 12,
+    "games": [
+      {
+        "date": "2025-12-05",
+        "home_team": "ATL",
+        "away_team": "DEN",
+        "home_win_rate": 0.62,
+        "prob_iso": 0.463,
+        "prob_used": 0.463,
+        "odds_1": 2.7,
+        "ev_eur_per_100": 24.9,
+        "win": 0.0,
+        "pnl": -100.0
+      },
+      {
+        "date": "2025-12-13",
+        "home_team": "ORL",
+        "away_team": "NYK",
+        "home_win_rate": 0.82,
+        "prob_iso": 0.463,
+        "prob_used": 0.463,
+        "odds_1": 2.64,
+        "ev_eur_per_100": 22.12,
+        "win": 0.0,
+        "pnl": -100.0
+      },
+      {
+        "date": "2025-12-18",
+        "home_team": "DAL",
+        "away_team": "DET",
+        "home_win_rate": 0.5,
+        "prob_iso": 0.664,
+        "prob_used": 0.664,
+        "odds_1": 2.9,
+        "ev_eur_per_100": 92.64,
+        "win": 1.0,
+        "pnl": 190.0
+      },
+      {
+        "date": "2025-12-23",
+        "home_team": "DAL",
+        "away_team": "DEN",
+        "home_win_rate": 0.6,
+        "prob_iso": 0.463,
+        "prob_used": 0.463,
+        "odds_1": 2.95,
+        "ev_eur_per_100": 36.46,
+        "win": 1.0,
+        "pnl": 195.0
+      },
+      {
+        "date": "2025-12-23",
+        "home_team": "SAS",
+        "away_team": "OKC",
+        "home_win_rate": 0.71,
+        "prob_iso": 0.664,
+        "prob_used": 0.664,
+        "odds_1": 3.1,
+        "ev_eur_per_100": 105.93,
+        "win": 1.0,
+        "pnl": 210.0
+      },
+      {
+        "date": "2025-12-27",
+        "home_team": "ORL",
+        "away_team": "DEN",
+        "home_win_rate": 0.7,
+        "prob_iso": 0.463,
+        "prob_used": 0.463,
+        "odds_1": 2.6,
+        "ev_eur_per_100": 20.27,
+        "win": 1.0,
+        "pnl": 160.0
+      },
+      {
+        "date": "2025-12-28",
+        "home_team": "TOR",
+        "away_team": "GSW",
+        "home_win_rate": 0.55,
+        "prob_iso": 0.463,
+        "prob_used": 0.463,
+        "odds_1": 2.54,
+        "ev_eur_per_100": 17.5,
+        "win": 1.0,
+        "pnl": 154.0
+      },
+      {
+        "date": "2025-12-29",
+        "home_team": "MIA",
+        "away_team": "DEN",
+        "home_win_rate": 0.6,
+        "prob_iso": 0.463,
+        "prob_used": 0.463,
+        "odds_1": 2.14,
+        "ev_eur_per_100": -1.01,
+        "win": 1.0,
+        "pnl": 114.0
+      },
+      {
+        "date": "2025-12-29",
+        "home_team": "CHO",
+        "away_team": "MIL",
+        "home_win_rate": 0.5,
+        "prob_iso": 0.463,
+        "prob_used": 0.463,
+        "odds_1": 2.36,
+        "ev_eur_per_100": 9.17,
+        "win": 0.0,
+        "pnl": -100.0
+      },
+      {
+        "date": "2025-12-30",
+        "home_team": "LAL",
+        "away_team": "DET",
+        "home_win_rate": 0.6,
+        "prob_iso": 0.664,
+        "prob_used": 0.664,
+        "odds_1": 2.24,
+        "ev_eur_per_100": 48.8,
+        "win": 0.0,
+        "pnl": -100.0
+      },
+      {
+        "date": "2026-01-01",
+        "home_team": "DAL",
+        "away_team": "PHI",
+        "home_win_rate": 0.86,
+        "prob_iso": 0.463,
+        "prob_used": 0.463,
+        "odds_1": 2.14,
+        "ev_eur_per_100": -1.01,
+        "win": 0.0,
+        "pnl": -100.0
+      },
+      {
+        "date": "2026-01-03",
+        "home_team": "MIA",
+        "away_team": "MIN",
+        "home_win_rate": 0.6,
+        "prob_iso": 0.581,
+        "prob_used": 0.581,
+        "odds_1": 2.24,
+        "ev_eur_per_100": 30.23,
+        "win": 0.0,
+        "pnl": -100.0
+      }
+    ]
+  }
 }
