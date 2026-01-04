@@ -73,6 +73,11 @@ const Index = () => {
     winRate: 0,
   };
   const bankrollHistory = tables?.bankroll_history ?? [];
+  const localMatchedGames = tables?.local_matched_games ?? {
+    windowSize: 200,
+    n_trades: 0,
+    games: [],
+  };
 
   const lastHist = historicalStats[historicalStats.length - 1];
   const lastBankroll = bankrollHistory[bankrollHistory.length - 1];
@@ -285,6 +290,60 @@ const Index = () => {
 
           <div className="text-xs text-muted-foreground mt-4">
             As of {betLogSummary.asOfDate} • Historical / settled only.
+          </div>
+        </div>
+      </section>
+
+      {/* Local matched games overview */}
+      <section className="container mx-auto px-4 py-10">
+        <div className="glass-card p-6">
+          <h2 className="text-xl font-bold mb-2">
+            LOCAL MATCHED GAMES (LAST {localMatchedGames.windowSize} WINDOW)
+          </h2>
+          <p className="text-sm text-muted-foreground mb-6">
+            n_trades (last {localMatchedGames.windowSize} window): {localMatchedGames.n_trades}
+          </p>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left border-b border-border">
+                  <th className="py-2 pr-4">Date</th>
+                  <th className="py-2 pr-4">Home</th>
+                  <th className="py-2 pr-4">Away</th>
+                  <th className="py-2 pr-4">Home Win Rate</th>
+                  <th className="py-2 pr-4">Prob Iso</th>
+                  <th className="py-2 pr-4">Prob Used</th>
+                  <th className="py-2 pr-4">Odds 1</th>
+                  <th className="py-2 pr-4">EV €/100</th>
+                  <th className="py-2 pr-4">Win</th>
+                  <th className="py-2 pr-4">PnL</th>
+                </tr>
+              </thead>
+              <tbody>
+                {localMatchedGames.games.map((game) => (
+                  <tr key={`${game.date}-${game.home_team}-${game.away_team}`} className="border-b border-border/50">
+                    <td className="py-2 pr-4">{game.date}</td>
+                    <td className="py-2 pr-4 font-medium">{game.home_team}</td>
+                    <td className="py-2 pr-4">{game.away_team}</td>
+                    <td className="py-2 pr-4">{game.home_win_rate.toFixed(2)}</td>
+                    <td className="py-2 pr-4">{game.prob_iso.toFixed(3)}</td>
+                    <td className="py-2 pr-4">{game.prob_used.toFixed(3)}</td>
+                    <td className="py-2 pr-4">{game.odds_1.toFixed(2)}</td>
+                    <td className="py-2 pr-4">{game.ev_eur_per_100.toFixed(2)}</td>
+                    <td className="py-2 pr-4">{game.win.toFixed(1)}</td>
+                    <td className="py-2 pr-4">{game.pnl.toFixed(1)}</td>
+                  </tr>
+                ))}
+                {localMatchedGames.games.length === 0 && (
+                  <tr>
+                    <td colSpan={10} className="py-4 text-center text-sm text-muted-foreground">
+                      No matched games recorded for this window.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       </section>
