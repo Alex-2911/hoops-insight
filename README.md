@@ -63,6 +63,24 @@ Override with:
 python3 scripts/generate_dashboard_data.py --source-root "/path/to/Basketball_prediction/2026"
 ```
 
+## Pipeline runner (path-agnostic)
+
+Use the repo script to run the full pipeline, export dashboard data, and preview the app.
+
+```sh
+SOURCE_ROOT="/path/to/Basketball_prediction/2026" PORT=4173 ./scripts/run_pipeline.sh --open-dashboard
+./scripts/run_pipeline.sh --dry-run
+```
+
+Environment variables:
+
+- `HOOPS_DIR` (default: `pwd`) — path to this repo
+- `NBA_DIR` (default: `$HOOPS_DIR/../Basketball_prediction`) — Basketball_prediction repo
+- `SOURCE_ROOT` (default: `$NBA_DIR/2026`) — output root for predictions
+- `HOST` (default: `127.0.0.1`) — preview host
+- `PORT` (default: `4173`) — preview port
+- `HISTORICAL_ROUTE` (default: `/`) — route to open after preview
+
 **Edit a file directly in GitHub**
 
 - Navigate to the desired file(s).
