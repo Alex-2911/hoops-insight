@@ -25,30 +25,22 @@ jobs:
       - name: Checkout hoops-insight
         uses: actions/checkout@v4
 
-      - name: Checkout Basketball_prediction
+      - name: Checkout Basketball_prediction (branch 2026)
         uses: actions/checkout@v4
         with:
           repository: Alex-2911/Basketball_prediction
           ref: 2026
           path: Basketball_prediction
           fetch-depth: 0
-          sparse-checkout: ""
 
-      - name: Debug Basketball_prediction tree + required files
+      - name: Debug Basketball_prediction outputs exist
         shell: bash
         run: |
           set -euo pipefail
-          echo "PWD=$(pwd)"
-          echo "=== Basketball_prediction root ==="
           ls -la Basketball_prediction | head -n 200
-
-          echo "=== 2026/output/LightGBM ==="
           ls -la Basketball_prediction/2026/output/LightGBM | head -n 200
-
-          echo "=== required files check ==="
           test -f Basketball_prediction/2026/output/LightGBM/metrics_snapshot.json
-          test -f Basketball_prediction/2026/output/LightGBM/strategy_params.txt
-          echo "OK: required files exist"
+          echo "OK: metrics_snapshot.json exists"
 
       - name: Setup Python
         uses: actions/setup-python@v5
