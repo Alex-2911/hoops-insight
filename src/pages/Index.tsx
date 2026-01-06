@@ -115,6 +115,9 @@ const Index = () => {
     filters: [],
     matched_games_count: 0,
   };
+  const metricsSnapshotSource = summary?.source?.metrics_snapshot_source ?? "missing";
+  const localParamsMissing =
+    strategyParams.source === "missing" || metricsSnapshotSource === "missing";
 
   const lastBankroll = bankrollHistory[bankrollHistory.length - 1];
 
@@ -124,11 +127,13 @@ const Index = () => {
     return [...homeWinRatesLast20].sort((a, b) => b.homeWinRate - a.homeWinRate);
   }, [homeWinRatesLast20]);
 
-  const matchedGames =
-    strategySummary.totalBets || strategyFilterStats.matched_games_count;
-  const wonGames = localMatchedGamesRows.length
-    ? localMatchedGamesRows.filter((game) => game.win === 1).length
-    : Math.round(strategySummary.winRate * matchedGames);
+  const strategySubsetAvailable = strategySummary.totalBets > 0;
+  const strategySubsetWins = strategySubsetAvailable
+    ? localMatchedGamesRows.length
+      ? localMatchedGamesRows.filter((game) => game.win === 1).length
+      : Math.round(strategySummary.winRate * strategySummary.totalBets)
+    : 0;
+  const matchedGamesCount = strategyFilterStats.matched_games_count ?? 0;
 
   const strategyParamsList = useMemo(() => {
     return Object.entries(strategyParams.params ?? {});
@@ -184,7 +189,14 @@ const Index = () => {
                 <div className="space-y-1">
                   <div>Played games: {summaryStats.total_games}</div>
                   <div>
-                    Strategy subset in window: {matchedGames} matches • {wonGames} won
+                    Strategy subset in window:{" "}
+                    {strategySubsetAvailable ? (
+                      <>
+                        {strategySummary.totalBets} matches • {strategySubsetWins} won
+                      </>
+                    ) : (
+                      "N/A (missing local snapshot)"
+                    )}
                   </div>
                 </div>
               }
@@ -249,34 +261,38 @@ const Index = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
             <div className="rounded-lg border border-border p-4">
               <div className="text-sm text-muted-foreground">Bets</div>
-              <div className="text-2xl font-bold">{strategySummary.totalBets}</div>
+              <div className="text-2xl font-bold">
+                {localParamsMissing ? 0 : strategySummary.totalBets}
+              </div>
             </div>
             <div className="rounded-lg border border-border p-4">
               <div className="text-sm text-muted-foreground">Profit</div>
               <div className="text-2xl font-bold">
-                {strategySummary.profitMetricsAvailable
+                {!localParamsMissing && strategySummary.profitMetricsAvailable
                   ? `€${strategySummary.totalProfitEur.toFixed(2)}`
-                  : "—"}
+                  : "N/A"}
               </div>
             </div>
             <div className="rounded-lg border border-border p-4">
               <div className="text-sm text-muted-foreground">ROI</div>
               <div className="text-2xl font-bold">
-                {strategySummary.profitMetricsAvailable
+                {!localParamsMissing && strategySummary.profitMetricsAvailable
                   ? `${strategySummary.roiPct.toFixed(2)}%`
-                  : "—"}
+                  : "N/A"}
               </div>
             </div>
             <div className="rounded-lg border border-border p-4">
               <div className="text-sm text-muted-foreground">Avg EV €/100</div>
               <div className="text-2xl font-bold">
-                {strategySummary.avgEvPer100.toFixed(2)}
+                {localParamsMissing ? "N/A" : strategySummary.avgEvPer100.toFixed(2)}
               </div>
             </div>
             <div className="rounded-lg border border-border p-4">
               <div className="text-sm text-muted-foreground">Win Rate</div>
               <div className="text-2xl font-bold">
-                {(strategySummary.winRate * 100).toFixed(2)}%
+                {localParamsMissing
+                  ? "N/A"
+                  : `${(strategySummary.winRate * 100).toFixed(2)}%`}
               </div>
             </div>
             <div className="rounded-lg border border-border p-4">
@@ -301,9 +317,9 @@ const Index = () => {
                 </TooltipProvider>
               </div>
               <div className="text-2xl font-bold">
-                {strategySummary.sharpeStyle !== null
+                {!localParamsMissing && strategySummary.sharpeStyle !== null
                   ? strategySummary.sharpeStyle.toFixed(2)
-                  : "—"}
+                  : "N/A"}
               </div>
             </div>
           </div>
@@ -346,7 +362,7 @@ const Index = () => {
                 ))}
                 <li className="flex items-center justify-between pt-2 border-t border-border/50">
                   <span className="text-muted-foreground">Matched games</span>
-                  <span className="font-medium text-foreground">{matchedGames}</span>
+                  <span className="font-medium text-foreground">{matchedGamesCount}</span>
                 </li>
               </ul>
             </div>
