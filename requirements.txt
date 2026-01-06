@@ -1,1 +1,1 @@
-# No external Python dependencies required for the exporter.
+pandas>=2.2.0
