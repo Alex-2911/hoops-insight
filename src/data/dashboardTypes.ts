@@ -11,13 +11,34 @@ export interface SummaryPayload {
   kpis: {
     total_bets: number;
     win_rate: number;
+    roi_pct: number;
+    avg_ev_per_100: number;
     avg_profit_per_bet_eur: number;
     max_drawdown_eur: number;
     max_drawdown_pct: number;
   };
+  strategy_summary: {
+    totalBets: number;
+    totalProfitEur: number;
+    roiPct: number;
+    avgEvPer100: number;
+    winRate: number;
+    sharpeStyle: number | null;
+    profitMetricsAvailable: boolean;
+  };
+  strategy_params: {
+    source: string;
+    params: Record<string, string | number | boolean | null>;
+  };
+  strategy_filter_stats: {
+    window_size: number;
+    filters: Array<{ label: string; count: number }>;
+    matched_games_count: number;
+  };
   source: {
     combined_file: string;
     bet_log_file: string;
+    metrics_snapshot_source: string;
   };
 }
 
@@ -84,10 +105,11 @@ export interface LocalMatchedGame {
   pnl: number;
 }
 
-export interface LocalMatchedGamesWindow {
-  windowSize: number;
-  n_trades: number;
-  games: LocalMatchedGame[];
+export interface BankrollSummary {
+  start: number;
+  stake: number;
+  net_pl: number;
+  bankroll: number;
 }
 
 export interface TablesPayload {
@@ -97,5 +119,11 @@ export interface TablesPayload {
   home_win_rates_last20: HomeWinRate[];
   bet_log_summary: BetLogSummary;
   bankroll_history: BankrollEntry[];
-  local_matched_games: LocalMatchedGamesWindow;
+  local_matched_games_rows: LocalMatchedGame[];
+  local_matched_games_count: number;
+  local_matched_games_profit_sum_table: number;
+  local_matched_games_mismatch: boolean;
+  local_matched_games_note: string;
+  bankroll_last_200: BankrollSummary;
+  bankroll_ytd_2026: BankrollSummary;
 }

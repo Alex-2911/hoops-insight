@@ -4,7 +4,13 @@ import type {
   SummaryPayload,
   TablesPayload,
 } from "@/data/dashboardTypes";
-import { Target, TrendingUp, Activity, BarChart3 } from "lucide-react";
+import { Target, TrendingUp, Activity, BarChart3, Info } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const Index = () => {
   const [summary, setSummary] = useState<SummaryPayload | null>(null);
@@ -51,8 +57,6 @@ const Index = () => {
     as_of_date: "—",
   };
 
-  const historicalStats = tables?.historical_stats ?? [];
-  const accuracyThresholdStats = tables?.accuracy_threshold_stats ?? [];
   const calibrationMetrics = tables?.calibration_metrics ?? {
     asOfDate: "—",
     brierBefore: 0,
@@ -73,22 +77,67 @@ const Index = () => {
     winRate: 0,
   };
   const bankrollHistory = tables?.bankroll_history ?? [];
-  const localMatchedGames = tables?.local_matched_games ?? {
-    windowSize: 200,
-    n_trades: 0,
-    games: [],
+  const localMatchedGamesRows = tables?.local_matched_games_rows ?? [];
+  const localMatchedGamesCount =
+    tables?.local_matched_games_count ?? localMatchedGamesRows.length;
+  const localMatchedGamesMismatch = tables?.local_matched_games_mismatch ?? false;
+  const localMatchedGamesNote = tables?.local_matched_games_note ?? "";
+  const localMatchedGamesProfitSum =
+    tables?.local_matched_games_profit_sum_table ?? 0;
+  const bankrollLast200 = tables?.bankroll_last_200 ?? {
+    start: 1000,
+    stake: 100,
+    net_pl: 0,
+    bankroll: 1000,
+  };
+  const bankrollYtd2026 = tables?.bankroll_ytd_2026 ?? {
+    start: 1000,
+    stake: 100,
+    net_pl: 0,
+    bankroll: 1000,
   };
 
-  const lastHist = historicalStats[historicalStats.length - 1];
+  const strategySummary = summary?.strategy_summary ?? {
+    totalBets: 0,
+    totalProfitEur: 0,
+    roiPct: 0,
+    avgEvPer100: 0,
+    winRate: 0,
+    sharpeStyle: null,
+    profitMetricsAvailable: false,
+  };
+  const strategyParams = summary?.strategy_params ?? {
+    source: "missing",
+    params: {},
+  };
+  const strategyFilterStats = summary?.strategy_filter_stats ?? {
+    window_size: 200,
+    filters: [],
+    matched_games_count: 0,
+  };
+
   const lastBankroll = bankrollHistory[bankrollHistory.length - 1];
 
   const overallAccuracyPct = (summaryStats.overall_accuracy * 100).toFixed(2);
 
   const topHomeTeams = useMemo(() => {
-    return [...homeWinRatesLast20]
-      .sort((a, b) => b.homeWinRate - a.homeWinRate)
-      .slice(0, 8);
+    return [...homeWinRatesLast20].sort((a, b) => b.homeWinRate - a.homeWinRate);
   }, [homeWinRatesLast20]);
+
+  const matchedGames =
+    strategySummary.totalBets || strategyFilterStats.matched_games_count;
+  const wonGames = localMatchedGamesRows.length
+    ? localMatchedGamesRows.filter((game) => game.win === 1).length
+    : Math.round(strategySummary.winRate * matchedGames);
+
+  const strategyParamsList = useMemo(() => {
+    return Object.entries(strategyParams.params ?? {});
+  }, [strategyParams.params]);
+
+  const formatSigned = (value: number) => {
+    const sign = value >= 0 ? "+" : "-";
+    return `${sign}€${Math.abs(value).toFixed(2)}`;
+  };
 
   return (
     <>
@@ -131,19 +180,49 @@ const Index = () => {
             <StatCard
               title="Overall Accuracy"
               value={`${overallAccuracyPct}%`}
-              subtitle={`Played games: ${summaryStats.total_games}`}
+              subtitle={
+                <div className="space-y-1">
+                  <div>Played games: {summaryStats.total_games}</div>
+                  <div>
+                    Strategy subset in window: {matchedGames} matches • {wonGames} won
+                  </div>
+                </div>
+              }
               icon={<Target className="w-6 h-6" />}
             />
 
             <StatCard
               title="Last Update"
               value={summaryStats.as_of_date}
-              subtitle={lastHist ? `Last day acc: ${(lastHist.accuracy * 100).toFixed(0)}%` : "—"}
               icon={<TrendingUp className="w-6 h-6" />}
             />
 
               <StatCard
-                title="Calibration (Brier)"
+                title={
+                  <div className="flex items-center gap-2">
+                    <span>Calibration (Brier)</span>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            className="text-muted-foreground hover:text-foreground"
+                            aria-label="Brier Score info"
+                          >
+                            <Info className="h-4 w-4" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <div className="font-semibold">Brier Score</div>
+                          <div className="text-xs text-muted-foreground">
+                            Measures probability accuracy (0=best). ~0.20 good, ~0.25 ok,
+                            &gt;0.30 weak (depends on base rate).
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                }
                 value={`${calibrationMetrics.brierAfter.toFixed(3)}`}
                 subtitle={`Before: ${calibrationMetrics.brierBefore.toFixed(3)}`}
                 icon={<BarChart3 className="w-6 h-6" />}
@@ -158,28 +237,119 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Accuracy thresholds */}
+      {/* Local params KPIs */}
       <section className="container mx-auto px-4 py-10">
         <div className="glass-card p-6">
-          <h2 className="text-xl font-bold mb-2">Accuracy by Threshold</h2>
-          <p className="text-sm text-muted-foreground mb-6">
-            Accuracy buckets computed on historical played games only.
-          </p>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {accuracyThresholdStats.map((t) => (
-              <div key={t.label} className="rounded-lg border border-border p-4">
-                <div className="flex items-center justify-between">
-                  <div className="font-semibold">{t.label}</div>
-                  <div className="text-lg font-bold">
-                    {(t.accuracy * 100).toFixed(2)}%
-                  </div>
-                </div>
-                <div className="text-sm text-muted-foreground mt-1">
-                  Sample size: {t.sampleSize}
-                </div>
+          <div className="flex flex-col gap-1 mb-6">
+            <h2 className="text-xl font-bold">Local Params KPIs</h2>
+            <p className="text-xs text-muted-foreground">
+              Params source: {strategyParams.source}
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+            <div className="rounded-lg border border-border p-4">
+              <div className="text-sm text-muted-foreground">Bets</div>
+              <div className="text-2xl font-bold">{strategySummary.totalBets}</div>
+            </div>
+            <div className="rounded-lg border border-border p-4">
+              <div className="text-sm text-muted-foreground">Profit</div>
+              <div className="text-2xl font-bold">
+                {strategySummary.profitMetricsAvailable
+                  ? `€${strategySummary.totalProfitEur.toFixed(2)}`
+                  : "—"}
               </div>
-            ))}
+            </div>
+            <div className="rounded-lg border border-border p-4">
+              <div className="text-sm text-muted-foreground">ROI</div>
+              <div className="text-2xl font-bold">
+                {strategySummary.profitMetricsAvailable
+                  ? `${strategySummary.roiPct.toFixed(2)}%`
+                  : "—"}
+              </div>
+            </div>
+            <div className="rounded-lg border border-border p-4">
+              <div className="text-sm text-muted-foreground">Avg EV €/100</div>
+              <div className="text-2xl font-bold">
+                {strategySummary.avgEvPer100.toFixed(2)}
+              </div>
+            </div>
+            <div className="rounded-lg border border-border p-4">
+              <div className="text-sm text-muted-foreground">Win Rate</div>
+              <div className="text-2xl font-bold">
+                {(strategySummary.winRate * 100).toFixed(2)}%
+              </div>
+            </div>
+            <div className="rounded-lg border border-border p-4">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <span>Sharpe Ratio</span>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        className="text-muted-foreground hover:text-foreground"
+                        aria-label="Sharpe Ratio info"
+                      >
+                        <Info className="h-4 w-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      Risk-adjusted return: mean(P/L) / std(P/L). Higher is
+                      better; 0≈flat, 1≈good (rule of thumb).
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+              <div className="text-2xl font-bold">
+                {strategySummary.sharpeStyle !== null
+                  ? strategySummary.sharpeStyle.toFixed(2)
+                  : "—"}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Strategy filter coverage */}
+      <section className="container mx-auto px-4 py-10">
+        <div className="glass-card p-6">
+          <h2 className="text-xl font-bold mb-2">Strategy Filter Coverage</h2>
+          <p className="text-sm text-muted-foreground mb-6">
+            Window games: {strategyFilterStats.window_size}
+          </p>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="rounded-lg border border-border p-4">
+              <div className="font-semibold mb-3">Filter params</div>
+              {strategyParamsList.length === 0 ? (
+                <div className="text-sm text-muted-foreground">
+                  No strategy params found.
+                </div>
+              ) : (
+                <ul className="space-y-2 text-sm">
+                  {strategyParamsList.map(([key, value]) => (
+                    <li key={key} className="flex items-center justify-between">
+                      <span className="text-muted-foreground">{key}</span>
+                      <span className="font-medium text-foreground">{String(value)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div className="rounded-lg border border-border p-4">
+              <div className="font-semibold mb-3">Coverage counts</div>
+              <ul className="space-y-2 text-sm">
+                {strategyFilterStats.filters.map((item) => (
+                  <li key={item.label} className="flex items-center justify-between">
+                    <span className="text-muted-foreground">{item.label}</span>
+                    <span className="font-medium text-foreground">{item.count}</span>
+                  </li>
+                ))}
+                <li className="flex items-center justify-between pt-2 border-t border-border/50">
+                  <span className="text-muted-foreground">Matched games</span>
+                  <span className="font-medium text-foreground">{matchedGames}</span>
+                </li>
+              </ul>
+            </div>
           </div>
         </div>
       </section>
@@ -222,45 +392,6 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Home win rates */}
-      <section className="container mx-auto px-4 py-10">
-        <div className="glass-card p-6">
-          <h2 className="text-xl font-bold mb-2">Home Win Rate (Last 20 Games Window)</h2>
-          <p className="text-sm text-muted-foreground mb-6">
-            Last-20 window per team; win rate computed only on home games inside that window.
-          </p>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left border-b border-border">
-                  <th className="py-2 pr-4">Team</th>
-                  <th className="py-2 pr-4">Home Win Rate</th>
-                  <th className="py-2 pr-4">Home Wins</th>
-                  <th className="py-2 pr-4">Home Games</th>
-                  <th className="py-2 pr-4">Last 20 Games</th>
-                </tr>
-              </thead>
-              <tbody>
-                {topHomeTeams.map((t) => (
-                  <tr key={t.team} className="border-b border-border/50">
-                    <td className="py-2 pr-4 font-medium">{t.team}</td>
-                    <td className="py-2 pr-4">{(t.homeWinRate * 100).toFixed(0)}%</td>
-                    <td className="py-2 pr-4">{t.homeWins}</td>
-                    <td className="py-2 pr-4">{t.totalHomeGames}</td>
-                    <td className="py-2 pr-4">{t.totalLast20Games}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="text-xs text-muted-foreground mt-4">
-            Showing top {topHomeTeams.length} teams by home win rate (historical).
-          </div>
-        </div>
-      </section>
-
       {/* Bet log summary (historical only) */}
       <section className="container mx-auto px-4 py-10">
         <div className="glass-card p-6">
@@ -298,52 +429,131 @@ const Index = () => {
       <section className="container mx-auto px-4 py-10">
         <div className="glass-card p-6">
           <h2 className="text-xl font-bold mb-2">
-            LOCAL MATCHED GAMES (LAST {localMatchedGames.windowSize} WINDOW)
+            LOCAL MATCHED GAMES (LAST {strategyFilterStats.window_size} WINDOW)
           </h2>
           <p className="text-sm text-muted-foreground mb-6">
-            n_trades (last {localMatchedGames.windowSize} window): {localMatchedGames.n_trades}
+            Rows: {localMatchedGamesCount} • Net P/L: €{localMatchedGamesProfitSum.toFixed(2)}
+          </p>
+
+          {localMatchedGamesMismatch || localMatchedGamesRows.length === 0 ? (
+            <div className="rounded-lg border border-border p-4 text-sm text-muted-foreground">
+              {localMatchedGamesNote || "No matched games recorded for this window."}
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left border-b border-border">
+                    <th className="py-2 pr-4">Date</th>
+                    <th className="py-2 pr-4">Home</th>
+                    <th className="py-2 pr-4">Away</th>
+                    <th className="py-2 pr-4">Home Win Rate</th>
+                    <th className="py-2 pr-4">Prob Iso</th>
+                    <th className="py-2 pr-4">Prob Used</th>
+                    <th className="py-2 pr-4">Odds 1</th>
+                    <th className="py-2 pr-4">EV €/100</th>
+                    <th className="py-2 pr-4">Win</th>
+                    <th className="py-2 pr-4">P/L</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {localMatchedGamesRows.map((game) => (
+                    <tr
+                      key={`${game.date}-${game.home_team}-${game.away_team}`}
+                      className="border-b border-border/50"
+                    >
+                      <td className="py-2 pr-4">{game.date}</td>
+                      <td className="py-2 pr-4 font-medium">{game.home_team}</td>
+                      <td className="py-2 pr-4">{game.away_team}</td>
+                      <td className="py-2 pr-4">{game.home_win_rate.toFixed(2)}</td>
+                      <td className="py-2 pr-4">{game.prob_iso.toFixed(3)}</td>
+                      <td className="py-2 pr-4">{game.prob_used.toFixed(3)}</td>
+                      <td className="py-2 pr-4">{game.odds_1.toFixed(2)}</td>
+                      <td className="py-2 pr-4">{game.ev_eur_per_100.toFixed(2)}</td>
+                      <td className="py-2 pr-4">{game.win === 1 ? "✅" : "❌"}</td>
+                      <td className="py-2 pr-4">{formatSigned(game.pnl)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Bankroll snapshots */}
+      <section className="container mx-auto px-4 py-10">
+        <div className="glass-card p-6">
+          <h2 className="text-xl font-bold mb-6">Bankroll Snapshots</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="rounded-lg border border-border p-4">
+              <div className="text-sm text-muted-foreground">
+                Bankroll (Last 200 Games)
+              </div>
+              <div className="text-2xl font-bold">
+                €{bankrollLast200.bankroll.toFixed(2)}
+              </div>
+              <div className="text-xs text-muted-foreground mt-2">
+                Start €{bankrollLast200.start.toFixed(0)} • Net P/L: €
+                {bankrollLast200.net_pl.toFixed(2)} • €{bankrollLast200.stake.toFixed(0)}{" "}
+                flat stake (example)
+              </div>
+            </div>
+            <div className="rounded-lg border border-border p-4">
+              <div className="text-sm text-muted-foreground">Bankroll (2026 YTD)</div>
+              <div className="text-2xl font-bold">
+                €{bankrollYtd2026.bankroll.toFixed(2)}
+              </div>
+              <div className="text-xs text-muted-foreground mt-2">
+                Start €{bankrollYtd2026.start.toFixed(0)} • Net P/L 2026: €
+                {bankrollYtd2026.net_pl.toFixed(2)} • €{bankrollYtd2026.stake.toFixed(0)}{" "}
+                flat stake (example)
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Home win rates */}
+      <section className="container mx-auto px-4 py-10">
+        <div className="glass-card p-6">
+          <h2 className="text-xl font-bold mb-2">
+            Home Win Rate (Last 20 Games Window)
+          </h2>
+          <p className="text-sm text-muted-foreground mb-6">
+            Last-20 window per team; win rate computed only on home games inside that
+            window.
           </p>
 
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left border-b border-border">
-                  <th className="py-2 pr-4">Date</th>
-                  <th className="py-2 pr-4">Home</th>
-                  <th className="py-2 pr-4">Away</th>
+                  <th className="py-2 pr-4">Team</th>
                   <th className="py-2 pr-4">Home Win Rate</th>
-                  <th className="py-2 pr-4">Prob Iso</th>
-                  <th className="py-2 pr-4">Prob Used</th>
-                  <th className="py-2 pr-4">Odds 1</th>
-                  <th className="py-2 pr-4">EV €/100</th>
-                  <th className="py-2 pr-4">Win</th>
-                  <th className="py-2 pr-4">PnL</th>
+                  <th className="py-2 pr-4">Home Wins</th>
+                  <th className="py-2 pr-4">Home Games</th>
+                  <th className="py-2 pr-4">Last 20 Games</th>
                 </tr>
               </thead>
               <tbody>
-                {localMatchedGames.games.map((game) => (
-                  <tr key={`${game.date}-${game.home_team}-${game.away_team}`} className="border-b border-border/50">
-                    <td className="py-2 pr-4">{game.date}</td>
-                    <td className="py-2 pr-4 font-medium">{game.home_team}</td>
-                    <td className="py-2 pr-4">{game.away_team}</td>
-                    <td className="py-2 pr-4">{game.home_win_rate.toFixed(2)}</td>
-                    <td className="py-2 pr-4">{game.prob_iso.toFixed(3)}</td>
-                    <td className="py-2 pr-4">{game.prob_used.toFixed(3)}</td>
-                    <td className="py-2 pr-4">{game.odds_1.toFixed(2)}</td>
-                    <td className="py-2 pr-4">{game.ev_eur_per_100.toFixed(2)}</td>
-                    <td className="py-2 pr-4">{game.win.toFixed(1)}</td>
-                    <td className="py-2 pr-4">{game.pnl.toFixed(1)}</td>
+                {topHomeTeams.map((t) => (
+                  <tr key={t.team} className="border-b border-border/50">
+                    <td className="py-2 pr-4 font-medium">{t.team}</td>
+                    <td className="py-2 pr-4">
+                      {(t.homeWinRate * 100).toFixed(0)}%
+                    </td>
+                    <td className="py-2 pr-4">{t.homeWins}</td>
+                    <td className="py-2 pr-4">{t.totalHomeGames}</td>
+                    <td className="py-2 pr-4">{t.totalLast20Games}</td>
                   </tr>
                 ))}
-                {localMatchedGames.games.length === 0 && (
-                  <tr>
-                    <td colSpan={10} className="py-4 text-center text-sm text-muted-foreground">
-                      No matched games recorded for this window.
-                    </td>
-                  </tr>
-                )}
               </tbody>
             </table>
+          </div>
+
+          <div className="text-xs text-muted-foreground mt-4">
+            Showing {topHomeTeams.length} teams with home win rate &gt; 50%.
           </div>
         </div>
       </section>

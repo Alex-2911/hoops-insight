@@ -2,9 +2,9 @@ import { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
 interface StatCardProps {
-  title: string;
+  title: ReactNode;
   value: string | number;
-  subtitle?: string;
+  subtitle?: ReactNode;
   icon?: ReactNode;
   trend?: 'up' | 'down' | 'neutral';
   className?: string;
@@ -27,7 +27,7 @@ export const StatCard = ({ title, value, subtitle, icon, trend, className }: Sta
             {value}
           </p>
           {subtitle && (
-            <p className="text-sm text-muted-foreground">{subtitle}</p>
+            <div className="text-sm text-muted-foreground">{subtitle}</div>
           )}
         </div>
         {icon && (
