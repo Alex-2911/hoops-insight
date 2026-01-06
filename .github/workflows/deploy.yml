@@ -19,6 +19,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       BASE_URL: /hoops-insight/
+      SOURCE_ROOT: ${{ github.workspace }}/Basketball_prediction/2026
+      N_WINDOW: 200
     steps:
       - name: Checkout hoops-insight
         uses: actions/checkout@v4
@@ -38,8 +40,50 @@ jobs:
       - name: Install Python deps
         run: python -m pip install -r requirements.txt
 
+      - name: Install Basketball_prediction deps
+        run: |
+          if [ -f Basketball_prediction/requirements.txt ]; then
+            python -m pip install -r Basketball_prediction/requirements.txt
+          else
+            echo "No Basketball_prediction/requirements.txt found; skipping."
+          fi
+
+      - name: Run Basketball_prediction pipeline (Script 5)
+        run: |
+          set -euo pipefail
+          NBA_DIR="${{ github.workspace }}/Basketball_prediction"
+          if [ -x "$NBA_DIR/run_hoops_pipeline_18.sh" ]; then
+            (cd "$NBA_DIR" && ./run_hoops_pipeline_18.sh)
+          elif [ -x "$NBA_DIR/scripts/run_hoops_pipeline_18.sh" ]; then
+            (cd "$NBA_DIR" && ./scripts/run_hoops_pipeline_18.sh)
+          elif [ -x "$NBA_DIR/run_pipeline.sh" ]; then
+            (cd "$NBA_DIR" && ./run_pipeline.sh)
+          else
+            echo "No pipeline runner found. Set NBA_PIPELINE_CMD or add a script in $NBA_DIR." >&2
+            exit 1
+          fi
+
+      - name: Verify Basketball_prediction outputs
+        run: |
+          set -euo pipefail
+          test -f "$SOURCE_ROOT/output/LightGBM/metrics_snapshot.json"
+          shopt -s nullglob
+          matches=("$SOURCE_ROOT/output/LightGBM/local_matched_games_"*.csv)
+          shopt -u nullglob
+          if [ ${#matches[@]} -eq 0 ]; then
+            echo "No local_matched_games_*.csv files found in $SOURCE_ROOT/output/LightGBM" >&2
+            exit 1
+          fi
+
       - name: Generate stats-only dashboard data
-        run: python scripts/generate_dashboard_data.py --source-root "${{ github.workspace }}/Basketball_prediction/2026"
+        run: python scripts/generate_dashboard_data.py
+
+      - name: Verify dashboard artifacts
+        run: |
+          set -euo pipefail
+          test -f public/data/summary.json
+          test -f public/data/tables.json
+          test -f public/data/last_run.json
 
       - name: Setup Node
         uses: actions/setup-node@v4
