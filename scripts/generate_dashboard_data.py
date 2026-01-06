@@ -15,6 +15,7 @@ import argparse
 import csv
 import json
 import math
+import os
 import re
 from collections import defaultdict
 from dataclasses import dataclass
@@ -249,7 +250,29 @@ def _find_local_matched_games(lightgbm_dir: Path, as_of_date: Optional[str]) -> 
     return _find_latest_by_mtime(lightgbm_dir, "local_matched_games_*.csv")
 
 
-def _resolve_sources(root: Path) -> SourcePaths:
+def resolve_source_root(cli_root: Optional[str]) -> Optional[Path]:
+    env_root = os.getenv("SOURCE_ROOT")
+    if env_root:
+        candidate = Path(env_root).expanduser()
+        if candidate.exists():
+            return candidate
+    if cli_root:
+        candidate = Path(cli_root).expanduser()
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def _resolve_sources(root: Optional[Path]) -> SourcePaths:
+    if root is None:
+        return SourcePaths(
+            combined_iso=None,
+            combined_acc=None,
+            bet_log=None,
+            metrics_snapshot=None,
+            local_matched_games=None,
+            strategy_params=None,
+        )
     lightgbm_dir = root / "output" / "LightGBM"
     kelly_dir = lightgbm_dir / "Kelly"
     combined_iso = _find_latest_file(kelly_dir, "combined_nba_predictions_iso")
@@ -629,7 +652,7 @@ def main() -> None:
         "--source-root",
         type=str,
         default=None,
-        help="Path to Basketball_prediction/2026 root (defaults to sibling folder).",
+        help="Explicit path to Basketball_prediction/2026 root (fallback when SOURCE_ROOT is unset).",
     )
     parser.add_argument(
         "--output-dir",
@@ -640,8 +663,7 @@ def main() -> None:
     args = parser.parse_args()
 
     repo_root = Path(__file__).resolve().parents[1]
-    default_root = repo_root.parent / "Basketball_prediction" / "2026"
-    source_root = Path(args.source_root) if args.source_root else default_root
+    source_root = resolve_source_root(args.source_root)
 
     output_dir = Path(args.output_dir) if args.output_dir else repo_root / "public" / "data"
 
@@ -688,8 +710,12 @@ def main() -> None:
         else max(r["date"] for r in played_rows).strftime(DATE_FMT)
     )
 
-    lightgbm_dir = source_root / "output" / "LightGBM"
-    local_matched_games_path = _find_local_matched_games(lightgbm_dir, as_of_date)
+    expected_lightgbm_dir = source_root / "output" / "LightGBM" if source_root else None
+    local_matched_games_path = (
+        _find_local_matched_games(expected_lightgbm_dir, as_of_date)
+        if expected_lightgbm_dir
+        else None
+    )
 
     local_matched_games_rows: List[Dict[str, object]] = []
     if local_matched_games_path and local_matched_games_path.exists():
@@ -697,6 +723,7 @@ def main() -> None:
 
     local_matched_games_count = len(local_matched_games_rows)
     local_matched_games_profit_sum = sum(row.get("pnl", 0.0) for row in local_matched_games_rows)
+    matched_count_table = local_matched_games_count if local_matched_games_path else None
 
     params = load_strategy_params(sources.strategy_params) if sources.strategy_params else {}
     strategy_filter_stats = build_strategy_filter_stats(played_rows, params, window_size=200)
@@ -726,6 +753,8 @@ def main() -> None:
     ev_mean = _to_float(ev_mean_raw)
 
     profit_metrics_available = realized_profit is not None and realized_roi is not None
+    matched_count_snapshot = realized_count
+    matched_count_used: Optional[int] = None
     strategy_summary = {
         "totalBets": 0,
         "totalProfitEur": 0.0,
@@ -766,6 +795,22 @@ def main() -> None:
             "sharpeStyle": None,
             "profitMetricsAvailable": True,
         }
+
+    if matched_count_snapshot is not None:
+        matched_count_used = matched_count_snapshot
+    elif matched_count_table is not None:
+        matched_count_used = matched_count_table
+
+    if matched_count_snapshot is not None:
+        strategy_filter_stats["matched_games_count"] = matched_count_snapshot
+    elif matched_count_table is not None:
+        strategy_filter_stats["matched_games_count"] = matched_count_table
+    elif params:
+        strategy_filter_stats["matched_games_count"] = (
+            strategy_filter_stats.get("matched_games_count") or 0
+        )
+    else:
+        strategy_filter_stats["matched_games_count"] = 0
 
     local_matched_games_mismatch = False
     local_matched_games_note = ""
@@ -845,16 +890,24 @@ def main() -> None:
     last_run_payload = {
         "last_run": last_run,
         "as_of_date": as_of_date,
+        "source_root_used": str(source_root) if source_root else "missing",
+        "expected_lightgbm_dir": str(expected_lightgbm_dir) if expected_lightgbm_dir else "missing",
+        "metrics_snapshot_source": str(sources.metrics_snapshot)
+        if sources.metrics_snapshot
+        else "missing",
+        "strategy_params_source": str(sources.strategy_params)
+        if sources.strategy_params
+        else "missing",
+        "local_matched_games_source": str(local_matched_games_path)
+        if local_matched_games_path
+        else "missing",
+        "matched_count_snapshot": matched_count_snapshot,
+        "matched_count_table": matched_count_table,
+        "matched_count_used": matched_count_used,
         "records": {
             "played_games": total_games,
             "bet_log_rows": len(bet_log_rows),
-            "metrics_snapshot_source": str(sources.metrics_snapshot)
-            if sources.metrics_snapshot
-            else "missing",
             "strategy_matched_rows": strategy_summary["totalBets"],
-            "local_matched_games_source": str(local_matched_games_path)
-            if local_matched_games_path
-            else "missing",
             "local_matched_games_rows": local_matched_games_count,
             "local_matched_games_rows_expected": realized_count or 0,
             "local_matched_games_profit_sum_table": local_matched_games_profit_sum,
