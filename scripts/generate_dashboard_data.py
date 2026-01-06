@@ -35,6 +35,9 @@ class SourcePaths:
     combined_iso: Optional[Path]
     combined_acc: Optional[Path]
     bet_log: Optional[Path]
+    metrics_snapshot: Optional[Path]
+    local_matched_games: Optional[Path]
+    strategy_params: Optional[Path]
 
 
 def _normalize_key(key: str) -> str:
@@ -69,6 +72,23 @@ def _safe_date(val: str) -> Optional[datetime]:
         return None
 
 
+def _coerce_value(val: object) -> object:
+    if val is None:
+        return None
+    if isinstance(val, (int, float)):
+        return val
+    s = str(val).strip()
+    if s == "":
+        return None
+    try:
+        num = float(s)
+    except ValueError:
+        return val
+    if num.is_integer():
+        return int(num)
+    return num
+
+
 def _read_csv_normalized(path: Path) -> Iterable[Dict[str, str]]:
     with path.open("r", encoding="utf-8") as f:
         reader = csv.DictReader(f)
@@ -79,6 +99,104 @@ def _read_csv_normalized(path: Path) -> Iterable[Dict[str, str]]:
                     continue
                 normalized[_normalize_key(k)] = v
             yield normalized
+
+
+def load_metrics_snapshot(path: Path) -> Dict[str, Dict[str, object]]:
+    if not path.exists():
+        return {}
+    if path.suffix.lower() == ".json":
+        with path.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+        parsed: Dict[str, Dict[str, object]] = {}
+        if isinstance(data, list):
+            for row in data:
+                if not isinstance(row, dict):
+                    continue
+                section = row.get("section")
+                metric = row.get("metric")
+                value = row.get("value")
+                if section and metric:
+                    parsed.setdefault(str(section), {})[str(metric)] = _coerce_value(value)
+        elif isinstance(data, dict):
+            for section, metrics in data.items():
+                if isinstance(metrics, dict):
+                    for metric, value in metrics.items():
+                        parsed.setdefault(str(section), {})[str(metric)] = _coerce_value(value)
+        return parsed
+
+    parsed: Dict[str, Dict[str, object]] = {}
+    with path.open("r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            section = row.get("section")
+            metric = row.get("metric")
+            value = row.get("value")
+            if section and metric:
+                parsed.setdefault(section, {})[metric] = _coerce_value(value)
+    return parsed
+
+
+def load_strategy_params(path: Path) -> Dict[str, object]:
+    params: Dict[str, object] = {}
+    if not path.exists():
+        return params
+    with path.open("r", encoding="utf-8") as f:
+        for line in f:
+            raw = line.strip()
+            if not raw or raw.startswith("#"):
+                continue
+            match = re.match(r"^([^:=#]+)[:=]\s*(.+)$", raw)
+            if not match:
+                continue
+            key = _normalize_key(match.group(1))
+            value = _coerce_value(match.group(2))
+            params[key] = value
+    return params
+
+
+def load_local_matched_games_csv(path: Path) -> List[Dict[str, object]]:
+    required_keys = {
+        "date",
+        "home_team",
+        "away_team",
+        "home_win_rate",
+        "prob_iso",
+        "prob_used",
+        "odds_1",
+        "ev_per_100",
+        "win",
+        "pnl",
+    }
+    rows: List[Dict[str, object]] = []
+    for row in _read_csv_normalized(path):
+        if not required_keys.issubset(row.keys()):
+            continue
+        win = _safe_float(row.get("win"))
+        pnl = _safe_float(row.get("pnl"))
+        if win is None or pnl is None:
+            continue
+        date_raw = row.get("date")
+        date = _safe_date(date_raw)
+        if date is None:
+            continue
+        home_team = (row.get("home_team") or "").strip().upper()
+        away_team = (row.get("away_team") or "").strip().upper()
+        rows.append(
+            {
+                "date": date.strftime(DATE_FMT),
+                "home_team": home_team,
+                "away_team": away_team,
+                "home_win_rate": _safe_float(row.get("home_win_rate")) or 0.0,
+                "prob_iso": _safe_float(row.get("prob_iso")) or 0.0,
+                "prob_used": _safe_float(row.get("prob_used")) or 0.0,
+                "odds_1": _safe_float(row.get("odds_1")) or 0.0,
+                "ev_eur_per_100": _safe_float(row.get("ev_per_100")) or 0.0,
+                "win": int(win),
+                "pnl": float(pnl),
+                "stake": _safe_float(row.get("stake")) if row.get("stake") is not None else None,
+            }
+        )
+    return rows
 
 
 def _find_latest_file(path: Path, prefix: str) -> Optional[Path]:
@@ -100,6 +218,37 @@ def _find_latest_file(path: Path, prefix: str) -> Optional[Path]:
     return sorted(candidates, key=lambda x: x[0])[-1][1]
 
 
+def _find_latest_by_mtime(path: Path, pattern: str) -> Optional[Path]:
+    if not path.exists():
+        return None
+    candidates = [item for item in path.glob(pattern) if item.is_file()]
+    if not candidates:
+        return None
+    return max(candidates, key=lambda item: item.stat().st_mtime)
+
+
+def _find_metrics_snapshot(lightgbm_dir: Path) -> Optional[Path]:
+    preferred = lightgbm_dir / "metrics_snapshot.json"
+    if preferred.exists():
+        return preferred
+    latest_snapshot = _find_latest_by_mtime(lightgbm_dir, "betting_metrics_snapshot_*.csv")
+    if latest_snapshot:
+        return latest_snapshot
+    for name in ("metrics_snapshot.csv", "metrics_snapshot.json"):
+        candidate = lightgbm_dir / name
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def _find_local_matched_games(lightgbm_dir: Path, as_of_date: Optional[str]) -> Optional[Path]:
+    if as_of_date:
+        candidate = lightgbm_dir / f"local_matched_games_{as_of_date}.csv"
+        if candidate.exists():
+            return candidate
+    return _find_latest_by_mtime(lightgbm_dir, "local_matched_games_*.csv")
+
+
 def _resolve_sources(root: Path) -> SourcePaths:
     lightgbm_dir = root / "output" / "LightGBM"
     kelly_dir = lightgbm_dir / "Kelly"
@@ -108,7 +257,18 @@ def _resolve_sources(root: Path) -> SourcePaths:
     bet_log = lightgbm_dir / "bet_log_live.csv"
     if not bet_log.exists():
         bet_log = _find_latest_file(lightgbm_dir, "bet_log_live")
-    return SourcePaths(combined_iso=combined_iso, combined_acc=combined_acc, bet_log=bet_log)
+    metrics_snapshot = _find_metrics_snapshot(lightgbm_dir)
+    strategy_params = lightgbm_dir / "strategy_params.txt"
+    if not strategy_params.exists():
+        strategy_params = None
+    return SourcePaths(
+        combined_iso=combined_iso,
+        combined_acc=combined_acc,
+        bet_log=bet_log,
+        metrics_snapshot=metrics_snapshot,
+        local_matched_games=None,
+        strategy_params=strategy_params,
+    )
 
 
 def _compute_log_loss(y: List[int], p: List[float]) -> float:
@@ -282,7 +442,83 @@ def build_home_win_rates_last20(rows: List[Dict[str, object]]) -> List[Dict[str,
             }
         )
     output.sort(key=lambda x: (x["homeWinRate"], x["totalHomeGames"]), reverse=True)
-    return output
+    return [row for row in output if row["homeWinRate"] > 0.50]
+
+
+def _get_param(params: Dict[str, object], *names: str) -> Optional[float]:
+    for name in names:
+        key = _normalize_key(name)
+        if key in params:
+            val = _coerce_value(params[key])
+            return float(val) if isinstance(val, (int, float)) else None
+    return None
+
+
+def _prob_used(row: Dict[str, object]) -> Optional[float]:
+    return row["prob_iso"] if row.get("prob_iso") is not None else row.get("prob_raw")
+
+
+def _compute_ev_per_100(prob: Optional[float], odds: Optional[float]) -> Optional[float]:
+    if prob is None or odds is None:
+        return None
+    return (prob * (odds - 1.0) - (1.0 - prob)) * 100.0
+
+
+def build_strategy_filter_stats(
+    rows: List[Dict[str, object]], params: Dict[str, object], window_size: int
+) -> Dict[str, object]:
+    if not rows:
+        return {"window_size": window_size, "filters": [], "matched_games_count": 0}
+    sorted_rows = sorted(rows, key=lambda r: r["date"])
+    window_rows = sorted_rows[-window_size:]
+    filters = [{"label": "Window games", "count": len(window_rows)}]
+
+    min_prob_used = _get_param(params, "min_prob_used", "min_prob", "min_prob_iso")
+    min_odds = _get_param(params, "min_odds_1", "min_odds")
+    max_odds = _get_param(params, "max_odds_1", "max_odds")
+    min_ev = _get_param(params, "min_ev_eur_per_100", "min_ev_per_100", "min_ev")
+    min_home_win_rate = _get_param(params, "min_home_win_rate")
+
+    current = window_rows
+    if min_prob_used is not None:
+        current = [
+            r for r in current if _prob_used(r) is not None and _prob_used(r) >= min_prob_used
+        ]
+        filters.append({"label": f"Prob used ≥ {min_prob_used:.3f}", "count": len(current)})
+    if min_odds is not None:
+        current = [r for r in current if r.get("odds_home") is not None and r["odds_home"] >= min_odds]
+        filters.append({"label": f"Odds ≥ {min_odds:.2f}", "count": len(current)})
+    if max_odds is not None:
+        current = [r for r in current if r.get("odds_home") is not None and r["odds_home"] <= max_odds]
+        filters.append({"label": f"Odds ≤ {max_odds:.2f}", "count": len(current)})
+    if min_ev is not None:
+        current = [
+            r
+            for r in current
+            if _compute_ev_per_100(_prob_used(r), r.get("odds_home")) is not None
+            and _compute_ev_per_100(_prob_used(r), r.get("odds_home")) >= min_ev
+        ]
+        filters.append({"label": f"EV €/100 ≥ {min_ev:.2f}", "count": len(current)})
+    if min_home_win_rate is not None:
+        current = [
+            r
+            for r in current
+            if r.get("home_win_rate") is not None and r["home_win_rate"] >= min_home_win_rate
+        ]
+        filters.append(
+            {"label": f"Home win rate ≥ {min_home_win_rate:.2f}", "count": len(current)}
+        )
+
+    return {"window_size": window_size, "filters": filters, "matched_games_count": len(current)}
+
+
+def _compute_local_bankroll(rows: List[Dict[str, object]], start: float, stake: float) -> Dict[str, float]:
+    net_pl = sum(row.get("pnl", 0.0) for row in rows)
+    return {"start": start, "stake": stake, "net_pl": net_pl, "bankroll": start + net_pl}
+
+
+def _snapshot_value(snapshot: Dict[str, Dict[str, object]], section: str, metric: str) -> Optional[object]:
+    return snapshot.get(section, {}).get(metric)
 
 
 def load_bet_log(path: Path) -> List[Dict[str, object]]:
@@ -434,10 +670,126 @@ def main() -> None:
     bankroll_history = build_bankroll_history(bet_log_rows)
     max_dd_eur, max_dd_pct = compute_max_drawdown(bankroll_history)
 
+    metrics_snapshot = (
+        load_metrics_snapshot(sources.metrics_snapshot) if sources.metrics_snapshot else {}
+    )
+    realized_count_raw = _snapshot_value(metrics_snapshot, "realized", "count")
+    realized_profit_raw = _snapshot_value(metrics_snapshot, "realized", "profit_sum")
+    realized_roi_raw = _snapshot_value(metrics_snapshot, "realized", "roi")
+    realized_win_rate_raw = _snapshot_value(metrics_snapshot, "realized", "win_rate")
+    realized_sharpe_raw = _snapshot_value(metrics_snapshot, "realized", "sharpe_style")
+    ev_mean_raw = _snapshot_value(metrics_snapshot, "ev_stats", "mean")
+    snapshot_as_of_raw = _snapshot_value(metrics_snapshot, "meta", "eval_base_date_max")
+
+    snapshot_as_of_date = _safe_date(str(snapshot_as_of_raw)) if snapshot_as_of_raw else None
+    as_of_date = (
+        snapshot_as_of_date.strftime(DATE_FMT)
+        if snapshot_as_of_date
+        else max(r["date"] for r in played_rows).strftime(DATE_FMT)
+    )
+
+    lightgbm_dir = source_root / "output" / "LightGBM"
+    local_matched_games_path = _find_local_matched_games(lightgbm_dir, as_of_date)
+
+    local_matched_games_rows: List[Dict[str, object]] = []
+    if local_matched_games_path and local_matched_games_path.exists():
+        local_matched_games_rows = load_local_matched_games_csv(local_matched_games_path)
+
+    local_matched_games_count = len(local_matched_games_rows)
+    local_matched_games_profit_sum = sum(row.get("pnl", 0.0) for row in local_matched_games_rows)
+
+    params = load_strategy_params(sources.strategy_params) if sources.strategy_params else {}
+    strategy_filter_stats = build_strategy_filter_stats(played_rows, params, window_size=200)
+
+    def _to_float(value: object) -> Optional[float]:
+        if value is None:
+            return None
+        if isinstance(value, (int, float)):
+            return float(value)
+        return _safe_float(str(value))
+
+    def _to_int(value: object) -> Optional[int]:
+        if value is None:
+            return None
+        if isinstance(value, int):
+            return value
+        if isinstance(value, float):
+            return int(value)
+        parsed = _safe_float(str(value))
+        return int(parsed) if parsed is not None else None
+
+    realized_count = _to_int(realized_count_raw)
+    realized_profit = _to_float(realized_profit_raw)
+    realized_roi = _to_float(realized_roi_raw)
+    realized_win_rate = _to_float(realized_win_rate_raw)
+    realized_sharpe = _to_float(realized_sharpe_raw)
+    ev_mean = _to_float(ev_mean_raw)
+
+    profit_metrics_available = realized_profit is not None and realized_roi is not None
+    strategy_summary = {
+        "totalBets": 0,
+        "totalProfitEur": 0.0,
+        "roiPct": 0.0,
+        "avgEvPer100": 0.0,
+        "winRate": 0.0,
+        "sharpeStyle": realized_sharpe,
+        "profitMetricsAvailable": False,
+    }
+
+    if realized_count is not None:
+        roi_pct = 0.0
+        if realized_roi is not None:
+            roi_pct = realized_roi * 100.0 if realized_roi <= 1.5 else realized_roi
+        strategy_summary = {
+            "totalBets": realized_count,
+            "totalProfitEur": realized_profit or 0.0,
+            "roiPct": roi_pct,
+            "avgEvPer100": ev_mean or 0.0,
+            "winRate": realized_win_rate or 0.0,
+            "sharpeStyle": realized_sharpe,
+            "profitMetricsAvailable": profit_metrics_available,
+        }
+    elif local_matched_games_rows:
+        total_profit = local_matched_games_profit_sum
+        total_bets = local_matched_games_count
+        roi_pct = _safe_div(total_profit, total_bets * 100.0) * 100.0 if total_bets else 0.0
+        strategy_summary = {
+            "totalBets": total_bets,
+            "totalProfitEur": total_profit,
+            "roiPct": roi_pct,
+            "avgEvPer100": _safe_div(
+                sum(row.get("ev_eur_per_100", 0.0) for row in local_matched_games_rows), total_bets
+            ),
+            "winRate": _safe_div(
+                sum(1 for row in local_matched_games_rows if row.get("win") == 1), total_bets
+            ),
+            "sharpeStyle": None,
+            "profitMetricsAvailable": True,
+        }
+
+    local_matched_games_mismatch = False
+    local_matched_games_note = ""
+    if realized_count is not None and local_matched_games_rows:
+        count_mismatch = local_matched_games_count != realized_count
+        profit_mismatch = False
+        if realized_profit is not None:
+            profit_mismatch = abs(local_matched_games_profit_sum - realized_profit) > 0.01
+        if count_mismatch or profit_mismatch:
+            local_matched_games_mismatch = True
+            local_matched_games_note = "Table uses settled rows only; mismatch vs snapshot."
+            strategy_summary["profitMetricsAvailable"] = False
+
+    bankroll_last_200 = _compute_local_bankroll(local_matched_games_rows, 1000.0, 100.0)
+    ytd_rows = [
+        row
+        for row in local_matched_games_rows
+        if _safe_date(row.get("date")) and _safe_date(row.get("date")) >= datetime(2026, 1, 1)
+    ]
+    bankroll_ytd_2026 = _compute_local_bankroll(ytd_rows, 1000.0, 100.0)
+
     total_games = len(played_rows)
     total_correct = sum(int(r["home_team_won"]) for r in played_rows)
     overall_accuracy = _safe_div(total_correct, total_games)
-    as_of_date = max(r["date"] for r in played_rows).strftime(DATE_FMT)
 
     last_run = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
@@ -450,15 +802,26 @@ def main() -> None:
             "as_of_date": as_of_date,
         },
         "kpis": {
-            "total_bets": bet_log_summary["totalBets"],
-            "win_rate": bet_log_summary["winRate"],
+            "total_bets": strategy_summary["totalBets"],
+            "win_rate": strategy_summary["winRate"],
+            "roi_pct": strategy_summary["roiPct"],
+            "avg_ev_per_100": strategy_summary["avgEvPer100"],
             "avg_profit_per_bet_eur": bet_log_summary["avgProfitPerBetEur"],
             "max_drawdown_eur": max_dd_eur,
             "max_drawdown_pct": max_dd_pct,
         },
+        "strategy_summary": strategy_summary,
+        "strategy_params": {
+            "source": str(sources.strategy_params) if sources.strategy_params else "missing",
+            "params": params,
+        },
+        "strategy_filter_stats": strategy_filter_stats,
         "source": {
             "combined_file": str(combined_path),
             "bet_log_file": str(sources.bet_log) if sources.bet_log else "missing",
+            "metrics_snapshot_source": str(sources.metrics_snapshot)
+            if sources.metrics_snapshot
+            else "missing",
         },
     }
 
@@ -469,6 +832,14 @@ def main() -> None:
         "home_win_rates_last20": home_win_rates,
         "bet_log_summary": bet_log_summary,
         "bankroll_history": bankroll_history,
+        "local_matched_games_rows": local_matched_games_rows,
+        "local_matched_games_count": local_matched_games_count,
+        "local_matched_games_profit_sum_table": local_matched_games_profit_sum,
+        "local_matched_games_mismatch": local_matched_games_mismatch,
+        "local_matched_games_note": local_matched_games_note
+        or ("No matched games recorded for this window." if not local_matched_games_rows else ""),
+        "bankroll_last_200": bankroll_last_200,
+        "bankroll_ytd_2026": bankroll_ytd_2026,
     }
 
     last_run_payload = {
@@ -477,6 +848,16 @@ def main() -> None:
         "records": {
             "played_games": total_games,
             "bet_log_rows": len(bet_log_rows),
+            "metrics_snapshot_source": str(sources.metrics_snapshot)
+            if sources.metrics_snapshot
+            else "missing",
+            "strategy_matched_rows": strategy_summary["totalBets"],
+            "local_matched_games_source": str(local_matched_games_path)
+            if local_matched_games_path
+            else "missing",
+            "local_matched_games_rows": local_matched_games_count,
+            "local_matched_games_rows_expected": realized_count or 0,
+            "local_matched_games_profit_sum_table": local_matched_games_profit_sum,
         },
     }
 
