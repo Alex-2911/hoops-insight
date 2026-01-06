@@ -28,7 +28,7 @@ jobs:
       - name: Checkout Basketball_prediction
         uses: actions/checkout@v4
         with:
-          repository: ${{ github.repository_owner }}/Basketball_prediction
+          repository: Alex-2911/Basketball_prediction
           ref: 2026
           path: Basketball_prediction
 
@@ -48,34 +48,29 @@ jobs:
             echo "No Basketball_prediction/requirements.txt found; skipping."
           fi
 
-      - name: Run Basketball_prediction pipeline (Script 5)
+      - name: (Optional) Run NBA pipeline
+        if: ${{ env.NBA_PIPELINE_CMD != '' }}
+        run: ${{ env.NBA_PIPELINE_CMD }}
+
+      - name: Verify Basketball_prediction outputs exist
+        shell: bash
         run: |
           set -euo pipefail
-          NBA_DIR="${{ github.workspace }}/Basketball_prediction"
-          if [ -x "$NBA_DIR/run_hoops_pipeline_18.sh" ]; then
-            (cd "$NBA_DIR" && ./run_hoops_pipeline_18.sh)
-          elif [ -x "$NBA_DIR/scripts/run_hoops_pipeline_18.sh" ]; then
-            (cd "$NBA_DIR" && ./scripts/run_hoops_pipeline_18.sh)
-          elif [ -x "$NBA_DIR/run_pipeline.sh" ]; then
-            (cd "$NBA_DIR" && ./run_pipeline.sh)
-          else
-            echo "No pipeline runner found. Set NBA_PIPELINE_CMD or add a script in $NBA_DIR." >&2
-            exit 1
+          LIGHTGBM_DIR="$GITHUB_WORKSPACE/Basketball_prediction/2026/output/LightGBM"
+          echo "LIGHTGBM_DIR=$LIGHTGBM_DIR"
+          ls -la "$LIGHTGBM_DIR" | head -n 50
+
+          test -f "$LIGHTGBM_DIR/metrics_snapshot.json" || (echo "Missing metrics_snapshot.json" && exit 1)
+          test -f "$LIGHTGBM_DIR/strategy_params.txt" || (echo "Missing strategy_params.txt" && exit 1)
+          if ! ls "$LIGHTGBM_DIR"/local_matched_games_*.csv >/dev/null 2>&1; then
+            echo "WARN: No local_matched_games_*.csv found (no trades)."
           fi
 
-      - name: Verify Basketball_prediction outputs
-        run: |
-          set -euo pipefail
-          test -f "$SOURCE_ROOT/output/LightGBM/metrics_snapshot.json"
-          shopt -s nullglob
-          matches=("$SOURCE_ROOT/output/LightGBM/local_matched_games_"*.csv)
-          shopt -u nullglob
-          if [ ${#matches[@]} -eq 0 ]; then
-            echo "No local_matched_games_*.csv files found in $SOURCE_ROOT/output/LightGBM" >&2
-            exit 1
-          fi
-
-      - name: Generate stats-only dashboard data
+      - name: Build dashboard data
+        env:
+          SOURCE_ROOT: ${{ github.workspace }}/Basketball_prediction/2026
+          N_WINDOW: 200
+          BASE_URL: /hoops-insight/
         run: python scripts/generate_dashboard_data.py
 
       - name: Verify dashboard artifacts
@@ -110,6 +105,11 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           path: dist
+
+      - name: Debug - list Basketball_prediction outputs
+        if: failure()
+        run: |
+          find "$GITHUB_WORKSPACE/Basketball_prediction/2026/output/LightGBM" -maxdepth 1 -type f | sort | tail -n 50
 
   deploy:
     runs-on: ubuntu-latest
