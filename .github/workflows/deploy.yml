@@ -31,6 +31,24 @@ jobs:
           repository: Alex-2911/Basketball_prediction
           ref: 2026
           path: Basketball_prediction
+          fetch-depth: 0
+          sparse-checkout: ""
+
+      - name: Debug Basketball_prediction tree + required files
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "PWD=$(pwd)"
+          echo "=== Basketball_prediction root ==="
+          ls -la Basketball_prediction | head -n 200
+
+          echo "=== 2026/output/LightGBM ==="
+          ls -la Basketball_prediction/2026/output/LightGBM | head -n 200
+
+          echo "=== required files check ==="
+          test -f Basketball_prediction/2026/output/LightGBM/metrics_snapshot.json
+          test -f Basketball_prediction/2026/output/LightGBM/strategy_params.txt
+          echo "OK: required files exist"
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -106,10 +124,13 @@ jobs:
         with:
           path: dist
 
-      - name: Debug - list Basketball_prediction outputs
+      - name: Debug on failure (find LightGBM files)
         if: failure()
+        shell: bash
         run: |
-          find "$GITHUB_WORKSPACE/Basketball_prediction/2026/output/LightGBM" -maxdepth 1 -type f | sort | tail -n 50
+          set -euo pipefail
+          echo "=== find LightGBM files ==="
+          find Basketball_prediction/2026/output/LightGBM -maxdepth 2 -type f | sort | tail -n 200
 
   deploy:
     runs-on: ubuntu-latest
