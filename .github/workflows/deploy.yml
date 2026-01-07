@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
   pages: write
   id-token: write
 
@@ -53,12 +54,16 @@ jobs:
 
       - name: Download metrics snapshot artifact
         uses: actions/download-artifact@v4
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           name: metrics-snapshot
           path: Basketball_prediction/2026/output/LightGBM
 
       - name: Fetch latest metrics snapshot artifact from Basketball_prediction
         shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           mkdir -p Basketball_prediction/2026/output/LightGBM
@@ -66,6 +71,7 @@ jobs:
           python - <<'PY'
           import json
           import os
+          import urllib.error
           import urllib.request
 
           owner = "Alex-2911"
@@ -88,6 +94,11 @@ jobs:
               try:
                   with urllib.request.urlopen(req) as response:
                       return json.loads(response.read().decode("utf-8"))
+              except urllib.error.HTTPError as exc:
+                  details = exc.read().decode("utf-8", "replace")
+                  raise SystemExit(
+                      f"GitHub API request failed: {url} (status {exc.code}) {details}"
+                  ) from exc
               except Exception as exc:
                   raise SystemExit(f"GitHub API request failed: {url}: {exc}") from exc
 
@@ -115,7 +126,7 @@ jobs:
 
           URL="$(cat /tmp/metrics_url.txt)"
 
-          curl -L \
+          curl -fL \
             -H "Authorization: Bearer $GITHUB_TOKEN" \
             -H "Accept: application/vnd.github+json" \
             "$URL" -o /tmp/metrics-snapshot.zip
