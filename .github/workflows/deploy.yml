@@ -52,15 +52,7 @@ jobs:
           python Basketball_prediction/scripts/run_script5.py
           echo "=== Script 5 done ==="
 
-      - name: Download metrics snapshot artifact
-        uses: actions/download-artifact@v4
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          name: metrics-snapshot
-          path: Basketball_prediction/2026/output/LightGBM
-
-      - name: Fetch latest metrics snapshot artifact from Basketball_prediction
+      - name: Fetch metrics_snapshot.json from Basketball_prediction artifacts
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -71,16 +63,12 @@ jobs:
           python - <<'PY'
           import json
           import os
-          import urllib.error
           import urllib.request
 
           owner = "Alex-2911"
           repo = "Basketball_prediction"
           branch = "2026"
-          token = os.environ.get("GITHUB_TOKEN")
-
-          if not token:
-              raise SystemExit("GITHUB_TOKEN is not set")
+          token = os.environ["GITHUB_TOKEN"]
 
           def gh_get(url):
               req = urllib.request.Request(
@@ -91,25 +79,19 @@ jobs:
                       "User-Agent": "hoops-insight-ci",
                   },
               )
-              try:
-                  with urllib.request.urlopen(req) as response:
-                      return json.loads(response.read().decode("utf-8"))
-              except urllib.error.HTTPError as exc:
-                  details = exc.read().decode("utf-8", "replace")
-                  raise SystemExit(
-                      f"GitHub API request failed: {url} (status {exc.code}) {details}"
-                  ) from exc
-              except Exception as exc:
-                  raise SystemExit(f"GitHub API request failed: {url}: {exc}") from exc
+              with urllib.request.urlopen(req) as response:
+                  return json.loads(response.read().decode("utf-8"))
 
           runs = gh_get(
               f"https://api.github.com/repos/{owner}/{repo}/actions/runs"
               f"?branch={branch}&status=success&per_page=10"
           )
-          workflow_runs = runs.get("workflow_runs", [])
-          if not workflow_runs:
-              raise SystemExit("No successful workflow runs found for Basketball_prediction 2026 branch")
-          run_id = workflow_runs[0]["id"]
+          if not runs.get("workflow_runs"):
+              raise SystemExit(
+                  "No successful workflow runs found for Basketball_prediction on branch 2026"
+              )
+
+          run_id = runs["workflow_runs"][0]["id"]
 
           artifacts = gh_get(
               f"https://api.github.com/repos/{owner}/{repo}/actions/runs/{run_id}/artifacts"
@@ -134,7 +116,7 @@ jobs:
           unzip -o /tmp/metrics-snapshot.zip -d Basketball_prediction/2026/output/LightGBM
 
           test -f Basketball_prediction/2026/output/LightGBM/metrics_snapshot.json
-          echo "OK: metrics_snapshot.json downloaded from Basketball_prediction artifact"
+          echo "OK: metrics_snapshot.json downloaded"
 
       - name: Debug Basketball_prediction outputs exist
         shell: bash
