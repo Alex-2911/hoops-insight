@@ -25,13 +25,13 @@ jobs:
       - name: Checkout hoops-insight
         uses: actions/checkout@v4
 
-      - name: Checkout Basketball_prediction (branch 2026)
+      - name: Checkout Basketball_prediction data
         uses: actions/checkout@v4
         with:
           repository: Alex-2911/Basketball_prediction
           ref: 2026
           path: Basketball_prediction
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: Debug Basketball_prediction outputs exist
         shell: bash
