@@ -33,6 +33,24 @@ jobs:
           path: Basketball_prediction
           fetch-depth: 1
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Basketball_prediction requirements
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r Basketball_prediction/requirements.txt
+
+      - name: Run Basketball_prediction Script 5 to generate metrics snapshot
+        env:
+          SOURCE_ROOT: ${{ github.workspace }}/Basketball_prediction/2026
+        run: |
+          echo "=== Running Script 5 to generate metrics_snapshot.json ==="
+          python Basketball_prediction/scripts/run_script5.py
+          echo "=== Script 5 done ==="
+
       - name: Debug Basketball_prediction outputs exist
         shell: bash
         run: |
@@ -42,21 +60,8 @@ jobs:
           test -f Basketball_prediction/2026/output/LightGBM/metrics_snapshot.json
           echo "OK: metrics_snapshot.json exists"
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
       - name: Install Python deps
         run: python -m pip install -r requirements.txt
-
-      - name: Install Basketball_prediction deps
-        run: |
-          if [ -f Basketball_prediction/requirements.txt ]; then
-            python -m pip install -r Basketball_prediction/requirements.txt
-          else
-            echo "No Basketball_prediction/requirements.txt found; skipping."
-          fi
 
       - name: (Optional) Run NBA pipeline
         if: ${{ env.NBA_PIPELINE_CMD != '' }}
