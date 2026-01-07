@@ -51,6 +51,12 @@ jobs:
           python Basketball_prediction/scripts/run_script5.py
           echo "=== Script 5 done ==="
 
+      - name: Download metrics snapshot artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: metrics-snapshot
+          path: Basketball_prediction/2026/output/LightGBM
+
       - name: Debug Basketball_prediction outputs exist
         shell: bash
         run: |
