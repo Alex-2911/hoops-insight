@@ -23,27 +23,11 @@ jobs:
       SOURCE_ROOT: ${{ github.workspace }}/Basketball_prediction/2026
       N_WINDOW: 200
 
-      # --- Basketball_prediction wiring ---
-      BP_OWNER: Alex-2911
-      BP_REPO: Basketball_prediction
-      BP_BRANCH: "2026"
-
-      # IMPORTANT:
-      # Set this to the actual workflow file name in Alex-2911/Basketball_prediction
-      # that produces the artifacts (metrics-snapshot + betting_shortlist_and_logs).
-      # Example: update_betting_stats_and_shortlist.yml
-      BP_WORKFLOW_FILE: "1_get_data_previous_game_day_2026.yml"
-
-      BP_ARTIFACT_METRICS: "metrics-snapshot"
-      BP_ARTIFACT_LOGS: "betting_shortlist_and_logs"
-
     steps:
-      - name: Checkout hoops-insight
+      - name: Checkout hoops-insight repo
         uses: actions/checkout@v4
 
-      # We still checkout Basketball_prediction repo because your generator expects the folder structure,
-      # but we won't run the heavy pipeline here; we just place artifacts into its output directory.
-      - name: Checkout Basketball_prediction (code + folder structure)
+      - name: Checkout Basketball_prediction repo (branch 2026)
         uses: actions/checkout@v4
         with:
           repository: Alex-2911/Basketball_prediction
@@ -51,7 +35,7 @@ jobs:
           path: Basketball_prediction
           fetch-depth: 1
 
-      - name: Trigger Basketball_prediction pipeline first
+      - name: Trigger Basketball_prediction pipeline first (Scraper Script 1)
         shell: bash
         env:
           BP_OWNER: "Alex-2911"
@@ -61,233 +45,101 @@ jobs:
           BP_TOKEN: ${{ secrets.BP_TOKEN }}
         run: |
           set -euo pipefail
-          echo "Triggering workflow '$BP_WORKFLOW_FILE' in $BP_OWNER/$BP_REPO on branch $BP_BRANCH"
-      
+          echo "Triggering workflow $BP_WORKFLOW_FILE on branch $BP_BRANCH"
+
           curl -fLsS -X POST \
             -H "Authorization: Bearer $BP_TOKEN" \
             -H "Accept: application/vnd.github+json" \
             -d "{\"ref\":\"$BP_BRANCH\"}" \
             "https://api.github.com/repos/$BP_OWNER/$BP_REPO/actions/workflows/$BP_WORKFLOW_FILE/dispatches"
-      
+
           echo "Triggered."
 
-      - name: Wait for latest Basketball_prediction run to complete successfully (branch 2026)
+      - name: Wait for latest Basketball_prediction run to complete successfully
         shell: bash
         env:
           BP_OWNER: "Alex-2911"
           BP_REPO: "Basketball_prediction"
           BP_BRANCH: "2026"
-          BP_WORKFLOW_FILE: "1_get_data_previous_game_day_2026.yml"
           BP_TOKEN: ${{ secrets.BP_TOKEN }}
         run: |
           set -euo pipefail
-      
-          # Polling settings
-          MAX_WAIT_SEC=1200   # 20 min
-          SLEEP_SEC=20
-          waited=0
-      
-          echo "Waiting for latest run of '$BP_WORKFLOW_FILE' on branch $BP_BRANCH ..."
-      
-          # Helper: get workflow runs for this workflow file & branch
-          while true; do
-            runs_json="$(curl -fLsS \
+          echo "Waiting for newest workflow run on Basketball_prediction (branch 2026) to succeed..."
+
+          for i in {1..30}; do
+            RUN=$(curl -s \
               -H "Authorization: Bearer $BP_TOKEN" \
               -H "Accept: application/vnd.github+json" \
-              "https://api.github.com/repos/$BP_OWNER/$BP_REPO/actions/workflows/$BP_WORKFLOW_FILE/runs?branch=$BP_BRANCH&per_page=1")"
-      
-            run_id="$(python - <<'PY'
-            import json,sys
-            d=json.load(sys.stdin)
-            runs=d.get("workflow_runs",[])
-            print(runs[0]["id"] if runs else "")
-            PY
-                  <<<"$runs_json")"
-            
-                  if [[ -z "$run_id" ]]; then
-                    echo "No runs found yet. Sleeping..."
-                  else
-                    run_json="$(curl -fLsS \
-                      -H "Authorization: Bearer $BP_TOKEN" \
-                      -H "Accept: application/vnd.github+json" \
-                      "https://api.github.com/repos/$BP_OWNER/$BP_REPO/actions/runs/$run_id")"
-            
-                    status="$(python - <<'PY'
-            import json,sys
-            d=json.load(sys.stdin)
-            print(d.get("status",""))
-            PY
-                    <<<"$run_json")"
-            
-                    conclusion="$(python - <<'PY'
-            import json,sys
-            d=json.load(sys.stdin)
-            print(d.get("conclusion",""))
-            PY
-                    <<<"$run_json")"
-            
-                    echo "Latest run_id=$run_id status=$status conclusion=$conclusion"
-            
-                    if [[ "$status" == "completed" ]]; then
-                      if [[ "$conclusion" == "success" ]]; then
-                        echo "✅ Basketball_prediction workflow completed successfully."
-                        break
-                      else
-                        echo "❌ Basketball_prediction workflow completed with conclusion=$conclusion"
-                        exit 1
-                      fi
-                    fi
-                  fi
-            
-                  if (( waited >= MAX_WAIT_SEC )); then
-                    echo "❌ Timeout waiting for Basketball_prediction workflow to complete."
-                    exit 1
-                  fi
-            
-                  sleep "$SLEEP_SEC"
-                  waited=$((waited + SLEEP_SEC))
-                done
+              "https://api.github.com/repos/$BP_OWNER/$BP_REPO/actions/runs?branch=$BP_BRANCH&per_page=1")
 
+            ID=$(echo "$RUN" | jq -r '.workflow_runs[0].id')
+            STATUS=$(echo "$RUN" | jq -r '.workflow_runs[0].status')
+            CONCLUSION=$(echo "$RUN" | jq -r '.workflow_runs[0].conclusion')
 
-      - name: Download Basketball_prediction artifacts into output directory
-        shell: bash
-        env:
-          BP_TOKEN: ${{ secrets.BP_TOKEN }}
-        run: |
-          set -euo pipefail
+            echo "Attempt $i → RunID=$ID | status=$STATUS | conclusion=$CONCLUSION"
 
-          echo "Downloading artifacts from run: $BP_RUN_ID"
-          TARGET_DIR="Basketball_prediction/2026/output/LightGBM"
-          mkdir -p "$TARGET_DIR"
+            if [[ "$STATUS" == "completed" && "$CONCLUSION" == "success" ]]; then
+              echo "✔️ Latest run succeeded!"
+              exit 0
+            fi
 
-          python - <<'PY'
-          import os, json, urllib.request, subprocess, pathlib
+            echo "Not succeeded yet, waiting 5 seconds..."
+            sleep 5
+          done
 
-          owner = os.environ["BP_OWNER"]
-          repo  = os.environ["BP_REPO"]
-          run_id = os.environ["BP_RUN_ID"]
-          token = os.environ["BP_TOKEN"]
+          echo "❌ Workflow did not succeed in time."
+          exit 1
 
-          want = {os.environ["BP_ARTIFACT_METRICS"], os.environ["BP_ARTIFACT_LOGS"]}
-          target_dir = pathlib.Path("Basketball_prediction/2026/output/LightGBM")
-          target_dir.mkdir(parents=True, exist_ok=True)
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
 
-          def gh_get(url: str):
-            req = urllib.request.Request(
-              url,
-              headers={
-                "Authorization": f"Bearer {token}",
-                "Accept": "application/vnd.github+json",
-                "User-Agent": "hoops-insight-ci",
-              },
-            )
-            with urllib.request.urlopen(req) as r:
-              return json.loads(r.read().decode("utf-8"))
-
-          arts = gh_get(f"https://api.github.com/repos/{owner}/{repo}/actions/runs/{run_id}/artifacts")
-          found = {}
-          for a in arts.get("artifacts", []):
-            name = a.get("name")
-            if name in want:
-              found[name] = a.get("archive_download_url")
-
-          missing = want - set(found.keys())
-          if missing:
-            raise SystemExit(f"Missing artifacts in run {run_id}: {sorted(missing)}")
-
-          for name, url in found.items():
-            zip_path = f"/tmp/{name}.zip"
-            subprocess.check_call([
-              "curl", "-fLsS", "-L",
-              "-H", f"Authorization: Bearer {token}",
-              "-H", "Accept: application/vnd.github+json",
-              url, "-o", zip_path
-            ])
-            subprocess.check_call(["unzip", "-o", zip_path, "-d", str(target_dir)])
-
-          # sanity checks (hard requirements)
-          required = [
-            target_dir / "metrics_snapshot.json",
-            target_dir / "strategy_params.txt",
-          ]
-          for p in required:
-            if not p.exists():
-              raise SystemExit(f"Expected file missing after unzip: {p}")
-
-          print("Artifacts downloaded & verified OK.")
-          PY
-
-      - name: Verify Basketball_prediction outputs exist
-        shell: bash
-        run: |
-          set -euo pipefail
-          LIGHTGBM_DIR="$GITHUB_WORKSPACE/Basketball_prediction/2026/output/LightGBM"
-          echo "LIGHTGBM_DIR=$LIGHTGBM_DIR"
-          ls -la "$LIGHTGBM_DIR" | head -n 80
-
-          test -f "$LIGHTGBM_DIR/metrics_snapshot.json" || (echo "Missing metrics_snapshot.json" && exit 1)
-          test -f "$LIGHTGBM_DIR/strategy_params.txt" || (echo "Missing strategy_params.txt" && exit 1)
-          if ! ls "$LIGHTGBM_DIR"/local_matched_games_*.csv >/dev/null 2>&1; then
-            echo "WARN: No local_matched_games_*.csv found (no trades)."
-          fi
-
-      - name: Install Python deps (hoops-insight)
+      - name: Install Basketball_prediction requirements
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
+          pip install -r Basketball_prediction/requirements.txt
 
-      - name: Build dashboard data
-        env:
-          SOURCE_ROOT: ${{ github.workspace }}/Basketball_prediction/2026
-          N_WINDOW: 200
-          BASE_URL: /hoops-insight/
-        run: python scripts/generate_dashboard_data.py
+      - name: Run data collection (previous game day)
+        run: |
+          echo "=== Starting scrape for PREVIOUS game day ==="
+          timeout 1200s python Basketball_prediction/2026/src/1_get_data_previous_game_day_2026.py
 
-      - name: Verify dashboard artifacts
+      - name: Verify that the metrics snapshot exists
+        shell: bash
         run: |
           set -euo pipefail
-          test -f public/data/summary.json
-          test -f public/data/tables.json
-          test -f public/data/last_run.json
+          SNAP="$GITHUB_WORKSPACE/Basketball_prediction/2026/output/LightGBM/metrics_snapshot.json"
+          if [[ ! -f "$SNAP" ]]; then
+            echo "❌ metrics_snapshot.json missing!"
+            exit 1
+          fi
+          echo "✔️ metrics_snapshot.json exists."
 
-      - name: Setup Node
+      - name: Build dashboard data
+        run: python scripts/generate_dashboard_data.py
+
+      - name: Setup Node 20
         uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: "npm"
 
-      - name: Install Node deps
-        run: npm ci
+      - name: Install Node deps & build
+        run: |
+          npm ci
+          npm run build
 
-      - name: Build
-        run: npm run build
-
-      - name: Sanity check dist index
-        run: test -f dist/index.html
-
-      - name: Configure Pages
-        uses: actions/configure-pages@v5
-
-      - name: Upload artifact
+      - name: Deploy to GitHub Pages
         uses: actions/upload-pages-artifact@v3
         with:
           path: dist
 
-      - name: Debug on failure (find LightGBM files)
-        if: failure()
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo "=== find LightGBM files ==="
-          find Basketball_prediction/2026/output/LightGBM -maxdepth 2 -type f | sort | tail -n 200
-
   deploy:
     runs-on: ubuntu-latest
     needs: build
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Deploy to GitHub Pages
+      - name: Final GitHub Pages Deploy
         id: deployment
         uses: actions/deploy-pages@v4
