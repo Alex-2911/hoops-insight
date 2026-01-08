@@ -52,98 +52,102 @@ jobs:
           fetch-depth: 1
 
       - name: Trigger Basketball_prediction pipeline first
+        shell: bash
         env:
           BP_OWNER: "Alex-2911"
           BP_REPO: "Basketball_prediction"
           BP_BRANCH: "2026"
           BP_WORKFLOW_FILE: "1_get_data_previous_game_day_2026.yml"
-          BP_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BP_TOKEN: ${{ secrets.BP_TOKEN }}
         run: |
           set -euo pipefail
           echo "Triggering workflow '$BP_WORKFLOW_FILE' in $BP_OWNER/$BP_REPO on branch $BP_BRANCH"
-      
-          # URL-encode spaces im Workflow-File-Name
-          WF_ENC="${BP_WORKFLOW_FILE// /%20}"
       
           curl -fLsS -X POST \
             -H "Authorization: Bearer $BP_TOKEN" \
             -H "Accept: application/vnd.github+json" \
             -d "{\"ref\":\"$BP_BRANCH\"}" \
-            "https://api.github.com/repos/$BP_OWNER/$BP_REPO/actions/workflows/$WF_ENC/dispatches"
+            "https://api.github.com/repos/$BP_OWNER/$BP_REPO/actions/workflows/$BP_WORKFLOW_FILE/dispatches"
       
           echo "Triggered."
-
 
       - name: Wait for latest Basketball_prediction run to complete successfully (branch 2026)
         shell: bash
         env:
+          BP_OWNER: "Alex-2911"
+          BP_REPO: "Basketball_prediction"
+          BP_BRANCH: "2026"
+          BP_WORKFLOW_FILE: "1_get_data_previous_game_day_2026.yml"
           BP_TOKEN: ${{ secrets.BP_TOKEN }}
         run: |
           set -euo pipefail
+      
+          # Polling settings
+          MAX_WAIT_SEC=1200   # 20 min
+          SLEEP_SEC=20
+          waited=0
+      
+          echo "Waiting for latest run of '$BP_WORKFLOW_FILE' on branch $BP_BRANCH ..."
+      
+          # Helper: get workflow runs for this workflow file & branch
+          while true; do
+            runs_json="$(curl -fLsS \
+              -H "Authorization: Bearer $BP_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/$BP_OWNER/$BP_REPO/actions/workflows/$BP_WORKFLOW_FILE/runs?branch=$BP_BRANCH&per_page=1")"
+      
+            run_id="$(python - <<'PY'
+            import json,sys
+            d=json.load(sys.stdin)
+            runs=d.get("workflow_runs",[])
+            print(runs[0]["id"] if runs else "")
+            PY
+                  <<<"$runs_json")"
+            
+                  if [[ -z "$run_id" ]]; then
+                    echo "No runs found yet. Sleeping..."
+                  else
+                    run_json="$(curl -fLsS \
+                      -H "Authorization: Bearer $BP_TOKEN" \
+                      -H "Accept: application/vnd.github+json" \
+                      "https://api.github.com/repos/$BP_OWNER/$BP_REPO/actions/runs/$run_id")"
+            
+                    status="$(python - <<'PY'
+            import json,sys
+            d=json.load(sys.stdin)
+            print(d.get("status",""))
+            PY
+                    <<<"$run_json")"
+            
+                    conclusion="$(python - <<'PY'
+            import json,sys
+            d=json.load(sys.stdin)
+            print(d.get("conclusion",""))
+            PY
+                    <<<"$run_json")"
+            
+                    echo "Latest run_id=$run_id status=$status conclusion=$conclusion"
+            
+                    if [[ "$status" == "completed" ]]; then
+                      if [[ "$conclusion" == "success" ]]; then
+                        echo "✅ Basketball_prediction workflow completed successfully."
+                        break
+                      else
+                        echo "❌ Basketball_prediction workflow completed with conclusion=$conclusion"
+                        exit 1
+                      fi
+                    fi
+                  fi
+            
+                  if (( waited >= MAX_WAIT_SEC )); then
+                    echo "❌ Timeout waiting for Basketball_prediction workflow to complete."
+                    exit 1
+                  fi
+            
+                  sleep "$SLEEP_SEC"
+                  waited=$((waited + SLEEP_SEC))
+                done
 
-          python - <<'PY'
-          import os, time, json, urllib.request
-
-          owner = os.environ["BP_OWNER"]
-          repo = os.environ["BP_REPO"]
-          branch = os.environ["BP_BRANCH"]
-          token = os.environ["BP_TOKEN"]
-
-          def gh_get(url: str):
-            req = urllib.request.Request(
-              url,
-              headers={
-                "Authorization": f"Bearer {token}",
-                "Accept": "application/vnd.github+json",
-                "User-Agent": "hoops-insight-ci",
-              },
-            )
-            with urllib.request.urlopen(req) as r:
-              return json.loads(r.read().decode("utf-8"))
-
-          # Poll latest run on branch until completed.
-          # (Hard cap to avoid infinite loops.)
-          deadline = time.time() + 15 * 60  # 15 minutes
-
-          last_seen = None
-          while True:
-            runs = gh_get(
-              f"https://api.github.com/repos/{owner}/{repo}/actions/runs"
-              f"?branch={branch}&per_page=5"
-            )
-            wr = runs.get("workflow_runs", [])
-            if not wr:
-              print("No runs found yet; sleeping...")
-              time.sleep(10)
-              continue
-
-            run = wr[0]
-            run_id = run["id"]
-            status = run["status"]
-            conclusion = run.get("conclusion")
-
-            if run_id != last_seen:
-              print(f"Latest run id={run_id} name={run.get('name')} status={status} conclusion={conclusion}")
-              last_seen = run_id
-            else:
-              print(f"Still waiting… id={run_id} status={status} conclusion={conclusion}")
-
-            if status == "completed":
-              if conclusion == "success":
-                # Emit run id to a file so bash can read it
-                with open("/tmp/bp_run_id.txt", "w", encoding="utf-8") as f:
-                  f.write(str(run_id))
-                print(f"SUCCESS run_id={run_id}")
-                break
-              raise SystemExit(f"Basketball_prediction run completed but not successful: {conclusion} (run_id={run_id})")
-
-            if time.time() > deadline:
-              raise SystemExit("Timed out waiting for Basketball_prediction run to complete")
-
-            time.sleep(15)
-          PY
-
-          echo "BP_RUN_ID=$(cat /tmp/bp_run_id.txt)" >> "$GITHUB_ENV"
 
       - name: Download Basketball_prediction artifacts into output directory
         shell: bash
