@@ -56,7 +56,7 @@ jobs:
           BP_OWNER: "Alex-2911"
           BP_REPO: "Basketball_prediction"
           BP_BRANCH: "2026"
-          BP_WORKFLOW_FILE: "1_get_data_previous_game_day 2026.yml"
+          BP_WORKFLOW_FILE: "1_get_data_previous_game_day_2026.yml"
           BP_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
