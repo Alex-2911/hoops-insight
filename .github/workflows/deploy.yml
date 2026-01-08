@@ -48,9 +48,12 @@ jobs:
         env:
           SOURCE_ROOT: ${{ github.workspace }}/Basketball_prediction/2026
         run: |
+          set -euo pipefail
           echo "=== Running Script 5 to generate metrics_snapshot.json ==="
-          python Basketball_prediction/scripts/run_script5.py
+          test -f Basketball_prediction/2026/src/5_Isotonic_based_betting_strategy_2026.py
+          python Basketball_prediction/2026/src/5_Isotonic_based_betting_strategy_2026.py
           echo "=== Script 5 done ==="
+
 
       - name: Fetch metrics_snapshot.json from Basketball_prediction artifacts
         shell: bash
