@@ -37,18 +37,20 @@ jobs:
           path: Basketball_prediction
           fetch-depth: 1
 
+      # IMPORTANT: github.token won't trigger workflows in ANOTHER repo.
+      # You need a PAT in secrets.BP_TOKEN with permissions on Basketball_prediction.
       - name: Trigger Basketball_prediction pipeline (Scraper)
         shell: bash
         env:
-          BP_OWNER: "Alex-2911"
-          BP_REPO: "Basketball_prediction"
-          BP_BRANCH: "2026"
-          BP_WORKFLOW_FILE: "1_get_data_previous_game_day_2026.yml"
-          BP_TOKEN: ${{ secrets.BP_TOKEN || github.token }}
+          BP_TOKEN: ${{ secrets.BP_TOKEN }}
         run: |
           set -euo pipefail
-          echo "Triggering workflow '$BP_WORKFLOW_FILE' in $BP_OWNER/$BP_REPO on branch=$BP_BRANCH"
+          if [[ -z "${BP_TOKEN:-}" ]]; then
+            echo "ERROR: secrets.BP_TOKEN is required to trigger cross-repo workflow."
+            exit 1
+          fi
 
+          echo "Triggering workflow '$BP_WORKFLOW_FILE' in $BP_OWNER/$BP_REPO on branch=$BP_BRANCH"
           WF_ENC="${BP_WORKFLOW_FILE// /%20}"
 
           curl -fLsS -X POST \
@@ -59,18 +61,25 @@ jobs:
 
           echo "✔ Triggered."
 
-      - name: Wait for latest Basketball_prediction run to succeed
+      - name: Wait for scraper workflow run to succeed (this workflow only)
         shell: bash
         env:
-          BP_TOKEN: ${{ secrets.BP_TOKEN || github.token }}
+          BP_TOKEN: ${{ secrets.BP_TOKEN }}
         run: |
           set -euo pipefail
-          echo "Waiting for newest scraper workflow run on branch=$BP_BRANCH to complete successfully..."
-          for i in {1..30}; do
-            RUN=$(curl -s \
+          if [[ -z "${BP_TOKEN:-}" ]]; then
+            echo "ERROR: secrets.BP_TOKEN is required to query cross-repo workflow status."
+            exit 1
+          fi
+
+          echo "Waiting for workflow '$BP_WORKFLOW_FILE' on branch=$BP_BRANCH to complete successfully..."
+          WF_ENC="${BP_WORKFLOW_FILE// /%20}"
+
+          for i in {1..60}; do
+            RUN=$(curl -fsS \
               -H "Authorization: Bearer $BP_TOKEN" \
               -H "Accept: application/vnd.github+json" \
-              "https://api.github.com/repos/$BP_OWNER/$BP_REPO/actions/runs?branch=$BP_BRANCH&per_page=1")
+              "https://api.github.com/repos/$BP_OWNER/$BP_REPO/actions/workflows/$WF_ENC/runs?branch=$BP_BRANCH&per_page=1")
 
             ID=$(echo "$RUN" | jq -r '.workflow_runs[0].id')
             STATUS=$(echo "$RUN" | jq -r '.workflow_runs[0].status')
@@ -83,22 +92,24 @@ jobs:
               exit 0
             fi
 
-            echo "Not successful yet — waiting 5s..."
-            sleep 5
+            echo "Not successful yet — waiting 10s..."
+            sleep 10
           done
+
           echo "✖ Workflow did not succeed in time."
           exit 1
 
-      - name: Validate API payload JSON (fail-safety)
-        run: echo "{\"ref\":\"2026\"}" | jq empty
-
-      - name: Install system dependencies for ML build stability
-        run: sudo apt-get update && sudo apt-get install -y libatlas-base-dev
-
-      - name: Configure Git user for commits (if scraper pushes stats)
+      - name: Refresh Basketball_prediction checkout to latest commit (after scraper)
+        shell: bash
         run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          set -euo pipefail
+          git -C Basketball_prediction fetch origin 2026 --depth=1
+          git -C Basketball_prediction checkout 2026
+          git -C Basketball_prediction reset --hard origin/2026
+          echo "✔ Basketball_prediction refreshed to latest origin/2026"
+
+      - name: Install system dependencies (optional)
+        run: sudo apt-get update && sudo apt-get install -y libatlas-base-dev
 
       - name: Setup Python with pip cache
         uses: actions/setup-python@v5
@@ -107,7 +118,7 @@ jobs:
           cache: "pip"
           cache-dependency-path: Basketball_prediction/requirements.txt
 
-      - name: Install dependencies for dashboard
+      - name: Install Python deps (from Basketball_prediction)
         run: |
           python -m pip install --upgrade pip
           pip install -r Basketball_prediction/requirements.txt
@@ -116,25 +127,27 @@ jobs:
         shell: bash
         run: |
           SNAP="$GITHUB_WORKSPACE/Basketball_prediction/2026/output/LightGBM/metrics_snapshot.json"
-          [[ -f "$SNAP" ]] && echo "✔️ metrics_snapshot.json exists." || exit 1
+          [[ -f "$SNAP" ]] && echo "✔ metrics_snapshot.json exists." || (echo "Missing: $SNAP" && exit 1)
 
-      - name: Generate dashboard data
-        run: python scripts/generate_dashboard_data.py
+      - name: Generate dashboard data (repo-relative SOURCE_ROOT)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/generate_dashboard_data.py --source-root "$GITHUB_WORKSPACE/Basketball_prediction/2026"
 
-      - name: Setup Node 20 & build dashboard
+      - name: Setup Node 20
         uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: "npm"
 
       - name: Install Node deps & build
+        shell: bash
         run: |
+          set -euo pipefail
           npm ci
-          npm run build
-          echo "✔️ Dashboard build finished."
-
-      - name: Cleanup redundant scraping step (avoid double execution)
-        run: echo "Skipping duplicate scrape — using Basketball_prediction artifacts only."
+          npm run build -- --base="$BASE_URL"
+          echo "✔ Dashboard build finished."
 
       - name: Upload dashboard to Pages
         uses: actions/upload-pages-artifact@v3
