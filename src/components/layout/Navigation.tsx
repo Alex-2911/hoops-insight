@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { Home } from "lucide-react";
 import { cn } from "@/lib/utils";
+import ThemeToggle from "@/components/ThemeToggle";
 
 const navItems = [{ path: "/", label: "Dashboard", icon: Home }];
 
@@ -41,6 +42,7 @@ export const Navigation = () => {
                 </Link>
               );
             })}
+            <ThemeToggle />
           </div>
         </div>
       </div>

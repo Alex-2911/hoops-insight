@@ -75,3 +75,9 @@ Environment variables:
 - React
 - shadcn-ui
 - Tailwind CSS
+
+## Theme preference
+
+Use the sun/moon toggle in the header to switch between light and dark themes.
+The UI stores your choice in `localStorage` under the `theme` key (`light` or `dark`).
+You can also force a mode by setting that key manually and refreshing the page.
