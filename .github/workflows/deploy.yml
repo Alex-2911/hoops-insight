@@ -51,20 +51,26 @@ jobs:
           path: Basketball_prediction
           fetch-depth: 1
 
-      - name: Trigger Basketball_prediction workflow (branch 2026)
-        shell: bash
+      - name: Trigger Basketball_prediction pipeline first
         env:
-          BP_TOKEN: ${{ secrets.BP_TOKEN }}
+          BP_OWNER: "Alex-2911"
+          BP_REPO: "Basketball_prediction"
+          BP_BRANCH: "2026"
+          BP_WORKFLOW_FILE: "1_get_data_previous_game_day 2026.yml"
+          BP_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          echo "Triggering $BP_OWNER/$BP_REPO workflow=$BP_WORKFLOW_FILE ref=$BP_BRANCH"
-
+          echo "Triggering $BP_OWNER/$BP_REPO workflow='$BP_WORKFLOW_FILE' on ref=$BP_BRANCH"
+      
+          # URL-encode spaces
+          WF_ENC="${BP_WORKFLOW_FILE// /%20}"
+      
           curl -fLsS -X POST \
             -H "Authorization: Bearer $BP_TOKEN" \
             -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/$BP_OWNER/$BP_REPO/actions/workflows/$BP_WORKFLOW_FILE/dispatches" \
-            -d "{\"ref\":\"$BP_BRANCH\"}"
-
+            -d "{\"ref\":\"$BP_BRANCH\"}" \
+            "https://api.github.com/repos/$BP_OWNER/$BP_REPO/actions/workflows/$WF_ENC/dispatches"
+      
           echo "Triggered."
 
       - name: Wait for latest Basketball_prediction run to complete successfully (branch 2026)
