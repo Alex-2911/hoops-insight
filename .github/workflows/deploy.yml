@@ -22,11 +22,28 @@ jobs:
       BASE_URL: /hoops-insight/
       SOURCE_ROOT: ${{ github.workspace }}/Basketball_prediction/2026
       N_WINDOW: 200
+
+      # --- Basketball_prediction wiring ---
+      BP_OWNER: Alex-2911
+      BP_REPO: Basketball_prediction
+      BP_BRANCH: "2026"
+
+      # IMPORTANT:
+      # Set this to the actual workflow file name in Alex-2911/Basketball_prediction
+      # that produces the artifacts (metrics-snapshot + betting_shortlist_and_logs).
+      # Example: update_betting_stats_and_shortlist.yml
+      BP_WORKFLOW_FILE: "update_betting_stats_and_shortlist.yml"
+
+      BP_ARTIFACT_METRICS: "metrics-snapshot"
+      BP_ARTIFACT_LOGS: "betting_shortlist_and_logs"
+
     steps:
       - name: Checkout hoops-insight
         uses: actions/checkout@v4
 
-      - name: Checkout Basketball_prediction data
+      # We still checkout Basketball_prediction repo because your generator expects the folder structure,
+      # but we won't run the heavy pipeline here; we just place artifacts into its output directory.
+      - name: Checkout Basketball_prediction (code + folder structure)
         uses: actions/checkout@v4
         with:
           repository: Alex-2911/Basketball_prediction
@@ -34,108 +51,160 @@ jobs:
           path: Basketball_prediction
           fetch-depth: 1
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install Basketball_prediction requirements
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r Basketball_prediction/requirements.txt
-
-      - name: Run Basketball_prediction Script 5 to generate metrics snapshot
-        env:
-          SOURCE_ROOT: ${{ github.workspace }}/Basketball_prediction/2026
-        run: |
-          set -euo pipefail
-          echo "=== Running Script 5 to generate metrics_snapshot.json ==="
-          test -f Basketball_prediction/2026/src/5_Isotonic_based_betting_strategy_2026.py
-          python Basketball_prediction/2026/src/5_Isotonic_based_betting_strategy_2026.py
-          echo "=== Script 5 done ==="
-
-
-      - name: Fetch metrics_snapshot.json from Basketball_prediction artifacts
+      - name: Trigger Basketball_prediction workflow (branch 2026)
         shell: bash
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BP_TOKEN: ${{ secrets.BP_TOKEN }}
         run: |
           set -euo pipefail
-          mkdir -p Basketball_prediction/2026/output/LightGBM
+          echo "Triggering $BP_OWNER/$BP_REPO workflow=$BP_WORKFLOW_FILE ref=$BP_BRANCH"
+
+          curl -fLsS -X POST \
+            -H "Authorization: Bearer $BP_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$BP_OWNER/$BP_REPO/actions/workflows/$BP_WORKFLOW_FILE/dispatches" \
+            -d "{\"ref\":\"$BP_BRANCH\"}"
+
+          echo "Triggered."
+
+      - name: Wait for latest Basketball_prediction run to complete successfully (branch 2026)
+        shell: bash
+        env:
+          BP_TOKEN: ${{ secrets.BP_TOKEN }}
+        run: |
+          set -euo pipefail
 
           python - <<'PY'
-          import json
-          import os
-          import urllib.request
+          import os, time, json, urllib.request
 
-          owner = "Alex-2911"
-          repo = "Basketball_prediction"
-          branch = "2026"
-          token = os.environ["GITHUB_TOKEN"]
+          owner = os.environ["BP_OWNER"]
+          repo = os.environ["BP_REPO"]
+          branch = os.environ["BP_BRANCH"]
+          token = os.environ["BP_TOKEN"]
 
-          def gh_get(url):
-              req = urllib.request.Request(
-                  url,
-                  headers={
-                      "Authorization": f"Bearer {token}",
-                      "Accept": "application/vnd.github+json",
-                      "User-Agent": "hoops-insight-ci",
-                  },
-              )
-              with urllib.request.urlopen(req) as response:
-                  return json.loads(response.read().decode("utf-8"))
+          def gh_get(url: str):
+            req = urllib.request.Request(
+              url,
+              headers={
+                "Authorization": f"Bearer {token}",
+                "Accept": "application/vnd.github+json",
+                "User-Agent": "hoops-insight-ci",
+              },
+            )
+            with urllib.request.urlopen(req) as r:
+              return json.loads(r.read().decode("utf-8"))
 
-          runs = gh_get(
+          # Poll latest run on branch until completed.
+          # (Hard cap to avoid infinite loops.)
+          deadline = time.time() + 15 * 60  # 15 minutes
+
+          last_seen = None
+          while True:
+            runs = gh_get(
               f"https://api.github.com/repos/{owner}/{repo}/actions/runs"
-              f"?branch={branch}&status=success&per_page=10"
-          )
-          if not runs.get("workflow_runs"):
-              raise SystemExit(
-                  "No successful workflow runs found for Basketball_prediction on branch 2026"
-              )
+              f"?branch={branch}&per_page=5"
+            )
+            wr = runs.get("workflow_runs", [])
+            if not wr:
+              print("No runs found yet; sleeping...")
+              time.sleep(10)
+              continue
 
-          run_id = runs["workflow_runs"][0]["id"]
+            run = wr[0]
+            run_id = run["id"]
+            status = run["status"]
+            conclusion = run.get("conclusion")
 
-          artifacts = gh_get(
-              f"https://api.github.com/repos/{owner}/{repo}/actions/runs/{run_id}/artifacts"
-          )
-          artifact = next(
-              (item for item in artifacts.get("artifacts", []) if item.get("name") == "metrics-snapshot"),
-              None,
-          )
-          if not artifact:
-              raise SystemExit("metrics-snapshot artifact not found in latest successful run")
+            if run_id != last_seen:
+              print(f"Latest run id={run_id} name={run.get('name')} status={status} conclusion={conclusion}")
+              last_seen = run_id
+            else:
+              print(f"Still waiting… id={run_id} status={status} conclusion={conclusion}")
 
-          print(artifact["archive_download_url"])
-          PY > /tmp/metrics_url.txt
+            if status == "completed":
+              if conclusion == "success":
+                # Emit run id to a file so bash can read it
+                with open("/tmp/bp_run_id.txt", "w", encoding="utf-8") as f:
+                  f.write(str(run_id))
+                print(f"SUCCESS run_id={run_id}")
+                break
+              raise SystemExit(f"Basketball_prediction run completed but not successful: {conclusion} (run_id={run_id})")
 
-          URL="$(cat /tmp/metrics_url.txt)"
+            if time.time() > deadline:
+              raise SystemExit("Timed out waiting for Basketball_prediction run to complete")
 
-          curl -fL \
-            -H "Authorization: Bearer $GITHUB_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            "$URL" -o /tmp/metrics-snapshot.zip
+            time.sleep(15)
+          PY
 
-          unzip -o /tmp/metrics-snapshot.zip -d Basketball_prediction/2026/output/LightGBM
+          echo "BP_RUN_ID=$(cat /tmp/bp_run_id.txt)" >> "$GITHUB_ENV"
 
-          test -f Basketball_prediction/2026/output/LightGBM/metrics_snapshot.json
-          echo "OK: metrics_snapshot.json downloaded"
-
-      - name: Debug Basketball_prediction outputs exist
+      - name: Download Basketball_prediction artifacts into output directory
         shell: bash
+        env:
+          BP_TOKEN: ${{ secrets.BP_TOKEN }}
         run: |
           set -euo pipefail
-          ls -la Basketball_prediction | head -n 200
-          ls -la Basketball_prediction/2026/output/LightGBM | head -n 200
-          test -f Basketball_prediction/2026/output/LightGBM/metrics_snapshot.json
-          echo "OK: metrics_snapshot.json exists"
 
-      - name: Install Python deps
-        run: python -m pip install -r requirements.txt
+          echo "Downloading artifacts from run: $BP_RUN_ID"
+          TARGET_DIR="Basketball_prediction/2026/output/LightGBM"
+          mkdir -p "$TARGET_DIR"
 
-      - name: (Optional) Run NBA pipeline
-        if: ${{ env.NBA_PIPELINE_CMD != '' }}
-        run: ${{ env.NBA_PIPELINE_CMD }}
+          python - <<'PY'
+          import os, json, urllib.request, subprocess, pathlib
+
+          owner = os.environ["BP_OWNER"]
+          repo  = os.environ["BP_REPO"]
+          run_id = os.environ["BP_RUN_ID"]
+          token = os.environ["BP_TOKEN"]
+
+          want = {os.environ["BP_ARTIFACT_METRICS"], os.environ["BP_ARTIFACT_LOGS"]}
+          target_dir = pathlib.Path("Basketball_prediction/2026/output/LightGBM")
+          target_dir.mkdir(parents=True, exist_ok=True)
+
+          def gh_get(url: str):
+            req = urllib.request.Request(
+              url,
+              headers={
+                "Authorization": f"Bearer {token}",
+                "Accept": "application/vnd.github+json",
+                "User-Agent": "hoops-insight-ci",
+              },
+            )
+            with urllib.request.urlopen(req) as r:
+              return json.loads(r.read().decode("utf-8"))
+
+          arts = gh_get(f"https://api.github.com/repos/{owner}/{repo}/actions/runs/{run_id}/artifacts")
+          found = {}
+          for a in arts.get("artifacts", []):
+            name = a.get("name")
+            if name in want:
+              found[name] = a.get("archive_download_url")
+
+          missing = want - set(found.keys())
+          if missing:
+            raise SystemExit(f"Missing artifacts in run {run_id}: {sorted(missing)}")
+
+          for name, url in found.items():
+            zip_path = f"/tmp/{name}.zip"
+            subprocess.check_call([
+              "curl", "-fLsS", "-L",
+              "-H", f"Authorization: Bearer {token}",
+              "-H", "Accept: application/vnd.github+json",
+              url, "-o", zip_path
+            ])
+            subprocess.check_call(["unzip", "-o", zip_path, "-d", str(target_dir)])
+
+          # sanity checks (hard requirements)
+          required = [
+            target_dir / "metrics_snapshot.json",
+            target_dir / "strategy_params.txt",
+          ]
+          for p in required:
+            if not p.exists():
+              raise SystemExit(f"Expected file missing after unzip: {p}")
+
+          print("Artifacts downloaded & verified OK.")
+          PY
 
       - name: Verify Basketball_prediction outputs exist
         shell: bash
@@ -143,13 +212,18 @@ jobs:
           set -euo pipefail
           LIGHTGBM_DIR="$GITHUB_WORKSPACE/Basketball_prediction/2026/output/LightGBM"
           echo "LIGHTGBM_DIR=$LIGHTGBM_DIR"
-          ls -la "$LIGHTGBM_DIR" | head -n 50
+          ls -la "$LIGHTGBM_DIR" | head -n 80
 
           test -f "$LIGHTGBM_DIR/metrics_snapshot.json" || (echo "Missing metrics_snapshot.json" && exit 1)
           test -f "$LIGHTGBM_DIR/strategy_params.txt" || (echo "Missing strategy_params.txt" && exit 1)
           if ! ls "$LIGHTGBM_DIR"/local_matched_games_*.csv >/dev/null 2>&1; then
             echo "WARN: No local_matched_games_*.csv found (no trades)."
           fi
+
+      - name: Install Python deps (hoops-insight)
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
 
       - name: Build dashboard data
         env:
@@ -176,9 +250,6 @@ jobs:
 
       - name: Build
         run: npm run build
-
-      - name: Sanity check dist contents
-        run: ls -la dist
 
       - name: Sanity check dist index
         run: test -f dist/index.html
