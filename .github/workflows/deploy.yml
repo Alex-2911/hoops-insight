@@ -7,7 +7,7 @@ on:
 
 permissions:
   contents: read
-  actions: read
+  actions: write
   pages: write
   id-token: write
 
@@ -44,7 +44,7 @@ jobs:
           BP_REPO: "Basketball_prediction"
           BP_BRANCH: "2026"
           BP_WORKFLOW_FILE: "1_get_data_previous_game_day_2026.yml"
-          BP_TOKEN: ${{ secrets.BP_TOKEN }}
+          BP_TOKEN: ${{ secrets.BP_TOKEN || github.token }}
         run: |
           set -euo pipefail
           echo "Triggering scraper workflow..."
@@ -60,7 +60,7 @@ jobs:
       - name: Wait for latest Basketball_prediction run to succeed
         shell: bash
         env:
-          BP_TOKEN: ${{ secrets.BP_TOKEN }}
+          BP_TOKEN: ${{ secrets.BP_TOKEN || github.token }}
         run: |
           echo "Waiting for newest scraper run..."
           for i in {1..30}; do
