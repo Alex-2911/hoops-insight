@@ -149,6 +149,14 @@ jobs:
           npm run build -- --base="$BASE_URL"
           echo "✔ Dashboard build finished."
 
+      - name: Verify build output and base path
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -d dist/assets ]] || (echo "Missing dist/assets output." && exit 1)
+          rg -n "/hoops-insight/" dist/index.html
+          echo "✔ Build output verified for GitHub Pages base path."
+
       - name: Upload dashboard to Pages
         uses: actions/upload-pages-artifact@v3
         with:
