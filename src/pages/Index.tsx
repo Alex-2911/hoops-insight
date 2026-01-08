@@ -64,6 +64,13 @@ const Index = () => {
     logLossBefore: 0,
     logLossAfter: 0,
     fittedGames: 0,
+    ece: 0,
+    calibrationSlope: 0,
+    calibrationIntercept: 0,
+    avgPredictedProb: 0,
+    baseRate: 0,
+    actualWinPct: 0,
+    windowSize: 0,
   };
   const homeWinRatesLast20 = tables?.home_win_rates_last20 ?? [];
   const betLogSummary = tables?.bet_log_summary ?? {
@@ -75,8 +82,8 @@ const Index = () => {
     avgStakeEur: 0,
     avgProfitPerBetEur: 0,
     winRate: 0,
+    avgEvPer100: 0,
   };
-  const bankrollHistory = tables?.bankroll_history ?? [];
   const localMatchedGamesRows = tables?.local_matched_games_rows ?? [];
   const localMatchedGamesCount =
     tables?.local_matched_games_count ?? localMatchedGamesRows.length;
@@ -119,9 +126,9 @@ const Index = () => {
   const localParamsMissing =
     strategyParams.source === "missing" || metricsSnapshotSource === "missing";
 
-  const lastBankroll = bankrollHistory[bankrollHistory.length - 1];
-
   const overallAccuracyPct = (summaryStats.overall_accuracy * 100).toFixed(2);
+  const calibrationWindowSize = calibrationMetrics.windowSize || strategyFilterStats.window_size;
+  const windowGamesLabel = calibrationWindowSize || summaryStats.total_games;
 
   const topHomeTeams = useMemo(() => {
     return [...homeWinRatesLast20].sort((a, b) => b.homeWinRate - a.homeWinRate);
@@ -181,148 +188,79 @@ const Index = () => {
 
       {/* Top stats */}
       <section className="container mx-auto px-4 py-10">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard
-              title="Overall Accuracy"
-              value={`${overallAccuracyPct}%`}
-              subtitle={
-                <div className="space-y-1">
-                  <div>Played games: {summaryStats.total_games}</div>
-                  <div>
-                    Strategy subset in window:{" "}
-                    {strategySubsetAvailable ? (
-                      <>
-                        {strategySummary.totalBets} matches • {strategySubsetWins} won
-                      </>
-                    ) : (
-                      "N/A (missing local snapshot)"
-                    )}
-                  </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+          <StatCard
+            title="Overall Accuracy"
+            value={`${overallAccuracyPct}%`}
+            subtitle={
+              <div className="space-y-1">
+                <div>Window games: {windowGamesLabel}</div>
+                <div>
+                  Strategy subset in window:{" "}
+                  {strategySubsetAvailable ? (
+                    <>
+                      {strategySummary.totalBets} matches • {strategySubsetWins} won
+                    </>
+                  ) : (
+                    "N/A (missing local snapshot)"
+                  )}
                 </div>
-              }
-              icon={<Target className="w-6 h-6" />}
-            />
+              </div>
+            }
+            icon={<Target className="w-6 h-6" />}
+          />
 
-            <StatCard
-              title="Last Update"
-              value={summaryStats.as_of_date}
-              icon={<TrendingUp className="w-6 h-6" />}
-            />
+          <StatCard
+            title="Last Update"
+            value={summaryStats.as_of_date}
+            subtitle={`Window size: ${strategyFilterStats.window_size}`}
+            icon={<TrendingUp className="w-6 h-6" />}
+          />
 
-              <StatCard
-                title={
-                  <div className="flex items-center gap-2">
-                    <span>Calibration (Brier)</span>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button
-                            type="button"
-                            className="text-muted-foreground hover:text-foreground"
-                            aria-label="Brier Score info"
-                          >
-                            <Info className="h-4 w-4" />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <div className="font-semibold">Brier Score</div>
-                          <div className="text-xs text-muted-foreground">
-                            Measures probability accuracy (0=best). ~0.20 good, ~0.25 ok,
-                            &gt;0.30 weak (depends on base rate).
-                          </div>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                }
-                value={`${calibrationMetrics.brierAfter.toFixed(3)}`}
-                subtitle={`Before: ${calibrationMetrics.brierBefore.toFixed(3)}`}
-                icon={<BarChart3 className="w-6 h-6" />}
-              />
-
-              <StatCard
-                title="Bankroll (Historical)"
-                value={lastBankroll ? `€${lastBankroll.balance.toFixed(2)}` : "—"}
-                subtitle={lastBankroll ? `Last day P/L: €${lastBankroll.profit.toFixed(2)}` : "—"}
-                icon={<Activity className="w-6 h-6" />}
-              />
-        </div>
-      </section>
-
-      {/* Local params KPIs */}
-      <section className="container mx-auto px-4 py-10">
-        <div className="glass-card p-6">
-          <div className="flex flex-col gap-1 mb-6">
-            <h2 className="text-xl font-bold">Local Params KPIs</h2>
-            <p className="text-xs text-muted-foreground">
-              Params source: {strategyParams.source}
-            </p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
-            <div className="rounded-lg border border-border p-4">
-              <div className="text-sm text-muted-foreground">Bets</div>
-              <div className="text-2xl font-bold">
-                {localParamsMissing ? 0 : strategySummary.totalBets}
-              </div>
-            </div>
-            <div className="rounded-lg border border-border p-4">
-              <div className="text-sm text-muted-foreground">Profit</div>
-              <div className="text-2xl font-bold">
-                {!localParamsMissing && strategySummary.profitMetricsAvailable
-                  ? `€${strategySummary.totalProfitEur.toFixed(2)}`
-                  : "N/A"}
-              </div>
-            </div>
-            <div className="rounded-lg border border-border p-4">
-              <div className="text-sm text-muted-foreground">ROI</div>
-              <div className="text-2xl font-bold">
-                {!localParamsMissing && strategySummary.profitMetricsAvailable
-                  ? `${strategySummary.roiPct.toFixed(2)}%`
-                  : "N/A"}
-              </div>
-            </div>
-            <div className="rounded-lg border border-border p-4">
-              <div className="text-sm text-muted-foreground">Avg EV €/100</div>
-              <div className="text-2xl font-bold">
-                {localParamsMissing ? "N/A" : strategySummary.avgEvPer100.toFixed(2)}
-              </div>
-            </div>
-            <div className="rounded-lg border border-border p-4">
-              <div className="text-sm text-muted-foreground">Win Rate</div>
-              <div className="text-2xl font-bold">
-                {localParamsMissing
-                  ? "N/A"
-                  : `${(strategySummary.winRate * 100).toFixed(2)}%`}
-              </div>
-            </div>
-            <div className="rounded-lg border border-border p-4">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <span>Sharpe Ratio</span>
+          <StatCard
+            title={
+              <div className="flex items-center gap-2">
+                <span>Calibration (Brier)</span>
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
                         type="button"
                         className="text-muted-foreground hover:text-foreground"
-                        aria-label="Sharpe Ratio info"
+                        aria-label="Brier Score info"
                       >
                         <Info className="h-4 w-4" />
                       </button>
                     </TooltipTrigger>
                     <TooltipContent>
-                      Risk-adjusted return: mean(P/L) / std(P/L). Higher is
-                      better; 0≈flat, 1≈good (rule of thumb).
+                      <div className="font-semibold">Brier Score</div>
+                      <div className="text-xs text-muted-foreground">
+                        Measures probability accuracy (0=best). ~0.20 good, ~0.25 ok,
+                        &gt;0.30 weak (depends on base rate).
+                      </div>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               </div>
-              <div className="text-2xl font-bold">
-                {!localParamsMissing && strategySummary.sharpeStyle !== null
-                  ? strategySummary.sharpeStyle.toFixed(2)
-                  : "N/A"}
-              </div>
-            </div>
-          </div>
+            }
+            value={`${calibrationMetrics.brierAfter.toFixed(3)}`}
+            subtitle={`Before: ${calibrationMetrics.brierBefore.toFixed(3)}`}
+            icon={<BarChart3 className="w-6 h-6" />}
+          />
+
+          <StatCard
+            title="Bankroll (Last 200 Games)"
+            value={`€${bankrollLast200.bankroll.toFixed(2)}`}
+            subtitle={`Start €${bankrollLast200.start.toFixed(0)} • Net P/L: €${bankrollLast200.net_pl.toFixed(2)}`}
+            icon={<Activity className="w-6 h-6" />}
+          />
+
+          <StatCard
+            title="Bankroll (2026 YTD)"
+            value={`€${bankrollYtd2026.bankroll.toFixed(2)}`}
+            subtitle={`Start €${bankrollYtd2026.start.toFixed(0)} • Net P/L 2026: €${bankrollYtd2026.net_pl.toFixed(2)}`}
+            icon={<Activity className="w-6 h-6" />}
+          />
         </div>
       </section>
 
@@ -331,7 +269,7 @@ const Index = () => {
         <div className="glass-card p-6">
           <h2 className="text-xl font-bold mb-2">Strategy Filter Coverage</h2>
           <p className="text-sm text-muted-foreground mb-6">
-            Window games: {strategyFilterStats.window_size}
+            Descriptive filter pass rates for the last {strategyFilterStats.window_size} games window. No recommendations or picks.
           </p>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="rounded-lg border border-border p-4">
@@ -365,6 +303,16 @@ const Index = () => {
                   <span className="font-medium text-foreground">{matchedGamesCount}</span>
                 </li>
               </ul>
+              <div className="mt-4 text-xs text-muted-foreground">
+                Matched subset accuracy:{" "}
+                {strategySubsetAvailable
+                  ? `${((strategySubsetWins / Math.max(strategySummary.totalBets, 1)) * 100).toFixed(2)}%`
+                  : "N/A"}{" "}
+                • Matched games: {matchedGamesCount}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Params source: {strategyParams.source}
+              </div>
             </div>
           </div>
         </div>
@@ -375,68 +323,152 @@ const Index = () => {
         <div className="glass-card p-6">
           <h2 className="text-xl font-bold mb-2">Calibration Quality</h2>
           <p className="text-sm text-muted-foreground mb-6">
-            Metrics compare raw probabilities vs isotonic-calibrated probabilities.
+            Calibration metrics computed on the last {calibrationWindowSize} played games only. Historical results only.
           </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="rounded-lg border border-border p-4">
               <div className="font-semibold mb-2">Brier Score</div>
               <div className="text-sm text-muted-foreground">
-                Before: <span className="font-medium text-foreground">{calibrationMetrics.brierBefore.toFixed(6)}</span>
-              </div>
-              <div className="text-sm text-muted-foreground">
-                After: <span className="font-medium text-foreground">{calibrationMetrics.brierAfter.toFixed(6)}</span>
-              </div>
-              <div className="text-xs text-muted-foreground mt-2">
-                Fitted games: {calibrationMetrics.fittedGames} • As of {calibrationMetrics.asOfDate}
+                {calibrationMetrics.brierAfter.toFixed(3)} (raw)
               </div>
             </div>
 
             <div className="rounded-lg border border-border p-4">
               <div className="font-semibold mb-2">Log Loss</div>
               <div className="text-sm text-muted-foreground">
-                Before: <span className="font-medium text-foreground">{calibrationMetrics.logLossBefore.toFixed(6)}</span>
-              </div>
-              <div className="text-sm text-muted-foreground">
-                After: <span className="font-medium text-foreground">{calibrationMetrics.logLossAfter.toFixed(6)}</span>
-              </div>
-              <div className="text-xs text-muted-foreground mt-2">
-                Lower is better • Historical only
+                {calibrationMetrics.logLossAfter.toFixed(3)} (raw)
               </div>
             </div>
+
+            <div className="rounded-lg border border-border p-4">
+              <div className="font-semibold mb-2">ECE</div>
+              <div className="text-sm text-muted-foreground">
+                {calibrationMetrics.ece.toFixed(3)} (raw)
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-border p-4">
+              <div className="font-semibold mb-2">Calibration Slope</div>
+              <div className="text-sm text-muted-foreground">
+                {calibrationMetrics.calibrationSlope.toFixed(3)} (raw)
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-border p-4">
+              <div className="font-semibold mb-2">Calibration Intercept</div>
+              <div className="text-sm text-muted-foreground">
+                {calibrationMetrics.calibrationIntercept.toFixed(3)} (raw)
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-border p-4">
+              <div className="font-semibold mb-2">Avg Predicted Prob</div>
+              <div className="text-sm text-muted-foreground">
+                {(calibrationMetrics.avgPredictedProb * 100).toFixed(2)}% (raw)
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-border p-4">
+              <div className="font-semibold mb-2">Base Rate</div>
+              <div className="text-sm text-muted-foreground">
+                {(calibrationMetrics.baseRate * 100).toFixed(2)}%
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-border p-4">
+              <div className="font-semibold mb-2">Actual Win %</div>
+              <div className="text-sm text-muted-foreground">
+                {(calibrationMetrics.actualWinPct * 100).toFixed(2)}%
+              </div>
+            </div>
+          </div>
+          <div className="text-xs text-muted-foreground mt-4">
+            Fitted games: {calibrationMetrics.fittedGames} • Window: {calibrationWindowSize} • As of{" "}
+            {calibrationMetrics.asOfDate}
           </div>
         </div>
       </section>
 
-      {/* Bet log summary (historical only) */}
+      {/* Local params bet log summary (historical only) */}
       <section className="container mx-auto px-4 py-10">
         <div className="glass-card p-6">
-          <h2 className="text-xl font-bold mb-2">Historical Bet Log Summary (Settled Games)</h2>
+          <h2 className="text-xl font-bold mb-2">Local Params Bet Log Summary (Settled Games)</h2>
           <p className="text-sm text-muted-foreground mb-6">
-            Aggregated statistics from played games only. No future recommendations are displayed.
+            Aggregated statistics from strategy-matched bets in the last {strategyFilterStats.window_size} games window. No future recommendations are displayed.
           </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             <div className="rounded-lg border border-border p-4">
-              <div className="text-sm text-muted-foreground">Total Bets</div>
-              <div className="text-2xl font-bold">{betLogSummary.totalBets}</div>
+              <div className="text-sm text-muted-foreground">Bets (Local Params)</div>
+              <div className="text-2xl font-bold">{localParamsMissing ? 0 : strategySummary.totalBets}</div>
             </div>
             <div className="rounded-lg border border-border p-4">
-              <div className="text-sm text-muted-foreground">Total Profit</div>
-              <div className="text-2xl font-bold">€{betLogSummary.totalProfitEur.toFixed(2)}</div>
+              <div className="text-sm text-muted-foreground">Profit (Local Params)</div>
+              <div className="text-2xl font-bold">
+                {!localParamsMissing && strategySummary.profitMetricsAvailable
+                  ? `€${strategySummary.totalProfitEur.toFixed(2)}`
+                  : "N/A"}
+              </div>
             </div>
             <div className="rounded-lg border border-border p-4">
-              <div className="text-sm text-muted-foreground">ROI</div>
-              <div className="text-2xl font-bold">{betLogSummary.roiPct.toFixed(2)}%</div>
+              <div className="text-sm text-muted-foreground">ROI (Local Params)</div>
+              <div className="text-2xl font-bold">
+                {!localParamsMissing && strategySummary.profitMetricsAvailable
+                  ? `${strategySummary.roiPct.toFixed(2)}%`
+                  : "N/A"}
+              </div>
             </div>
             <div className="rounded-lg border border-border p-4">
-              <div className="text-sm text-muted-foreground">Avg Stake</div>
-              <div className="text-2xl font-bold">€{betLogSummary.avgStakeEur.toFixed(2)}</div>
+              <div className="text-sm text-muted-foreground">Avg Stake (Local Params)</div>
+              <div className="text-2xl font-bold">€{bankrollLast200.stake.toFixed(2)}</div>
+            </div>
+            <div className="rounded-lg border border-border p-4">
+              <div className="text-sm text-muted-foreground">Avg EV €/100 (Local Params)</div>
+              <div className="text-2xl font-bold">
+                {localParamsMissing ? "N/A" : strategySummary.avgEvPer100.toFixed(2)}
+              </div>
             </div>
           </div>
 
           <div className="text-xs text-muted-foreground mt-4">
-            As of {betLogSummary.asOfDate} • Historical / settled only.
+            As of {betLogSummary.asOfDate} • Windowed historical / settled only.
+          </div>
+        </div>
+      </section>
+
+      {/* Risk metrics */}
+      <section className="container mx-auto px-4 py-10">
+        <div className="glass-card p-6">
+          <h2 className="text-xl font-bold mb-2">
+            Risk Metrics (Local Params, Last {strategyFilterStats.window_size} Games Window)
+          </h2>
+          <p className="text-sm text-muted-foreground mb-6">
+            Risk metrics are computed on settled bets that match the local params within the same windowed date range.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="rounded-lg border border-border p-4">
+              <div className="font-semibold mb-2">Sharpe Ratio</div>
+              <div className="text-2xl font-bold">
+                {!localParamsMissing && strategySummary.sharpeStyle !== null
+                  ? strategySummary.sharpeStyle.toFixed(3)
+                  : "N/A"}
+              </div>
+            </div>
+            <div className="rounded-lg border border-border p-4">
+              <div className="font-semibold mb-2">Max Drawdown</div>
+              <div className="text-2xl font-bold">
+                €{summary?.kpis?.max_drawdown_eur?.toFixed(2) ?? "0.00"}
+              </div>
+            </div>
+            <div className="rounded-lg border border-border p-4">
+              <div className="font-semibold mb-2">Max Drawdown %</div>
+              <div className="text-2xl font-bold">
+                {summary?.kpis?.max_drawdown_pct
+                  ? `${summary.kpis.max_drawdown_pct.toFixed(2)}%`
+                  : "0.00%"}
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -447,6 +479,9 @@ const Index = () => {
           <h2 className="text-xl font-bold mb-2">
             LOCAL MATCHED GAMES (LAST {strategyFilterStats.window_size} WINDOW)
           </h2>
+          <p className="text-sm text-muted-foreground mb-2">
+            n_trades (last {strategyFilterStats.window_size} window): {localMatchedGamesCount}
+          </p>
           <p className="text-sm text-muted-foreground mb-6">
             Rows: {localMatchedGamesCount} • Net P/L: €{localMatchedGamesProfitSum.toFixed(2)}
           </p>
@@ -466,7 +501,7 @@ const Index = () => {
                     <th className="py-2 pr-4">Home Win Rate</th>
                     <th className="py-2 pr-4">Prob Iso</th>
                     <th className="py-2 pr-4">Prob Used</th>
-                    <th className="py-2 pr-4">Odds 1</th>
+                    <th className="py-2 pr-4">Odds</th>
                     <th className="py-2 pr-4">EV €/100</th>
                     <th className="py-2 pr-4">Win</th>
                     <th className="py-2 pr-4">P/L</th>
@@ -497,48 +532,14 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Bankroll snapshots */}
-      <section className="container mx-auto px-4 py-10">
-        <div className="glass-card p-6">
-          <h2 className="text-xl font-bold mb-6">Bankroll Snapshots</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="rounded-lg border border-border p-4">
-              <div className="text-sm text-muted-foreground">
-                Bankroll (Last 200 Games)
-              </div>
-              <div className="text-2xl font-bold">
-                €{bankrollLast200.bankroll.toFixed(2)}
-              </div>
-              <div className="text-xs text-muted-foreground mt-2">
-                Start €{bankrollLast200.start.toFixed(0)} • Net P/L: €
-                {bankrollLast200.net_pl.toFixed(2)} • €{bankrollLast200.stake.toFixed(0)}{" "}
-                flat stake (example)
-              </div>
-            </div>
-            <div className="rounded-lg border border-border p-4">
-              <div className="text-sm text-muted-foreground">Bankroll (2026 YTD)</div>
-              <div className="text-2xl font-bold">
-                €{bankrollYtd2026.bankroll.toFixed(2)}
-              </div>
-              <div className="text-xs text-muted-foreground mt-2">
-                Start €{bankrollYtd2026.start.toFixed(0)} • Net P/L 2026: €
-                {bankrollYtd2026.net_pl.toFixed(2)} • €{bankrollYtd2026.stake.toFixed(0)}{" "}
-                flat stake (example)
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* Home win rates */}
       <section className="container mx-auto px-4 py-10">
         <div className="glass-card p-6">
           <h2 className="text-xl font-bold mb-2">
-            Home Win Rate (Last 20 Games Window)
+            Home Win Rate (Last {strategyFilterStats.window_size} Games Window)
           </h2>
           <p className="text-sm text-muted-foreground mb-6">
-            Last-20 window per team; win rate computed only on home games inside that
-            window.
+            Windowed home win rate per team; computed only on home games inside the last {strategyFilterStats.window_size} games.
           </p>
 
           <div className="overflow-x-auto">
@@ -569,7 +570,7 @@ const Index = () => {
           </div>
 
           <div className="text-xs text-muted-foreground mt-4">
-            Showing {topHomeTeams.length} teams with home win rate &gt; 50%.
+            Showing all teams with home win rate &gt; 50% in the last {strategyFilterStats.window_size} games.
           </div>
         </div>
       </section>

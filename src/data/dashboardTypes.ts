@@ -72,6 +72,13 @@ export interface CalibrationMetrics {
   logLossBefore: number;
   logLossAfter: number;
   fittedGames: number;
+  ece: number;
+  calibrationSlope: number;
+  calibrationIntercept: number;
+  avgPredictedProb: number;
+  baseRate: number;
+  actualWinPct: number;
+  windowSize: number;
 }
 
 export interface BetLogSummary {
@@ -83,6 +90,7 @@ export interface BetLogSummary {
   avgStakeEur: number;
   avgProfitPerBetEur: number;
   winRate: number;
+  avgEvPer100: number;
 }
 
 export interface BankrollEntry {
