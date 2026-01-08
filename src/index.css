@@ -74,6 +74,13 @@
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    background-image: radial-gradient(
+        circle at top,
+        hsl(25 20% 16% / 0.65) 0%,
+        hsl(20 10% 10% / 0.95) 45%,
+        hsl(20 10% 6%) 100%
+      );
+    background-attachment: fixed;
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -83,7 +90,9 @@
 
 @layer components {
   .glass-card {
-    @apply bg-card/80 backdrop-blur-sm border border-border/50 rounded-xl;
+    @apply backdrop-blur-sm border border-border/50 rounded-xl;
+    background: var(--gradient-card);
+    box-shadow: var(--shadow-card);
   }
 
   .gradient-text {
