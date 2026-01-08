@@ -20,8 +20,10 @@ jobs:
     runs-on: ubuntu-latest
     env:
       BASE_URL: /hoops-insight/
-      SOURCE_ROOT: ${{ github.workspace }}/Basketball_prediction/2026
-      N_WINDOW: 200
+      BP_OWNER: "Alex-2911"
+      BP_REPO: "Basketball_prediction"
+      BP_BRANCH: "2026"
+      BP_WORKFLOW_FILE: "1_get_data_previous_game_day_2026.yml"
 
     steps:
       - name: Checkout hoops-insight repo
@@ -35,37 +37,25 @@ jobs:
           path: Basketball_prediction
           fetch-depth: 1
 
-      - name: Trigger Basketball_prediction pipeline first (Scraper Script 1)
+      - name: Trigger Basketball_prediction pipeline (Scraper)
         shell: bash
         env:
-          BP_OWNER: "Alex-2911"
-          BP_REPO: "Basketball_prediction"
-          BP_BRANCH: "2026"
-          BP_WORKFLOW_FILE: "1_get_data_previous_game_day_2026.yml"
           BP_TOKEN: ${{ secrets.BP_TOKEN }}
         run: |
-          set -euo pipefail
-          echo "Triggering workflow $BP_WORKFLOW_FILE on branch $BP_BRANCH"
-
+          echo "Triggering scraper workflow..."
           curl -fLsS -X POST \
             -H "Authorization: Bearer $BP_TOKEN" \
             -H "Accept: application/vnd.github+json" \
             -d "{\"ref\":\"$BP_BRANCH\"}" \
             "https://api.github.com/repos/$BP_OWNER/$BP_REPO/actions/workflows/$BP_WORKFLOW_FILE/dispatches"
-
           echo "Triggered."
 
-      - name: Wait for latest Basketball_prediction run to complete successfully
+      - name: Wait for latest Basketball_prediction run to succeed
         shell: bash
         env:
-          BP_OWNER: "Alex-2911"
-          BP_REPO: "Basketball_prediction"
-          BP_BRANCH: "2026"
           BP_TOKEN: ${{ secrets.BP_TOKEN }}
         run: |
-          set -euo pipefail
-          echo "Waiting for newest workflow run on Basketball_prediction (branch 2026) to succeed..."
-
+          echo "Waiting for newest scraper run..."
           for i in {1..30}; do
             RUN=$(curl -s \
               -H "Authorization: Bearer $BP_TOKEN" \
@@ -79,48 +69,30 @@ jobs:
             echo "Attempt $i → RunID=$ID | status=$STATUS | conclusion=$CONCLUSION"
 
             if [[ "$STATUS" == "completed" && "$CONCLUSION" == "success" ]]; then
-              echo "✔️ Latest run succeeded!"
+              echo "✔️ Scraper run succeeded!"
               exit 0
             fi
 
-            echo "Not succeeded yet, waiting 5 seconds..."
             sleep 5
           done
-
-          echo "❌ Workflow did not succeed in time."
+          echo "❌ Timeout waiting for scraper success."
           exit 1
 
-      - name: Setup Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: "pip"
-
-      - name: Install Basketball_prediction requirements
+      - name: Install dependencies for dashboard
         run: |
           python -m pip install --upgrade pip
           pip install -r Basketball_prediction/requirements.txt
 
-      - name: Run data collection (previous game day)
-        run: |
-          echo "=== Starting scrape for PREVIOUS game day ==="
-          timeout 1200s python Basketball_prediction/2026/src/1_get_data_previous_game_day_2026.py
-
-      - name: Verify that the metrics snapshot exists
+      - name: Verify metrics_snapshot.json exists
         shell: bash
         run: |
-          set -euo pipefail
           SNAP="$GITHUB_WORKSPACE/Basketball_prediction/2026/output/LightGBM/metrics_snapshot.json"
-          if [[ ! -f "$SNAP" ]]; then
-            echo "❌ metrics_snapshot.json missing!"
-            exit 1
-          fi
-          echo "✔️ metrics_snapshot.json exists."
+          [[ -f "$SNAP" ]] && echo "✔️ metrics_snapshot.json exists." || exit 1
 
-      - name: Build dashboard data
+      - name: Generate dashboard data
         run: python scripts/generate_dashboard_data.py
 
-      - name: Setup Node 20
+      - name: Setup Node 20 & build dashboard
         uses: actions/setup-node@v4
         with:
           node-version: "20"
@@ -130,8 +102,9 @@ jobs:
         run: |
           npm ci
           npm run build
+          echo "✔️ Dashboard build finished."
 
-      - name: Deploy to GitHub Pages
+      - name: Upload dashboard to Pages
         uses: actions/upload-pages-artifact@v3
         with:
           path: dist
@@ -140,6 +113,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     steps:
-      - name: Final GitHub Pages Deploy
+      - name: Deploy dashboard to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
