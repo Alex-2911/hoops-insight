@@ -60,9 +60,9 @@ jobs:
           BP_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          echo "Triggering $BP_OWNER/$BP_REPO workflow='$BP_WORKFLOW_FILE' on ref=$BP_BRANCH"
+          echo "Triggering workflow '$BP_WORKFLOW_FILE' in $BP_OWNER/$BP_REPO on branch $BP_BRANCH"
       
-          # URL-encode spaces
+          # URL-encode spaces im Workflow-File-Name
           WF_ENC="${BP_WORKFLOW_FILE// /%20}"
       
           curl -fLsS -X POST \
@@ -72,7 +72,6 @@ jobs:
             "https://api.github.com/repos/$BP_OWNER/$BP_REPO/actions/workflows/$WF_ENC/dispatches"
       
           echo "Triggered."
-
 
       - name: Wait for latest Basketball_prediction run to complete successfully (branch 2026)
         shell: bash
