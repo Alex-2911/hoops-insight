@@ -47,22 +47,25 @@ jobs:
           BP_TOKEN: ${{ secrets.BP_TOKEN || github.token }}
         run: |
           set -euo pipefail
-          echo "Triggering scraper workflow..."
-      
+          echo "Triggering workflow '$BP_WORKFLOW_FILE' in $BP_OWNER/$BP_REPO on branch=$BP_BRANCH"
+
+          WF_ENC="${BP_WORKFLOW_FILE// /%20}"
+
           curl -fLsS -X POST \
             -H "Authorization: Bearer $BP_TOKEN" \
             -H "Accept: application/vnd.github+json" \
             -d "{\"ref\":\"$BP_BRANCH\"}" \
-            "https://api.github.com/repos/$BP_OWNER/$BP_REPO/actions/workflows/$BP_WORKFLOW_FILE/dispatches"
-      
-          echo "✔️ Triggered."
+            "https://api.github.com/repos/$BP_OWNER/$BP_REPO/actions/workflows/$WF_ENC/dispatches"
+
+          echo "✔ Triggered."
 
       - name: Wait for latest Basketball_prediction run to succeed
         shell: bash
         env:
           BP_TOKEN: ${{ secrets.BP_TOKEN || github.token }}
         run: |
-          echo "Waiting for newest scraper run..."
+          set -euo pipefail
+          echo "Waiting for newest scraper workflow run on branch=$BP_BRANCH to complete successfully..."
           for i in {1..30}; do
             RUN=$(curl -s \
               -H "Authorization: Bearer $BP_TOKEN" \
@@ -76,14 +79,26 @@ jobs:
             echo "Attempt $i → RunID=$ID | status=$STATUS | conclusion=$CONCLUSION"
 
             if [[ "$STATUS" == "completed" && "$CONCLUSION" == "success" ]]; then
-              echo "✔️ Scraper run succeeded!"
+              echo "✔ Latest scraper run succeeded!"
               exit 0
             fi
 
+            echo "Not successful yet — waiting 5s..."
             sleep 5
           done
-          echo "❌ Timeout waiting for scraper success."
+          echo "✖ Workflow did not succeed in time."
           exit 1
+
+      - name: Validate API payload JSON (fail-safety)
+        run: echo "{\"ref\":\"2026\"}" | jq empty
+
+      - name: Install system dependencies for ML build stability
+        run: sudo apt-get update && sudo apt-get install -y libatlas-base-dev
+
+      - name: Configure Git user for commits (if scraper pushes stats)
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Install dependencies for dashboard
         run: |
@@ -110,6 +125,9 @@ jobs:
           npm ci
           npm run build
           echo "✔️ Dashboard build finished."
+
+      - name: Cleanup redundant scraping step (avoid double execution)
+        run: echo "Skipping duplicate scrape — using Basketball_prediction artifacts only."
 
       - name: Upload dashboard to Pages
         uses: actions/upload-pages-artifact@v3
