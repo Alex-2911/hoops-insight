@@ -1,22 +1,64 @@
 {
-  "last_run": "2026-01-03T15:26:14+00:00",
-  "as_of_date": "2025-12-29",
+  "last_run": "2026-01-07T00:00:00+00:00",
+  "as_of_date": "2026-01-07",
   "summary_stats": {
-    "total_games": 467,
-    "overall_accuracy": 0.556745182012848,
-    "as_of_date": "2025-12-29"
+    "total_games": 200,
+    "overall_accuracy": 0.545,
+    "as_of_date": "2026-01-07"
   },
   "kpis": {
-    "total_bets": 47,
-    "win_rate": 0.6170212765957447,
-    "roi_pct": 0.6856968755963434,
-    "avg_ev_per_100": 9.953394615264012,
-    "avg_profit_per_bet_eur": 0.6727765957446812,
-    "max_drawdown_eur": 563.6907000000001,
-    "max_drawdown_pct": 35.33421566901806
+    "total_bets": 16,
+    "win_rate": 0.5625,
+    "roi_pct": 41.25,
+    "avg_ev_per_100": 24.01,
+    "avg_profit_per_bet_eur": 41.25,
+    "max_drawdown_eur": 400,
+    "max_drawdown_pct": 20.73
+  },
+  "strategy_summary": {
+    "totalBets": 16,
+    "totalProfitEur": 660,
+    "roiPct": 41.25,
+    "avgEvPer100": 24.01,
+    "winRate": 0.5625,
+    "sharpeStyle": 1.29,
+    "profitMetricsAvailable": true
+  },
+  "strategy_params": {
+    "source": "/Users/alexanderrazmyslov/1. Python/Basketball_prediction/2026/output/LightGBM/strategy_params.txt",
+    "params": {
+      "home_win_rate_min": 0.5,
+      "odds_min": 2.0,
+      "odds_max": 3.2,
+      "win_prob_min": 0.4,
+      "ev_per_100_min": -5.0
+    }
+  },
+  "strategy_filter_stats": {
+    "window_size": 200,
+    "filters": [
+      {
+        "label": "Home win rate ≥ 0.50",
+        "count": 136
+      },
+      {
+        "label": "Odds range 2.00–3.20",
+        "count": 28
+      },
+      {
+        "label": "Win prob ≥ 0.40",
+        "count": 21
+      },
+      {
+        "label": "EV per €100 > -5.0",
+        "count": 16
+      }
+    ],
+    "matched_games_count": 16
   },
   "source": {
-    "combined_file": "/Users/alexanderrazmyslov/1. Python/Basketball_prediction/2026/output/LightGBM/Kelly/combined_nba_predictions_iso_2025-12-30.csv",
-    "bet_log_file": "/Users/alexanderrazmyslov/1. Python/Basketball_prediction/2026/output/LightGBM/bet_log_live.csv"
+    "combined_file": "/Users/alexanderrazmyslov/1. Python/Basketball_prediction/2026/output/LightGBM/Kelly/combined_nba_predictions_iso_2026-01-07.csv",
+    "bet_log_file": "/Users/alexanderrazmyslov/1. Python/Basketball_prediction/2026/output/LightGBM/bet_log_live.csv",
+    "metrics_snapshot_source": "/Users/alexanderrazmyslov/1. Python/Basketball_prediction/2026/output/LightGBM/strategy_params.txt"
   }
 }
