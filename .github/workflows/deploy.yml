@@ -32,7 +32,7 @@ jobs:
       # Set this to the actual workflow file name in Alex-2911/Basketball_prediction
       # that produces the artifacts (metrics-snapshot + betting_shortlist_and_logs).
       # Example: update_betting_stats_and_shortlist.yml
-      BP_WORKFLOW_FILE: "1_get_data_previous_game_day 2026.yml"
+      BP_WORKFLOW_FILE: "1_get_data_previous_game_day_2026.yml"
 
       BP_ARTIFACT_METRICS: "metrics-snapshot"
       BP_ARTIFACT_LOGS: "betting_shortlist_and_logs"
