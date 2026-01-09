@@ -154,7 +154,7 @@ jobs:
         run: |
           set -euo pipefail
           [[ -d dist/assets ]] || (echo "Missing dist/assets output." && exit 1)
-          rg -n "/hoops-insight/" dist/index.html
+          grep -n "/hoops-insight/" dist/index.html
           echo "✔ Build output verified for GitHub Pages base path."
 
       - name: Upload dashboard to Pages
