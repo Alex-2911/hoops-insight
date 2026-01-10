@@ -11,6 +11,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { fmtMoney, fmtNumber, fmtPct } from "@/lib/format";
 
 const Index = () => {
   const [summary, setSummary] = useState<SummaryPayload | null>(null);
@@ -126,7 +127,7 @@ const Index = () => {
   const localParamsMissing =
     strategyParams.source === "missing" || metricsSnapshotSource === "missing";
 
-  const overallAccuracyPct = (summaryStats.overall_accuracy * 100).toFixed(2);
+  const overallAccuracyPct = fmtPct(summaryStats.overall_accuracy * 100, 2);
   const calibrationWindowSize = calibrationMetrics.windowSize || strategyFilterStats.window_size;
   const windowGamesLabel = calibrationWindowSize || summaryStats.total_games;
 
@@ -146,9 +147,12 @@ const Index = () => {
     return Object.entries(strategyParams.params ?? {});
   }, [strategyParams.params]);
 
-  const formatSigned = (value: number) => {
+  const formatSigned = (value: number | null | undefined) => {
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+      return "—";
+    }
     const sign = value >= 0 ? "+" : "-";
-    return `${sign}€${Math.abs(value).toFixed(2)}`;
+    return `${sign}€${fmtNumber(Math.abs(value), 2)}`;
   };
 
   return (
@@ -191,7 +195,7 @@ const Index = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
           <StatCard
             title="Overall Accuracy"
-            value={`${overallAccuracyPct}%`}
+            value={overallAccuracyPct}
             subtitle={
               <div className="space-y-1">
                 <div>Window games: {windowGamesLabel}</div>
@@ -243,22 +247,22 @@ const Index = () => {
                 </TooltipProvider>
               </div>
             }
-            value={`${calibrationMetrics.brierAfter.toFixed(3)}`}
-            subtitle={`Before: ${calibrationMetrics.brierBefore.toFixed(3)}`}
+            value={fmtNumber(calibrationMetrics.brierAfter, 3)}
+            subtitle={`Before: ${fmtNumber(calibrationMetrics.brierBefore, 3)}`}
             icon={<BarChart3 className="w-6 h-6" />}
           />
 
           <StatCard
             title="Bankroll (Last 200 Games)"
-            value={`€${bankrollLast200.bankroll.toFixed(2)}`}
-            subtitle={`Start €${bankrollLast200.start.toFixed(0)} • Net P/L: €${bankrollLast200.net_pl.toFixed(2)}`}
+            value={fmtMoney(bankrollLast200.bankroll, 2)}
+            subtitle={`Start ${fmtMoney(bankrollLast200.start, 0)} • Net P/L: ${fmtMoney(bankrollLast200.net_pl, 2)}`}
             icon={<Activity className="w-6 h-6" />}
           />
 
           <StatCard
             title="Bankroll (2026 YTD)"
-            value={`€${bankrollYtd2026.bankroll.toFixed(2)}`}
-            subtitle={`Start €${bankrollYtd2026.start.toFixed(0)} • Net P/L 2026: €${bankrollYtd2026.net_pl.toFixed(2)}`}
+            value={fmtMoney(bankrollYtd2026.bankroll, 2)}
+            subtitle={`Start ${fmtMoney(bankrollYtd2026.start, 0)} • Net P/L 2026: ${fmtMoney(bankrollYtd2026.net_pl, 2)}`}
             icon={<Activity className="w-6 h-6" />}
           />
         </div>
@@ -306,7 +310,10 @@ const Index = () => {
               <div className="mt-4 text-xs text-muted-foreground">
                 Matched subset accuracy:{" "}
                 {strategySubsetAvailable
-                  ? `${((strategySubsetWins / Math.max(strategySummary.totalBets, 1)) * 100).toFixed(2)}%`
+                  ? fmtPct(
+                      (strategySubsetWins / Math.max(strategySummary.totalBets, 1)) * 100,
+                      2,
+                    )
                   : "N/A"}{" "}
                 • Matched games: {matchedGamesCount}
               </div>
@@ -330,56 +337,56 @@ const Index = () => {
             <div className="rounded-lg border border-border p-4">
               <div className="font-semibold mb-2">Brier Score</div>
               <div className="text-sm text-muted-foreground">
-                {calibrationMetrics.brierAfter.toFixed(3)} (raw)
+                {fmtNumber(calibrationMetrics.brierAfter, 3)} (raw)
               </div>
             </div>
 
             <div className="rounded-lg border border-border p-4">
               <div className="font-semibold mb-2">Log Loss</div>
               <div className="text-sm text-muted-foreground">
-                {calibrationMetrics.logLossAfter.toFixed(3)} (raw)
+                {fmtNumber(calibrationMetrics.logLossAfter, 3)} (raw)
               </div>
             </div>
 
             <div className="rounded-lg border border-border p-4">
               <div className="font-semibold mb-2">ECE</div>
               <div className="text-sm text-muted-foreground">
-                {calibrationMetrics.ece.toFixed(3)} (raw)
+                {fmtNumber(calibrationMetrics.ece, 3)} (raw)
               </div>
             </div>
 
             <div className="rounded-lg border border-border p-4">
               <div className="font-semibold mb-2">Calibration Slope</div>
               <div className="text-sm text-muted-foreground">
-                {calibrationMetrics.calibrationSlope.toFixed(3)} (raw)
+                {fmtNumber(calibrationMetrics.calibrationSlope, 3)} (raw)
               </div>
             </div>
 
             <div className="rounded-lg border border-border p-4">
               <div className="font-semibold mb-2">Calibration Intercept</div>
               <div className="text-sm text-muted-foreground">
-                {calibrationMetrics.calibrationIntercept.toFixed(3)} (raw)
+                {fmtNumber(calibrationMetrics.calibrationIntercept, 3)} (raw)
               </div>
             </div>
 
             <div className="rounded-lg border border-border p-4">
               <div className="font-semibold mb-2">Avg Predicted Prob</div>
               <div className="text-sm text-muted-foreground">
-                {(calibrationMetrics.avgPredictedProb * 100).toFixed(2)}% (raw)
+                {fmtPct(calibrationMetrics.avgPredictedProb * 100, 2)} (raw)
               </div>
             </div>
 
             <div className="rounded-lg border border-border p-4">
               <div className="font-semibold mb-2">Base Rate</div>
               <div className="text-sm text-muted-foreground">
-                {(calibrationMetrics.baseRate * 100).toFixed(2)}%
+                {fmtPct(calibrationMetrics.baseRate * 100, 2)}
               </div>
             </div>
 
             <div className="rounded-lg border border-border p-4">
               <div className="font-semibold mb-2">Actual Win %</div>
               <div className="text-sm text-muted-foreground">
-                {(calibrationMetrics.actualWinPct * 100).toFixed(2)}%
+                {fmtPct(calibrationMetrics.actualWinPct * 100, 2)}
               </div>
             </div>
           </div>
@@ -407,7 +414,7 @@ const Index = () => {
               <div className="text-sm text-muted-foreground">Profit (Local Params)</div>
               <div className="text-2xl font-bold">
                 {!localParamsMissing && strategySummary.profitMetricsAvailable
-                  ? `€${strategySummary.totalProfitEur.toFixed(2)}`
+                  ? fmtMoney(strategySummary.totalProfitEur, 2)
                   : "N/A"}
               </div>
             </div>
@@ -415,18 +422,18 @@ const Index = () => {
               <div className="text-sm text-muted-foreground">ROI (Local Params)</div>
               <div className="text-2xl font-bold">
                 {!localParamsMissing && strategySummary.profitMetricsAvailable
-                  ? `${strategySummary.roiPct.toFixed(2)}%`
+                  ? fmtPct(strategySummary.roiPct, 2)
                   : "N/A"}
               </div>
             </div>
             <div className="rounded-lg border border-border p-4">
               <div className="text-sm text-muted-foreground">Avg Stake (Local Params)</div>
-              <div className="text-2xl font-bold">€{bankrollLast200.stake.toFixed(2)}</div>
+              <div className="text-2xl font-bold">{fmtMoney(bankrollLast200.stake, 2)}</div>
             </div>
             <div className="rounded-lg border border-border p-4">
               <div className="text-sm text-muted-foreground">Avg EV €/100 (Local Params)</div>
               <div className="text-2xl font-bold">
-                {localParamsMissing ? "N/A" : strategySummary.avgEvPer100.toFixed(2)}
+                {localParamsMissing ? "N/A" : fmtNumber(strategySummary.avgEvPer100, 2)}
               </div>
             </div>
           </div>
@@ -450,23 +457,21 @@ const Index = () => {
             <div className="rounded-lg border border-border p-4">
               <div className="font-semibold mb-2">Sharpe Ratio</div>
               <div className="text-2xl font-bold">
-                {!localParamsMissing && strategySummary.sharpeStyle !== null
-                  ? strategySummary.sharpeStyle.toFixed(3)
-                  : "N/A"}
+                {!localParamsMissing && typeof strategySummary.sharpeStyle === "number"
+                  ? fmtNumber(strategySummary.sharpeStyle, 3)
+                  : "—"}
               </div>
             </div>
             <div className="rounded-lg border border-border p-4">
               <div className="font-semibold mb-2">Max Drawdown</div>
               <div className="text-2xl font-bold">
-                €{summary?.kpis?.max_drawdown_eur?.toFixed(2) ?? "0.00"}
+                {fmtMoney(summary?.kpis?.max_drawdown_eur, 2)}
               </div>
             </div>
             <div className="rounded-lg border border-border p-4">
               <div className="font-semibold mb-2">Max Drawdown %</div>
               <div className="text-2xl font-bold">
-                {summary?.kpis?.max_drawdown_pct
-                  ? `${summary.kpis.max_drawdown_pct.toFixed(2)}%`
-                  : "0.00%"}
+                {fmtPct(summary?.kpis?.max_drawdown_pct, 2)}
               </div>
             </div>
           </div>
@@ -483,7 +488,7 @@ const Index = () => {
             n_trades (last {strategyFilterStats.window_size} window): {localMatchedGamesCount}
           </p>
           <p className="text-sm text-muted-foreground mb-6">
-            Rows: {localMatchedGamesCount} • Net P/L: €{localMatchedGamesProfitSum.toFixed(2)}
+            Rows: {localMatchedGamesCount} • Net P/L: {fmtMoney(localMatchedGamesProfitSum, 2)}
           </p>
 
           {localMatchedGamesMismatch || localMatchedGamesRows.length === 0 ? (
@@ -516,11 +521,11 @@ const Index = () => {
                       <td className="py-2 pr-4">{game.date}</td>
                       <td className="py-2 pr-4 font-medium">{game.home_team}</td>
                       <td className="py-2 pr-4">{game.away_team}</td>
-                      <td className="py-2 pr-4">{game.home_win_rate.toFixed(2)}</td>
-                      <td className="py-2 pr-4">{game.prob_iso.toFixed(3)}</td>
-                      <td className="py-2 pr-4">{game.prob_used.toFixed(3)}</td>
-                      <td className="py-2 pr-4">{game.odds_1.toFixed(2)}</td>
-                      <td className="py-2 pr-4">{game.ev_eur_per_100.toFixed(2)}</td>
+                      <td className="py-2 pr-4">{fmtNumber(game.home_win_rate, 2)}</td>
+                      <td className="py-2 pr-4">{fmtNumber(game.prob_iso, 3)}</td>
+                      <td className="py-2 pr-4">{fmtNumber(game.prob_used, 3)}</td>
+                      <td className="py-2 pr-4">{fmtNumber(game.odds_1, 2)}</td>
+                      <td className="py-2 pr-4">{fmtNumber(game.ev_eur_per_100, 2)}</td>
                       <td className="py-2 pr-4">{game.win === 1 ? "✅" : "❌"}</td>
                       <td className="py-2 pr-4">{formatSigned(game.pnl)}</td>
                     </tr>
@@ -558,7 +563,7 @@ const Index = () => {
                   <tr key={t.team} className="border-b border-border/50">
                     <td className="py-2 pr-4 font-medium">{t.team}</td>
                     <td className="py-2 pr-4">
-                      {(t.homeWinRate * 100).toFixed(0)}%
+                      {fmtPct(t.homeWinRate * 100, 0)}
                     </td>
                     <td className="py-2 pr-4">{t.homeWins}</td>
                     <td className="py-2 pr-4">{t.totalHomeGames}</td>
