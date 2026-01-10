@@ -25,6 +25,7 @@ export interface SummaryPayload {
     winRate: number;
     sharpeStyle: number | null;
     profitMetricsAvailable: boolean;
+    asOfDate: string;
   };
   strategy_params: {
     source: string;

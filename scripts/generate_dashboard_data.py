@@ -75,6 +75,21 @@ def _safe_date(val: str) -> Optional[datetime]:
         return None
 
 
+def _max_date(rows: Iterable[Dict[str, object]], key: str = "date") -> Optional[datetime]:
+    dates: List[datetime] = []
+    for row in rows:
+        raw = row.get(key)
+        if isinstance(raw, datetime):
+            dates.append(raw)
+            continue
+        if raw is None:
+            continue
+        parsed = _safe_date(str(raw))
+        if parsed:
+            dates.append(parsed)
+    return max(dates) if dates else None
+
+
 def _coerce_value(val: object) -> object:
     if val is None:
         return None
@@ -765,6 +780,14 @@ def main() -> None:
     local_matched_games_profit_sum = float(local_matched_games_summary["profit_sum_table"])
     matched_count_table = local_matched_games_count if sources.local_matched_games else None
 
+    matched_as_of_date = _max_date(local_matched_games_rows)
+    if matched_as_of_date:
+        strategy_as_of_date = matched_as_of_date.strftime(DATE_FMT)
+    elif snapshot_as_of_date:
+        strategy_as_of_date = snapshot_as_of_date.strftime(DATE_FMT)
+    else:
+        strategy_as_of_date = as_of_date
+
     params = load_strategy_params(sources.strategy_params) if sources.strategy_params else {}
     strategy_filter_stats = build_strategy_filter_stats(played_rows, params, window_size=200)
 
@@ -803,6 +826,7 @@ def main() -> None:
         "winRate": 0.0,
         "sharpeStyle": realized_sharpe,
         "profitMetricsAvailable": False,
+        "asOfDate": strategy_as_of_date,
     }
 
     if realized_count is not None:
@@ -817,6 +841,7 @@ def main() -> None:
             "winRate": realized_win_rate or 0.0,
             "sharpeStyle": realized_sharpe,
             "profitMetricsAvailable": profit_metrics_available,
+            "asOfDate": strategy_as_of_date,
         }
     elif local_matched_games_rows:
         total_profit = local_matched_games_profit_sum
@@ -834,6 +859,7 @@ def main() -> None:
             ),
             "sharpeStyle": None,
             "profitMetricsAvailable": True,
+            "asOfDate": strategy_as_of_date,
         }
 
     if matched_count_snapshot is not None:
