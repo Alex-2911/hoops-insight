@@ -11,7 +11,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { fmtMoney, fmtNumber, fmtPct } from "@/lib/format";
+import { fmtCurrencyEUR, fmtNumber, fmtPercent } from "@/lib/format";
 
 const Index = () => {
   const [summary, setSummary] = useState<SummaryPayload | null>(null);
@@ -74,17 +74,6 @@ const Index = () => {
     windowSize: 0,
   };
   const homeWinRatesLast20 = tables?.home_win_rates_last20 ?? [];
-  const betLogSummary = tables?.bet_log_summary ?? {
-    asOfDate: "—",
-    totalBets: 0,
-    totalStakedEur: 0,
-    totalProfitEur: 0,
-    roiPct: 0,
-    avgStakeEur: 0,
-    avgProfitPerBetEur: 0,
-    winRate: 0,
-    avgEvPer100: 0,
-  };
   const localMatchedGamesRows = tables?.local_matched_games_rows ?? [];
   const localMatchedGamesCount =
     tables?.local_matched_games_count ?? localMatchedGamesRows.length;
@@ -113,6 +102,7 @@ const Index = () => {
     winRate: 0,
     sharpeStyle: null,
     profitMetricsAvailable: false,
+    asOfDate: "—",
   };
   const strategyParams = summary?.strategy_params ?? {
     source: "missing",
@@ -127,7 +117,7 @@ const Index = () => {
   const localParamsMissing =
     strategyParams.source === "missing" || metricsSnapshotSource === "missing";
 
-  const overallAccuracyPct = fmtPct(summaryStats.overall_accuracy * 100, 2);
+  const overallAccuracyPct = fmtPercent(summaryStats.overall_accuracy * 100, 2);
   const calibrationWindowSize = calibrationMetrics.windowSize || strategyFilterStats.window_size;
   const windowGamesLabel = calibrationWindowSize || summaryStats.total_games;
 
@@ -254,15 +244,15 @@ const Index = () => {
 
           <StatCard
             title="Bankroll (Last 200 Games)"
-            value={fmtMoney(bankrollLast200.bankroll, 2)}
-            subtitle={`Start ${fmtMoney(bankrollLast200.start, 0)} • Net P/L: ${fmtMoney(bankrollLast200.net_pl, 2)}`}
+            value={fmtCurrencyEUR(bankrollLast200.bankroll, 2)}
+            subtitle={`Start ${fmtCurrencyEUR(bankrollLast200.start, 0)} • Net P/L: ${fmtCurrencyEUR(bankrollLast200.net_pl, 2)}`}
             icon={<Activity className="w-6 h-6" />}
           />
 
           <StatCard
             title="Bankroll (2026 YTD)"
-            value={fmtMoney(bankrollYtd2026.bankroll, 2)}
-            subtitle={`Start ${fmtMoney(bankrollYtd2026.start, 0)} • Net P/L 2026: ${fmtMoney(bankrollYtd2026.net_pl, 2)}`}
+            value={fmtCurrencyEUR(bankrollYtd2026.bankroll, 2)}
+            subtitle={`Start ${fmtCurrencyEUR(bankrollYtd2026.start, 0)} • Net P/L 2026: ${fmtCurrencyEUR(bankrollYtd2026.net_pl, 2)}`}
             icon={<Activity className="w-6 h-6" />}
           />
         </div>
@@ -310,7 +300,7 @@ const Index = () => {
               <div className="mt-4 text-xs text-muted-foreground">
                 Matched subset accuracy:{" "}
                 {strategySubsetAvailable
-                  ? fmtPct(
+                  ? fmtPercent(
                       (strategySubsetWins / Math.max(strategySummary.totalBets, 1)) * 100,
                       2,
                     )
@@ -372,21 +362,21 @@ const Index = () => {
             <div className="rounded-lg border border-border p-4">
               <div className="font-semibold mb-2">Avg Predicted Prob</div>
               <div className="text-sm text-muted-foreground">
-                {fmtPct(calibrationMetrics.avgPredictedProb * 100, 2)} (raw)
+                {fmtPercent(calibrationMetrics.avgPredictedProb * 100, 2)} (raw)
               </div>
             </div>
 
             <div className="rounded-lg border border-border p-4">
               <div className="font-semibold mb-2">Base Rate</div>
               <div className="text-sm text-muted-foreground">
-                {fmtPct(calibrationMetrics.baseRate * 100, 2)}
+                {fmtPercent(calibrationMetrics.baseRate * 100, 2)}
               </div>
             </div>
 
             <div className="rounded-lg border border-border p-4">
               <div className="font-semibold mb-2">Actual Win %</div>
               <div className="text-sm text-muted-foreground">
-                {fmtPct(calibrationMetrics.actualWinPct * 100, 2)}
+                {fmtPercent(calibrationMetrics.actualWinPct * 100, 2)}
               </div>
             </div>
           </div>
@@ -414,7 +404,7 @@ const Index = () => {
               <div className="text-sm text-muted-foreground">Profit (Local Params)</div>
               <div className="text-2xl font-bold">
                 {!localParamsMissing && strategySummary.profitMetricsAvailable
-                  ? fmtMoney(strategySummary.totalProfitEur, 2)
+                  ? fmtCurrencyEUR(strategySummary.totalProfitEur, 2)
                   : "N/A"}
               </div>
             </div>
@@ -422,13 +412,13 @@ const Index = () => {
               <div className="text-sm text-muted-foreground">ROI (Local Params)</div>
               <div className="text-2xl font-bold">
                 {!localParamsMissing && strategySummary.profitMetricsAvailable
-                  ? fmtPct(strategySummary.roiPct, 2)
+                  ? fmtPercent(strategySummary.roiPct, 2)
                   : "N/A"}
               </div>
             </div>
             <div className="rounded-lg border border-border p-4">
               <div className="text-sm text-muted-foreground">Avg Stake (Local Params)</div>
-              <div className="text-2xl font-bold">{fmtMoney(bankrollLast200.stake, 2)}</div>
+              <div className="text-2xl font-bold">{fmtCurrencyEUR(bankrollLast200.stake, 2)}</div>
             </div>
             <div className="rounded-lg border border-border p-4">
               <div className="text-sm text-muted-foreground">Avg EV €/100 (Local Params)</div>
@@ -439,7 +429,7 @@ const Index = () => {
           </div>
 
           <div className="text-xs text-muted-foreground mt-4">
-            As of {betLogSummary.asOfDate} • Windowed historical / settled only.
+            As of {strategySummary.asOfDate} • Windowed historical / settled only.
           </div>
         </div>
       </section>
@@ -465,13 +455,13 @@ const Index = () => {
             <div className="rounded-lg border border-border p-4">
               <div className="font-semibold mb-2">Max Drawdown</div>
               <div className="text-2xl font-bold">
-                {fmtMoney(summary?.kpis?.max_drawdown_eur, 2)}
+                {fmtCurrencyEUR(summary?.kpis?.max_drawdown_eur, 2)}
               </div>
             </div>
             <div className="rounded-lg border border-border p-4">
               <div className="font-semibold mb-2">Max Drawdown %</div>
               <div className="text-2xl font-bold">
-                {fmtPct(summary?.kpis?.max_drawdown_pct, 2)}
+                {fmtPercent(summary?.kpis?.max_drawdown_pct, 2)}
               </div>
             </div>
           </div>
@@ -488,7 +478,7 @@ const Index = () => {
             n_trades (last {strategyFilterStats.window_size} window): {localMatchedGamesCount}
           </p>
           <p className="text-sm text-muted-foreground mb-6">
-            Rows: {localMatchedGamesCount} • Net P/L: {fmtMoney(localMatchedGamesProfitSum, 2)}
+            Rows: {localMatchedGamesCount} • Net P/L: {fmtCurrencyEUR(localMatchedGamesProfitSum, 2)}
           </p>
 
           {localMatchedGamesMismatch || localMatchedGamesRows.length === 0 ? (
@@ -563,7 +553,7 @@ const Index = () => {
                   <tr key={t.team} className="border-b border-border/50">
                     <td className="py-2 pr-4 font-medium">{t.team}</td>
                     <td className="py-2 pr-4">
-                      {fmtPct(t.homeWinRate * 100, 0)}
+                      {fmtPercent(t.homeWinRate * 100, 0)}
                     </td>
                     <td className="py-2 pr-4">{t.homeWins}</td>
                     <td className="py-2 pr-4">{t.totalHomeGames}</td>

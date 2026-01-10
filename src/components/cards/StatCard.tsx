@@ -1,16 +1,24 @@
-import { ReactNode } from 'react';
-import { cn } from '@/lib/utils';
+import { ReactNode } from "react";
+import { cn } from "@/lib/utils";
+import { fmtNumber } from "@/lib/format";
 
 interface StatCardProps {
   title: ReactNode;
-  value: string | number;
+  value: ReactNode;
   subtitle?: ReactNode;
   icon?: ReactNode;
-  trend?: 'up' | 'down' | 'neutral';
+  trend?: "up" | "down" | "neutral";
   className?: string;
 }
 
 export const StatCard = ({ title, value, subtitle, icon, trend, className }: StatCardProps) => {
+  const displayValue =
+    typeof value === "number"
+      ? fmtNumber(value, 2)
+      : value === null || value === undefined
+        ? "—"
+        : value;
+
   return (
     <div className={cn(
       "glass-card p-6 transition-all duration-300 hover:shadow-lg hover:border-primary/20",
@@ -21,10 +29,10 @@ export const StatCard = ({ title, value, subtitle, icon, trend, className }: Sta
           <p className="text-sm text-muted-foreground font-medium">{title}</p>
           <p className={cn(
             "text-3xl font-bold",
-            trend === 'up' && "stat-positive",
-            trend === 'down' && "stat-negative"
+            trend === "up" && "stat-positive",
+            trend === "down" && "stat-negative"
           )}>
-            {value}
+            {displayValue}
           </p>
           {subtitle && (
             <div className="text-sm text-muted-foreground">{subtitle}</div>
