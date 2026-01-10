@@ -129,11 +129,36 @@ jobs:
           SNAP="$GITHUB_WORKSPACE/Basketball_prediction/2026/output/LightGBM/metrics_snapshot.json"
           [[ -f "$SNAP" ]] && echo "✔ metrics_snapshot.json exists." || (echo "Missing: $SNAP" && exit 1)
 
+      - name: Compute strategy parameters (windowed search)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/compute_strategy_params.py \
+            --source-root "$GITHUB_WORKSPACE/Basketball_prediction/2026" \
+            --window 200 \
+            --min-ev -5 \
+            --out public/data/strategy_params.json
+
       - name: Generate dashboard data (repo-relative SOURCE_ROOT)
         shell: bash
         run: |
           set -euo pipefail
           python scripts/generate_dashboard_data.py --source-root "$GITHUB_WORKSPACE/Basketball_prediction/2026"
+
+      - name: Validate strategy params usage
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f public/data/strategy_params.json
+          python -c "import json; d=json.load(open('public/data/last_run.json')); assert 'strategy_params' in d"
+          python - <<'PY'
+          import json
+          d=json.load(open('public/data/last_run.json'))
+          n=d.get(\"strategy_filter_stats\",{}).get(\"matched_games_count\",0)
+          if n < 5:
+              raise SystemExit(f\"matched_games_count too low ({n}) — params computation likely wrong or wrong source file.\")
+          print(\"OK matched_games_count\", n)
+          PY
 
       - name: Setup Node 20
         uses: actions/setup-node@v4

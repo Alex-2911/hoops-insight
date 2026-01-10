@@ -159,6 +159,12 @@ def load_strategy_params(path: Path) -> Dict[str, object]:
     params: Dict[str, object] = {}
     if not path.exists():
         return params
+    if path.suffix.lower() == ".json":
+        with path.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+        if isinstance(data, dict):
+            params.update(data)
+        return params
     with path.open("r", encoding="utf-8") as f:
         for line in f:
             raw = line.strip()
@@ -282,12 +288,21 @@ def _find_local_matched_games(lightgbm_dir: Path, as_of_date: Optional[str]) -> 
 
 def _find_strategy_params(lightgbm_dir: Path, as_of_date: Optional[str]) -> Optional[Path]:
     if as_of_date:
+        dated_json = lightgbm_dir / f"strategy_params_{as_of_date}.json"
+        if dated_json.exists():
+            return dated_json
         dated = lightgbm_dir / f"strategy_params_{as_of_date}.txt"
         if dated.exists():
             return dated
+    preferred_json = lightgbm_dir / "strategy_params.json"
+    if preferred_json.exists():
+        return preferred_json
     preferred = lightgbm_dir / "strategy_params.txt"
     if preferred.exists():
         return preferred
+    latest_json = _find_latest_by_mtime(lightgbm_dir, "strategy_params*.json")
+    if latest_json:
+        return latest_json
     return _find_latest_by_mtime(lightgbm_dir, "strategy_params*.txt")
 
 
@@ -636,11 +651,13 @@ def build_strategy_filter_stats(
     window_rows = sorted_rows[-window_size:]
     filters = [{"label": "Window games", "count": len(window_rows)}]
 
-    min_prob_used = _get_param(params, "min_prob_used", "min_prob", "min_prob_iso")
-    min_odds = _get_param(params, "min_odds_1", "min_odds")
-    max_odds = _get_param(params, "max_odds_1", "max_odds")
-    min_ev = _get_param(params, "min_ev_eur_per_100", "min_ev_per_100", "min_ev")
-    min_home_win_rate = _get_param(params, "min_home_win_rate")
+    min_prob_used = _get_param(
+        params, "prob_threshold", "min_prob_used", "min_prob", "min_prob_iso"
+    )
+    min_odds = _get_param(params, "odds_min", "min_odds_1", "min_odds")
+    max_odds = _get_param(params, "odds_max", "max_odds_1", "max_odds")
+    min_ev = _get_param(params, "min_ev", "min_ev_eur_per_100", "min_ev_per_100")
+    min_home_win_rate = _get_param(params, "home_win_rate_threshold", "min_home_win_rate")
 
     current = window_rows
     if min_prob_used is not None:
@@ -897,7 +914,16 @@ def main() -> None:
     else:
         strategy_as_of_date = as_of_date
 
-    params = load_strategy_params(sources.strategy_params) if sources.strategy_params else {}
+    strategy_params_path = output_dir / "strategy_params.json"
+    if strategy_params_path.exists():
+        params = load_strategy_params(strategy_params_path)
+        strategy_params_source = strategy_params_path
+    elif sources.strategy_params:
+        params = load_strategy_params(sources.strategy_params)
+        strategy_params_source = sources.strategy_params
+    else:
+        params = {}
+        strategy_params_source = None
     strategy_filter_stats = build_strategy_filter_stats(played_rows, params, window_size=200)
 
     def _to_float(value: object) -> Optional[float]:
@@ -977,16 +1003,13 @@ def main() -> None:
     elif matched_count_table is not None:
         matched_count_used = matched_count_table
 
-    if matched_count_snapshot is not None:
-        strategy_filter_stats["matched_games_count"] = matched_count_snapshot
-    elif matched_count_table is not None:
-        strategy_filter_stats["matched_games_count"] = matched_count_table
-    elif params:
-        strategy_filter_stats["matched_games_count"] = (
-            strategy_filter_stats.get("matched_games_count") or 0
-        )
-    else:
-        strategy_filter_stats["matched_games_count"] = 0
+    if not params:
+        if matched_count_snapshot is not None:
+            strategy_filter_stats["matched_games_count"] = matched_count_snapshot
+        elif matched_count_table is not None:
+            strategy_filter_stats["matched_games_count"] = matched_count_table
+        else:
+            strategy_filter_stats["matched_games_count"] = 0
 
     local_matched_games_mismatch = False
     local_matched_games_note = ""
@@ -1035,8 +1058,8 @@ def main() -> None:
         },
         "strategy_summary": strategy_summary,
         "strategy_params": {
-            "source": str(sources.strategy_params) if sources.strategy_params else "missing",
-            "params": params,
+            "source": str(strategy_params_source) if strategy_params_source else "missing",
+            "params": params or {},
         },
         "strategy_filter_stats": strategy_filter_stats,
         "source": {
@@ -1073,8 +1096,8 @@ def main() -> None:
         "metrics_snapshot_source": str(sources.metrics_snapshot)
         if sources.metrics_snapshot
         else "missing",
-        "strategy_params_source": str(sources.strategy_params)
-        if sources.strategy_params
+        "strategy_params_source": str(strategy_params_source)
+        if strategy_params_source
         else "missing",
         "local_matched_games_source": str(sources.local_matched_games)
         if sources.local_matched_games
@@ -1084,6 +1107,10 @@ def main() -> None:
         "matched_count_snapshot": matched_count_snapshot,
         "matched_count_table": matched_count_table,
         "matched_count_used": matched_count_used,
+        "strategy_params": {
+            "source": str(strategy_params_source) if strategy_params_source else "missing",
+            "params": params or {},
+        },
         "records": {
             "played_games": total_games,
             "bet_log_rows": len(bet_log_rows),
