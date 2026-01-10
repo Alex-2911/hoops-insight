@@ -154,10 +154,10 @@ jobs:
           python - <<'PY'
           import json
           d=json.load(open('public/data/last_run.json'))
-          n=d.get(\"strategy_filter_stats\",{}).get(\"matched_games_count\",0)
+          n=d.get("strategy_filter_stats",{}).get("matched_games_count",0)
           if n < 5:
-              raise SystemExit(f\"matched_games_count too low ({n}) — params computation likely wrong or wrong source file.\")
-          print(\"OK matched_games_count\", n)
+              raise SystemExit(f"matched_games_count too low ({n}) — params computation likely wrong or wrong source file.")
+          print("OK matched_games_count", n)
           PY
 
       - name: Setup Node 20
