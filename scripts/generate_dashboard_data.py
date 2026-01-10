@@ -27,6 +27,7 @@ import pandas as pd
 
 
 DATE_FMT = "%Y-%m-%d"
+CALIBRATION_WINDOW = 200
 THRESHOLDS = [
     {"label": "> 0.60", "thresholdType": "gt", "threshold": 0.60},
     {"label": "<= 0.40", "thresholdType": "lt", "threshold": 0.40},
@@ -361,6 +362,65 @@ def _serialize(obj):
     return obj
 
 
+def _sigmoid(x: float) -> float:
+    if x >= 0:
+        z = math.exp(-x)
+        return 1 / (1 + z)
+    z = math.exp(x)
+    return z / (1 + z)
+
+
+def _logit(p: float) -> float:
+    eps = 1e-6
+    p = min(max(p, eps), 1.0 - eps)
+    return math.log(p / (1 - p))
+
+
+def _fit_logistic_calibration(y: List[int], p: List[float]) -> Tuple[Optional[float], Optional[float]]:
+    if len(y) < 5 or len(y) != len(p):
+        return None, None
+    x_vals = [_logit(pi) for pi in p]
+    intercept = 0.0
+    slope = 1.0
+    for _ in range(50):
+        preds = [_sigmoid(intercept + slope * x) for x in x_vals]
+        w_vals = [pred * (1 - pred) for pred in preds]
+        g0 = sum(yi - pi for yi, pi in zip(y, preds))
+        g1 = sum((yi - pi) * x for yi, pi, x in zip(y, preds, x_vals))
+        h00 = -sum(w_vals)
+        h01 = -sum(w * x for w, x in zip(w_vals, x_vals))
+        h11 = -sum(w * x * x for w, x in zip(w_vals, x_vals))
+        det = h00 * h11 - h01 * h01
+        if det == 0:
+            break
+        delta0 = (g0 * h11 - g1 * h01) / det
+        delta1 = (g1 * h00 - g0 * h01) / det
+        intercept -= delta0
+        slope -= delta1
+        if abs(delta0) < 1e-6 and abs(delta1) < 1e-6:
+            break
+    return intercept, slope
+
+
+def _compute_ece(y: List[int], p: List[float], bins: int = 10) -> Optional[float]:
+    if not y or len(y) != len(p):
+        return None
+    total = len(y)
+    ece = 0.0
+    for i in range(bins):
+        lower = i / bins
+        upper = (i + 1) / bins
+        bucket = [(yi, pi) for yi, pi in zip(y, p) if lower <= pi < upper]
+        if not bucket:
+            continue
+        bucket_y = [yi for yi, _ in bucket]
+        bucket_p = [pi for _, pi in bucket]
+        acc = sum(bucket_y) / len(bucket_y)
+        conf = sum(bucket_p) / len(bucket_p)
+        ece += abs(acc - conf) * (len(bucket) / total)
+    return ece
+
+
 def load_played_games(path: Path) -> List[Dict[str, object]]:
     rows = []
     for row in _read_csv_normalized(path):
@@ -443,43 +503,81 @@ def build_accuracy_thresholds(rows: List[Dict[str, object]]) -> List[Dict[str, o
     return out
 
 
-def build_calibration_metrics(rows: List[Dict[str, object]]) -> Dict[str, object]:
-    p_raw = [r["prob_raw"] for r in rows if r["prob_raw"] is not None]
-    p_iso = [r["prob_iso"] for r in rows if r["prob_iso"] is not None]
-
-    if not p_raw:
+def build_calibration_metrics(
+    rows: List[Dict[str, object]], window_size: int = CALIBRATION_WINDOW
+) -> Dict[str, object]:
+    if not rows:
         return {
             "asOfDate": "—",
-            "brierBefore": 0.0,
-            "brierAfter": 0.0,
-            "logLossBefore": 0.0,
-            "logLossAfter": 0.0,
+            "brierBefore": None,
+            "brierAfter": None,
+            "logLossBefore": None,
+            "logLossAfter": None,
             "fittedGames": 0,
+            "ece": None,
+            "calibrationSlope": None,
+            "calibrationIntercept": None,
+            "avgPredictedProb": None,
+            "baseRate": None,
+            "actualWinPct": None,
+            "windowSize": 0,
         }
 
-    y_for_raw = [int(r["home_team_won"]) for r in rows if r["prob_raw"] is not None]
-    y_for_iso = [int(r["home_team_won"]) for r in rows if r["prob_iso"] is not None]
+    sorted_rows = sorted(rows, key=lambda r: r["date"])
+    window_rows = sorted_rows[-window_size:] if window_size else sorted_rows
+    window_size_used = len(window_rows)
+    as_of = window_rows[-1]["date"].strftime(DATE_FMT) if window_rows else "—"
 
-    brier_before = _compute_brier(y_for_raw, p_raw)
-    logloss_before = _compute_log_loss(y_for_raw, p_raw)
+    p_raw = [r["prob_raw"] for r in window_rows if r["prob_raw"] is not None]
+    y_raw = [int(r["home_team_won"]) for r in window_rows if r["prob_raw"] is not None]
+    p_iso = [r["prob_iso"] for r in window_rows if r["prob_iso"] is not None]
+    y_iso = [int(r["home_team_won"]) for r in window_rows if r["prob_iso"] is not None]
 
-    if p_iso and y_for_iso:
-        brier_after = _compute_brier(y_for_iso, p_iso)
-        logloss_after = _compute_log_loss(y_for_iso, p_iso)
-        fitted = len(y_for_iso)
+    prob_used = []
+    y_used = []
+    for r in window_rows:
+        prob = r["prob_iso"] if r["prob_iso"] is not None else r["prob_raw"]
+        if prob is None:
+            continue
+        prob_used.append(prob)
+        y_used.append(int(r["home_team_won"]))
+
+    if window_size_used:
+        base_rate = _safe_div(sum(int(r["home_team_won"]) for r in window_rows), window_size_used)
     else:
-        brier_after = brier_before
-        logloss_after = logloss_before
-        fitted = len(y_for_raw)
+        base_rate = None
 
-    as_of = max(r["date"] for r in rows).strftime(DATE_FMT)
+    avg_pred_prob = _safe_div(sum(prob_used), len(prob_used)) if prob_used else None
+
+    brier_before = _compute_brier(y_raw, p_raw) if p_raw else None
+    logloss_before = _compute_log_loss(y_raw, p_raw) if p_raw else None
+    brier_after = _compute_brier(y_iso, p_iso) if p_iso else None
+    logloss_after = _compute_log_loss(y_iso, p_iso) if p_iso else None
+
+    if p_iso:
+        fitted_games = len(p_iso)
+    elif p_raw:
+        fitted_games = len(p_raw)
+    else:
+        fitted_games = 0
+
+    calibration_intercept, calibration_slope = _fit_logistic_calibration(y_used, prob_used)
+    ece = _compute_ece(y_used, prob_used, bins=10)
+
     return {
         "asOfDate": as_of,
         "brierBefore": brier_before,
         "brierAfter": brier_after,
         "logLossBefore": logloss_before,
         "logLossAfter": logloss_after,
-        "fittedGames": fitted,
+        "fittedGames": fitted_games,
+        "ece": ece,
+        "calibrationSlope": calibration_slope,
+        "calibrationIntercept": calibration_intercept,
+        "avgPredictedProb": avg_pred_prob,
+        "baseRate": base_rate,
+        "actualWinPct": base_rate,
+        "windowSize": window_size_used,
     }
 
 
@@ -580,6 +678,19 @@ def build_strategy_filter_stats(
 def _compute_local_bankroll(rows: List[Dict[str, object]], start: float, stake: float) -> Dict[str, float]:
     net_pl = sum(row.get("pnl", 0.0) for row in rows)
     return {"start": start, "stake": stake, "net_pl": net_pl, "bankroll": start + net_pl}
+
+
+def _compute_sharpe_style(rows: List[Dict[str, object]]) -> Optional[float]:
+    pnl_values = [row.get("pnl") for row in rows if row.get("pnl") is not None]
+    n_trades = len(pnl_values)
+    if n_trades < 5:
+        return None
+    mean_pnl = sum(pnl_values) / n_trades
+    variance = sum((pnl - mean_pnl) ** 2 for pnl in pnl_values) / n_trades
+    std_dev = math.sqrt(variance)
+    if std_dev == 0:
+        return None
+    return (mean_pnl / std_dev) * math.sqrt(n_trades)
 
 
 def _snapshot_value(snapshot: Dict[str, Dict[str, object]], section: str, metric: str) -> Optional[object]:
@@ -723,7 +834,7 @@ def main() -> None:
 
     historical_stats = build_historical_stats(played_rows)
     accuracy_thresholds = build_accuracy_thresholds(played_rows)
-    calibration = build_calibration_metrics(played_rows)
+    calibration = build_calibration_metrics(played_rows, window_size=CALIBRATION_WINDOW)
     home_win_rates = build_home_win_rates_last20(played_rows)
 
     bet_log_rows = []
@@ -783,8 +894,6 @@ def main() -> None:
     matched_as_of_date = _max_date(local_matched_games_rows)
     if matched_as_of_date:
         strategy_as_of_date = matched_as_of_date.strftime(DATE_FMT)
-    elif snapshot_as_of_date:
-        strategy_as_of_date = snapshot_as_of_date.strftime(DATE_FMT)
     else:
         strategy_as_of_date = as_of_date
 
@@ -814,6 +923,7 @@ def main() -> None:
     realized_win_rate = _to_float(realized_win_rate_raw)
     realized_sharpe = _to_float(realized_sharpe_raw)
     ev_mean = _to_float(ev_mean_raw)
+    local_sharpe = _compute_sharpe_style(local_matched_games_rows) if local_matched_games_rows else None
 
     profit_metrics_available = realized_profit is not None and realized_roi is not None
     matched_count_snapshot = realized_count
@@ -824,7 +934,7 @@ def main() -> None:
         "roiPct": 0.0,
         "avgEvPer100": 0.0,
         "winRate": 0.0,
-        "sharpeStyle": realized_sharpe,
+        "sharpeStyle": local_sharpe if local_sharpe is not None else realized_sharpe,
         "profitMetricsAvailable": False,
         "asOfDate": strategy_as_of_date,
     }
@@ -839,7 +949,7 @@ def main() -> None:
             "roiPct": roi_pct,
             "avgEvPer100": ev_mean or 0.0,
             "winRate": realized_win_rate or 0.0,
-            "sharpeStyle": realized_sharpe,
+            "sharpeStyle": local_sharpe if local_sharpe is not None else realized_sharpe,
             "profitMetricsAvailable": profit_metrics_available,
             "asOfDate": strategy_as_of_date,
         }
@@ -857,7 +967,7 @@ def main() -> None:
             "winRate": _safe_div(
                 sum(1 for row in local_matched_games_rows if row.get("win") == 1), total_bets
             ),
-            "sharpeStyle": None,
+            "sharpeStyle": local_sharpe,
             "profitMetricsAvailable": True,
             "asOfDate": strategy_as_of_date,
         }
