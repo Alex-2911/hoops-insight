@@ -123,11 +123,30 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r Basketball_prediction/requirements.txt
 
-      - name: Verify metrics_snapshot.json exists
+      - name: Verify metrics_snapshot candidates exist
         shell: bash
         run: |
-          SNAP="$GITHUB_WORKSPACE/Basketball_prediction/2026/output/LightGBM/metrics_snapshot.json"
-          [[ -f "$SNAP" ]] && echo "✔ metrics_snapshot.json exists." || (echo "Missing: $SNAP" && exit 1)
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/Basketball_prediction/2026"
+          SNAP_FOUND=""
+          for SNAP in \
+            "$ROOT/metrics_snapshot.json" \
+            "$ROOT/output/LightGBM/metrics_snapshot.json" \
+            "$ROOT/output/LightGBM/metrics_snapshot/metrics_snapshot.json" \
+            "$ROOT/output/LightGBM/metrics_snapshot_latest.json"; do
+            if [[ -f "$SNAP" ]]; then
+              echo "✔ Found metrics snapshot: $SNAP"
+              SNAP_FOUND="yes"
+            fi
+          done
+          if [[ -z "$SNAP_FOUND" ]]; then
+            SNAP=$(find "$ROOT" -maxdepth 4 -name "metrics_snapshot*" -print -quit || true)
+            if [[ -z "$SNAP" ]]; then
+              echo "Missing metrics_snapshot* under $ROOT"
+              exit 1
+            fi
+            echo "✔ Found metrics snapshot: $SNAP"
+          fi
 
       - name: Compute strategy parameters (windowed search)
         shell: bash
@@ -145,6 +164,18 @@ jobs:
           set -euo pipefail
           python scripts/generate_dashboard_data.py --source-root "$GITHUB_WORKSPACE/Basketball_prediction/2026"
 
+      - name: Debug Basketball_prediction snapshot candidates
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/Basketball_prediction/2026"
+          echo "=== Basketball_prediction/2026 snapshot candidates ==="
+          ls -la "$ROOT" || true
+          ls -la "$ROOT/output" || true
+          ls -la "$ROOT/output/LightGBM" || true
+          find "$ROOT" -maxdepth 4 -name "metrics_snapshot*" -print || true
+          find "$ROOT" -maxdepth 4 -name "strategy_params*" -print || true
+
       - name: Validate strategy params usage
         shell: bash
         run: |
@@ -156,7 +187,16 @@ jobs:
           d=json.load(open('public/data/last_run.json'))
           n=d.get("strategy_filter_stats",{}).get("matched_games_count",0)
           if n < 5:
-              raise SystemExit(f"matched_games_count too low ({n}) — params computation likely wrong or wrong source file.")
+              params=d.get("strategy_params",{})
+              stats=d.get("strategy_filter_stats",{})
+              print("matched_games_count too low:", n)
+              print("active_filters:", params.get("active_filters"))
+              print("params_used_source:", params.get("params_used_source"))
+              print("params_used:", params.get("params_used"))
+              print("window_start:", stats.get("window_start"))
+              print("window_end:", stats.get("window_end"))
+              print("filters:", stats.get("filters"))
+              raise SystemExit("matched_games_count too low — params computation likely wrong or wrong source file.")
           print("OK matched_games_count", n)
           PY
 
