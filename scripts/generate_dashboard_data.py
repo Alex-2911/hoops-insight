@@ -124,6 +124,13 @@ def _coerce_value(val: object) -> object:
     return num
 
 
+def _normalize_params(params: Dict[str, object]) -> Dict[str, object]:
+    normalized: Dict[str, object] = {}
+    for key, value in params.items():
+        normalized[_normalize_key(str(key))] = _coerce_value(value)
+    return normalized
+
+
 def _read_csv_normalized(path: Path) -> Iterable[Dict[str, str]]:
     with path.open("r", encoding="utf-8") as f:
         reader = csv.DictReader(f)
@@ -155,28 +162,44 @@ def _parse_matchup(matchup: Optional[str]) -> Tuple[Optional[str], Optional[str]
     return None, None
 
 
+def _parse_snapshot_records(records: Iterable[object]) -> Dict[str, Dict[str, object]]:
+    parsed: Dict[str, Dict[str, object]] = {}
+    for row in records:
+        if not isinstance(row, dict):
+            continue
+        section = row.get("section")
+        metric = row.get("metric")
+        value = row.get("value")
+        if section and metric:
+            parsed.setdefault(str(section), {})[str(metric)] = _coerce_value(value)
+    return parsed
+
+
 def load_metrics_snapshot(path: Path) -> Dict[str, Dict[str, object]]:
     if not path.exists():
         return {}
     if path.suffix.lower() == ".json":
         with path.open("r", encoding="utf-8") as f:
             data = json.load(f)
-        parsed: Dict[str, Dict[str, object]] = {}
         if isinstance(data, list):
-            for row in data:
-                if not isinstance(row, dict):
-                    continue
-                section = row.get("section")
-                metric = row.get("metric")
-                value = row.get("value")
-                if section and metric:
-                    parsed.setdefault(str(section), {})[str(metric)] = _coerce_value(value)
+            return _parse_snapshot_records(data)
         elif isinstance(data, dict):
+            parsed: Dict[str, Dict[str, object]] = {}
+            for key in ("records", "metrics", "rows"):
+                records = data.get(key)
+                if isinstance(records, list):
+                    parsed.update(_parse_snapshot_records(records))
             for section, metrics in data.items():
+                if section in ("records", "metrics", "rows"):
+                    continue
                 if isinstance(metrics, dict):
-                    for metric, value in metrics.items():
-                        parsed.setdefault(str(section), {})[str(metric)] = _coerce_value(value)
-        return parsed
+                    parsed.setdefault(str(section), {}).update(
+                        {str(metric): _coerce_value(value) for metric, value in metrics.items()}
+                    )
+                elif isinstance(metrics, list):
+                    parsed.update(_parse_snapshot_records(metrics))
+            return parsed
+        return {}
 
     parsed: Dict[str, Dict[str, object]] = {}
     with path.open("r", encoding="utf-8") as f:
@@ -212,6 +235,16 @@ def load_strategy_params(path: Path) -> Dict[str, object]:
             value = _coerce_value(match.group(2))
             params[key] = value
     return params
+
+
+def _extract_params_used(snapshot: Dict[str, Dict[str, object]]) -> Dict[str, object]:
+    for key in ("params_used", "filter_params", "params"):
+        params = snapshot.get(key)
+        if isinstance(params, dict):
+            normalized = _normalize_params(params)
+            if normalized:
+                return normalized
+    return {}
 
 
 def load_local_matched_games_csv(path: Path) -> Tuple[List[Dict[str, object]], Dict[str, object]]:
@@ -292,24 +325,38 @@ def _find_latest_by_mtime(path: Path, pattern: str) -> Optional[Path]:
     return max(candidates, key=lambda item: item.stat().st_mtime)
 
 
-def _find_metrics_snapshot(lightgbm_dir: Path, as_of_date: Optional[str]) -> Optional[Path]:
-    if as_of_date:
-        dated = lightgbm_dir / f"metrics_snapshot_{as_of_date}.json"
-        if dated.exists():
-            return dated
-    preferred = lightgbm_dir / "metrics_snapshot.json"
-    if preferred.exists():
-        return preferred
-    latest_snapshot = _find_latest_by_mtime(lightgbm_dir, "metrics_snapshot*.json")
-    if latest_snapshot:
-        return latest_snapshot
-    latest_csv = _find_latest_by_mtime(lightgbm_dir, "betting_metrics_snapshot_*.csv")
-    if latest_csv:
-        return latest_csv
-    for name in ("metrics_snapshot.csv", "metrics_snapshot.json"):
-        candidate = lightgbm_dir / name
-        if candidate.exists():
-            return candidate
+def _find_metrics_snapshot(
+    lightgbm_dir: Path, as_of_date: Optional[str], root: Optional[Path]
+) -> Optional[Path]:
+    candidate_dirs = [lightgbm_dir, lightgbm_dir / "metrics_snapshot"]
+    if root:
+        candidate_dirs.extend(
+            [
+                root,
+                root / "output" / "LightGBM",
+                root / "output" / "LightGBM" / "metrics_snapshot",
+            ]
+        )
+    for candidate_dir in candidate_dirs:
+        if not candidate_dir.exists():
+            continue
+        if as_of_date:
+            dated = candidate_dir / f"metrics_snapshot_{as_of_date}.json"
+            if dated.exists():
+                return dated
+        preferred = candidate_dir / "metrics_snapshot.json"
+        if preferred.exists():
+            return preferred
+        latest_snapshot = _find_latest_by_mtime(candidate_dir, "metrics_snapshot*.json")
+        if latest_snapshot:
+            return latest_snapshot
+        latest_csv = _find_latest_by_mtime(candidate_dir, "betting_metrics_snapshot_*.csv")
+        if latest_csv:
+            return latest_csv
+        for name in ("metrics_snapshot.csv", "metrics_snapshot.json", "metrics_snapshot_latest.json"):
+            candidate = candidate_dir / name
+            if candidate.exists():
+                return candidate
     return None
 
 
@@ -378,7 +425,7 @@ def _resolve_sources(root: Optional[Path], as_of_date: Optional[str]) -> SourceP
     bet_log_flat = lightgbm_dir / "bet_log_flat_live.csv"
     if not bet_log_flat.exists():
         bet_log_flat = _find_latest_file(lightgbm_dir, "bet_log_flat_live")
-    metrics_snapshot = _find_metrics_snapshot(lightgbm_dir, as_of_date)
+    metrics_snapshot = _find_metrics_snapshot(lightgbm_dir, as_of_date, root)
     strategy_params = _find_strategy_params(lightgbm_dir, as_of_date)
     local_matched_games = _find_local_matched_games(lightgbm_dir, as_of_date)
     return SourcePaths(
@@ -686,9 +733,17 @@ def build_strategy_filter_stats(
     rows: List[Dict[str, object]], params: Dict[str, object], window_size: int
 ) -> Dict[str, object]:
     if not rows:
-        return {"window_size": window_size, "filters": [], "matched_games_count": 0}
+        return {
+            "window_size": window_size,
+            "filters": [],
+            "matched_games_count": 0,
+            "window_start": None,
+            "window_end": None,
+        }
     sorted_rows = sorted(rows, key=lambda r: r["date"])
     window_rows = sorted_rows[-window_size:]
+    window_start = window_rows[0]["date"] if window_rows else None
+    window_end = window_rows[-1]["date"] if window_rows else None
     filters = [{"label": "Window games", "count": len(window_rows)}]
 
     min_prob_used = _get_param(
@@ -731,7 +786,13 @@ def build_strategy_filter_stats(
             {"label": f"Home win rate ≥ {min_home_win_rate:.2f}", "count": len(current)}
         )
 
-    return {"window_size": window_size, "filters": filters, "matched_games_count": len(current)}
+    return {
+        "window_size": window_size,
+        "filters": filters,
+        "matched_games_count": len(current),
+        "window_start": window_start,
+        "window_end": window_end,
+    }
 
 
 def _compute_local_bankroll(rows: List[Dict[str, object]], start: float, stake: float) -> Dict[str, float]:
@@ -1135,11 +1196,25 @@ def main() -> None:
         params = {}
         strategy_params_source = None
 
+    params_used_source = str(strategy_params_source) if strategy_params_source else None
     params_used = params.get("params_used") if isinstance(params, dict) else None
     if isinstance(params_used, str):
         params_used = {"label": params_used}
-    if not isinstance(params_used, dict):
-        params_used = params
+    if isinstance(params_used, dict):
+        params_used = _normalize_params(params_used)
+    elif isinstance(params, dict) and params:
+        params_used = _normalize_params(params)
+    else:
+        params_used = {}
+    if not params_used:
+        snapshot_params = _extract_params_used(metrics_snapshot)
+        if snapshot_params:
+            params_used = snapshot_params
+            params_used_source = (
+                str(sources.metrics_snapshot) if sources.metrics_snapshot else "metrics_snapshot"
+            )
+            if not params:
+                params = {"params_used": params_used}
     active_filters_label = _human_readable_filters(params_used)
 
     strategy_filter_stats = build_strategy_filter_stats(played_rows, params_used, window_size=200)
@@ -1304,6 +1379,7 @@ def main() -> None:
             "params": params_used or {},
             "params_used": params_used or {},
             "active_filters": active_filters_label,
+            "params_used_source": params_used_source or "missing",
         },
         "strategy_filter_stats": strategy_filter_stats,
         "source": {
@@ -1363,7 +1439,11 @@ def main() -> None:
         "strategy_params": {
             "source": str(strategy_params_source) if strategy_params_source else "missing",
             "params": params or {},
+            "params_used": params_used or {},
+            "active_filters": active_filters_label,
+            "params_used_source": params_used_source or "missing",
         },
+        "strategy_filter_stats": strategy_filter_stats,
         "records": {
             "played_games": total_games,
             "bet_log_rows": len(bet_log_rows),
