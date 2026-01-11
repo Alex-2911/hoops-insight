@@ -26,7 +26,11 @@ npm run dev
 ## Data pipeline (stats-only)
 
 This dashboard reads historical-only artifacts from `public/data/*.json`.
-Generate these files from the Basketball_prediction pipeline outputs:
+Generate these files from the Basketball_prediction pipeline outputs. Data sources:
+
+- Window performance (model): `combined_nba_predictions_*` (played games only).
+- Strategy simulation (window subset): `local_matched_games_YYYY-MM-DD.csv`.
+- Placed bets (real, settled): `bet_log_flat_live.csv`, settled against `combined_*` results.
 
 ```sh
 # Python (stats exporter)

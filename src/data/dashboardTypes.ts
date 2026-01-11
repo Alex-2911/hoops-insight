@@ -30,6 +30,8 @@ export interface SummaryPayload {
   strategy_params: {
     source: string;
     params: Record<string, string | number | boolean | null>;
+    params_used: Record<string, string | number | boolean | null>;
+    active_filters: string;
   };
   strategy_filter_stats: {
     window_size: number;
@@ -39,6 +41,7 @@ export interface SummaryPayload {
   source: {
     combined_file: string;
     bet_log_file: string;
+    bet_log_flat_file: string;
     metrics_snapshot_source: string;
   };
 }
@@ -114,6 +117,17 @@ export interface LocalMatchedGame {
   pnl: number;
 }
 
+export interface SettledBet {
+  date: string;
+  home_team: string;
+  away_team: string;
+  pick_team: string;
+  odds: number;
+  stake: number;
+  win: number;
+  pnl: number;
+}
+
 export interface BankrollSummary {
   start: number;
   stake: number;
@@ -135,4 +149,13 @@ export interface TablesPayload {
   local_matched_games_note: string;
   bankroll_last_200: BankrollSummary;
   bankroll_ytd_2026: BankrollSummary;
+  local_matched_games_avg_odds: number;
+  settled_bets_rows: SettledBet[];
+  settled_bets_summary: {
+    count: number;
+    wins: number;
+    profit_eur: number;
+    roi_pct: number;
+    avg_odds: number;
+  };
 }

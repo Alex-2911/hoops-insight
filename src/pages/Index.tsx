@@ -93,6 +93,15 @@ const Index = () => {
     net_pl: 0,
     bankroll: 1000,
   };
+  const localMatchedGamesAvgOdds = tables?.local_matched_games_avg_odds ?? 0;
+  const settledBetsRows = tables?.settled_bets_rows ?? [];
+  const settledBetsSummary = tables?.settled_bets_summary ?? {
+    count: 0,
+    wins: 0,
+    profit_eur: 0,
+    roi_pct: 0,
+    avg_odds: 0,
+  };
 
   const strategySummary = summary?.strategy_summary ?? {
     totalBets: 0,
@@ -107,6 +116,8 @@ const Index = () => {
   const strategyParams = summary?.strategy_params ?? {
     source: "missing",
     params: {},
+    params_used: {},
+    active_filters: "No active filters.",
   };
   const strategyFilterStats = summary?.strategy_filter_stats ?? {
     window_size: 200,
@@ -114,6 +125,7 @@ const Index = () => {
     matched_games_count: 0,
   };
   const metricsSnapshotSource = summary?.source?.metrics_snapshot_source ?? "missing";
+  const betLogFlatSource = summary?.source?.bet_log_flat_file ?? "missing";
   const localParamsMissing =
     strategyParams.source === "missing" || metricsSnapshotSource === "missing";
 
@@ -134,8 +146,8 @@ const Index = () => {
   const matchedGamesCount = strategyFilterStats.matched_games_count ?? 0;
 
   const strategyParamsList = useMemo(() => {
-    return Object.entries(strategyParams.params ?? {});
-  }, [strategyParams.params]);
+    return Object.entries(strategyParams.params_used ?? {});
+  }, [strategyParams.params_used]);
 
   const formatSigned = (value: number | null | undefined) => {
     if (typeof value !== "number" || !Number.isFinite(value)) {
@@ -180,9 +192,15 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Top stats */}
+      {/* Window performance (model) */}
       <section className="container mx-auto px-4 py-10">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold">Window Performance (Model)</h2>
+          <p className="text-sm text-muted-foreground">
+            Source: combined_nba_predictions_* (played games only, windowed).
+          </p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <StatCard
             title="Overall Accuracy"
             value={overallAccuracyPct}
@@ -241,77 +259,6 @@ const Index = () => {
             subtitle={`Before: ${fmtNumber(calibrationMetrics.brierBefore, 3)}`}
             icon={<BarChart3 className="w-6 h-6" />}
           />
-
-          <StatCard
-            title="Bankroll (Last 200 Games)"
-            value={fmtCurrencyEUR(bankrollLast200.bankroll, 2)}
-            subtitle={`Start ${fmtCurrencyEUR(bankrollLast200.start, 0)} • Net P/L: ${fmtCurrencyEUR(bankrollLast200.net_pl, 2)}`}
-            icon={<Activity className="w-6 h-6" />}
-          />
-
-          <StatCard
-            title="Bankroll (2026 YTD)"
-            value={fmtCurrencyEUR(bankrollYtd2026.bankroll, 2)}
-            subtitle={`Start ${fmtCurrencyEUR(bankrollYtd2026.start, 0)} • Net P/L 2026: ${fmtCurrencyEUR(bankrollYtd2026.net_pl, 2)}`}
-            icon={<Activity className="w-6 h-6" />}
-          />
-        </div>
-      </section>
-
-      {/* Strategy filter coverage */}
-      <section className="container mx-auto px-4 py-10">
-        <div className="glass-card p-6">
-          <h2 className="text-xl font-bold mb-2">Strategy Filter Coverage</h2>
-          <p className="text-sm text-muted-foreground mb-6">
-            Descriptive filter pass rates for the last {strategyFilterStats.window_size} games window. No recommendations or picks.
-          </p>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="rounded-lg border border-border p-4">
-              <div className="font-semibold mb-3">Filter params</div>
-              {strategyParamsList.length === 0 ? (
-                <div className="text-sm text-muted-foreground">
-                  No strategy params found.
-                </div>
-              ) : (
-                <ul className="space-y-2 text-sm">
-                  {strategyParamsList.map(([key, value]) => (
-                    <li key={key} className="flex items-center justify-between">
-                      <span className="text-muted-foreground">{key}</span>
-                      <span className="font-medium text-foreground">{String(value)}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-            <div className="rounded-lg border border-border p-4">
-              <div className="font-semibold mb-3">Coverage counts</div>
-              <ul className="space-y-2 text-sm">
-                {strategyFilterStats.filters.map((item) => (
-                  <li key={item.label} className="flex items-center justify-between">
-                    <span className="text-muted-foreground">{item.label}</span>
-                    <span className="font-medium text-foreground">{item.count}</span>
-                  </li>
-                ))}
-                <li className="flex items-center justify-between pt-2 border-t border-border/50">
-                  <span className="text-muted-foreground">Matched games</span>
-                  <span className="font-medium text-foreground">{matchedGamesCount}</span>
-                </li>
-              </ul>
-              <div className="mt-4 text-xs text-muted-foreground">
-                Matched subset accuracy:{" "}
-                {strategySubsetAvailable
-                  ? fmtPercent(
-                      (strategySubsetWins / Math.max(strategySummary.totalBets, 1)) * 100,
-                      2,
-                    )
-                  : "N/A"}{" "}
-                • Matched games: {matchedGamesCount}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                Params source: {strategyParams.source}
-              </div>
-            </div>
-          </div>
         </div>
       </section>
 
@@ -387,6 +334,92 @@ const Index = () => {
         </div>
       </section>
 
+      {/* Strategy (simulated) */}
+      <section className="container mx-auto px-4 py-10">
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold">Strategy (Simulated on Window Subset)</h2>
+          <p className="text-sm text-muted-foreground">
+            Source: local_matched_games_YYYY-MM-DD.csv (window subset only).
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+          <StatCard
+            title="Bankroll (Last 200 Games)"
+            value={fmtCurrencyEUR(bankrollLast200.bankroll, 2)}
+            subtitle={`Start ${fmtCurrencyEUR(bankrollLast200.start, 0)} • Net P/L: ${fmtCurrencyEUR(bankrollLast200.net_pl, 2)}`}
+            icon={<Activity className="w-6 h-6" />}
+          />
+
+          <StatCard
+            title="Bankroll (2026 YTD, Simulated)"
+            value={fmtCurrencyEUR(bankrollYtd2026.bankroll, 2)}
+            subtitle={`Start ${fmtCurrencyEUR(bankrollYtd2026.start, 0)} • Net P/L 2026: ${fmtCurrencyEUR(bankrollYtd2026.net_pl, 2)}`}
+            icon={<Activity className="w-6 h-6" />}
+          />
+        </div>
+
+        <div className="glass-card p-6">
+          <h2 className="text-xl font-bold mb-2">Strategy Filter Coverage</h2>
+          <p className="text-sm text-muted-foreground mb-6">
+            Descriptive filter pass rates for the last {strategyFilterStats.window_size} games window. No recommendations or picks.
+          </p>
+          <div className="rounded-lg border border-border px-4 py-3 text-sm text-muted-foreground mb-6">
+            Active filters: <span className="text-foreground">{strategyParams.active_filters}</span>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="rounded-lg border border-border p-4">
+              <div className="font-semibold mb-3">Filter params</div>
+              {strategyParamsList.length === 0 ? (
+                <div className="text-sm text-muted-foreground">
+                  No strategy params found.
+                </div>
+              ) : (
+                <ul className="space-y-2 text-sm">
+                  {strategyParamsList.map(([key, value]) => (
+                    <li key={key} className="flex items-center justify-between">
+                      <span className="text-muted-foreground">{key}</span>
+                      <span className="font-medium text-foreground">{String(value)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div className="rounded-lg border border-border p-4">
+              <div className="font-semibold mb-3">Coverage counts</div>
+              <ul className="space-y-2 text-sm">
+                {strategyFilterStats.filters.map((item) => (
+                  <li key={item.label} className="flex items-center justify-between">
+                    <span className="text-muted-foreground">{item.label}</span>
+                    <span className="font-medium text-foreground">{item.count}</span>
+                  </li>
+                ))}
+                <li className="flex items-center justify-between pt-2 border-t border-border/50">
+                  <span className="text-muted-foreground">Matched games</span>
+                  <span className="font-medium text-foreground">{matchedGamesCount}</span>
+                </li>
+              </ul>
+              <div className="mt-4 text-xs text-muted-foreground">
+                Matched subset accuracy:{" "}
+                {strategySubsetAvailable
+                  ? fmtPercent(
+                      (strategySubsetWins / Math.max(strategySummary.totalBets, 1)) * 100,
+                      2,
+                    )
+                  : "N/A"}{" "}
+                • Matched games: {matchedGamesCount}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Params source: {strategyParams.source}
+              </div>
+            </div>
+          </div>
+          <div className="text-xs text-muted-foreground mt-4">
+            Avg odds (window subset): {fmtNumber(localMatchedGamesAvgOdds, 2)} • Lower odds keep ROI interpretation stable.
+          </div>
+        </div>
+      </section>
+
       {/* Local params bet log summary (historical only) */}
       <section className="container mx-auto px-4 py-10">
         <div className="glass-card p-6">
@@ -395,7 +428,7 @@ const Index = () => {
             Aggregated statistics from strategy-matched bets in the last {strategyFilterStats.window_size} games window. No future recommendations are displayed.
           </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
             <div className="rounded-lg border border-border p-4">
               <div className="text-sm text-muted-foreground">Bets (Local Params)</div>
               <div className="text-2xl font-bold">{localParamsMissing ? 0 : strategySummary.totalBets}</div>
@@ -424,6 +457,12 @@ const Index = () => {
               <div className="text-sm text-muted-foreground">Avg EV €/100 (Local Params)</div>
               <div className="text-2xl font-bold">
                 {localParamsMissing ? "N/A" : fmtNumber(strategySummary.avgEvPer100, 2)}
+              </div>
+            </div>
+            <div className="rounded-lg border border-border p-4">
+              <div className="text-sm text-muted-foreground">Avg Odds (Local Params)</div>
+              <div className="text-2xl font-bold">
+                {localParamsMissing ? "N/A" : fmtNumber(localMatchedGamesAvgOdds, 2)}
               </div>
             </div>
           </div>
@@ -524,6 +563,95 @@ const Index = () => {
               </table>
             </div>
           )}
+        </div>
+      </section>
+
+      {/* Placed bets (real) */}
+      <section className="container mx-auto px-4 py-10">
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold">Placed Bets (Real) — 2026 YTD</h2>
+          <p className="text-sm text-muted-foreground">
+            Source: bet_log_flat_live.csv, settled against combined_nba_predictions_* outcomes.
+          </p>
+        </div>
+        <div className="glass-card p-6">
+          <h2 className="text-xl font-bold mb-2">Settled Bets (2026)</h2>
+          <p className="text-sm text-muted-foreground mb-6">
+            These are real placed bets, settled after the fact using final results from combined_*.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="rounded-lg border border-border p-4">
+              <div className="text-sm text-muted-foreground">Count</div>
+              <div className="text-2xl font-bold">{settledBetsSummary.count}</div>
+            </div>
+            <div className="rounded-lg border border-border p-4">
+              <div className="text-sm text-muted-foreground">Wins</div>
+              <div className="text-2xl font-bold">{settledBetsSummary.wins}</div>
+            </div>
+            <div className="rounded-lg border border-border p-4">
+              <div className="text-sm text-muted-foreground">P/L</div>
+              <div className="text-2xl font-bold">
+                {fmtCurrencyEUR(settledBetsSummary.profit_eur, 2)}
+              </div>
+            </div>
+            <div className="rounded-lg border border-border p-4">
+              <div className="text-sm text-muted-foreground">ROI</div>
+              <div className="text-2xl font-bold">
+                {fmtPercent(settledBetsSummary.roi_pct, 2)}
+              </div>
+            </div>
+            <div className="rounded-lg border border-border p-4">
+              <div className="text-sm text-muted-foreground">Avg Odds</div>
+              <div className="text-2xl font-bold">
+                {fmtNumber(settledBetsSummary.avg_odds, 2)}
+              </div>
+            </div>
+          </div>
+
+          <div className="text-xs text-muted-foreground mt-4">
+            Bets are settled only when a matching played game is available. Source: {betLogFlatSource}
+          </div>
+
+          <div className="mt-6 overflow-x-auto">
+            {settledBetsRows.length === 0 ? (
+              <div className="rounded-lg border border-border p-4 text-sm text-muted-foreground">
+                No settled bets recorded for 2026 yet.
+              </div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left border-b border-border">
+                    <th className="py-2 pr-4">Date</th>
+                    <th className="py-2 pr-4">Home</th>
+                    <th className="py-2 pr-4">Away</th>
+                    <th className="py-2 pr-4">Pick</th>
+                    <th className="py-2 pr-4">Odds</th>
+                    <th className="py-2 pr-4">Stake</th>
+                    <th className="py-2 pr-4">Win</th>
+                    <th className="py-2 pr-4">P/L</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {settledBetsRows.map((bet) => (
+                    <tr
+                      key={`${bet.date}-${bet.home_team}-${bet.away_team}-${bet.pick_team}`}
+                      className="border-b border-border/50"
+                    >
+                      <td className="py-2 pr-4">{bet.date}</td>
+                      <td className="py-2 pr-4 font-medium">{bet.home_team}</td>
+                      <td className="py-2 pr-4">{bet.away_team}</td>
+                      <td className="py-2 pr-4">{bet.pick_team}</td>
+                      <td className="py-2 pr-4">{fmtNumber(bet.odds, 2)}</td>
+                      <td className="py-2 pr-4">{fmtCurrencyEUR(bet.stake, 2)}</td>
+                      <td className="py-2 pr-4">{bet.win === 1 ? "✅" : "❌"}</td>
+                      <td className="py-2 pr-4">{formatSigned(bet.pnl)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
       </section>
 
