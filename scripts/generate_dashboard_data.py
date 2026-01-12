@@ -1143,6 +1143,9 @@ def main() -> None:
     metrics_snapshot = (
         load_metrics_snapshot(sources.metrics_snapshot) if sources.metrics_snapshot else {}
     )
+    metrics_snapshot_fallback_source = None
+    if not sources.metrics_snapshot and sources.strategy_params and sources.strategy_params.exists():
+        metrics_snapshot_fallback_source = str(sources.strategy_params)
     realized_count_raw = _snapshot_value(metrics_snapshot, "realized", "count")
     realized_profit_raw = _snapshot_value(metrics_snapshot, "realized", "profit_sum")
     realized_roi_raw = _snapshot_value(metrics_snapshot, "realized", "roi")
@@ -1167,6 +1170,10 @@ def main() -> None:
             realized_win_rate_raw = _snapshot_value(metrics_snapshot, "realized", "win_rate")
             realized_sharpe_raw = _snapshot_value(metrics_snapshot, "realized", "sharpe_style")
             ev_mean_raw = _snapshot_value(metrics_snapshot, "ev_stats", "mean")
+            if sources.metrics_snapshot:
+                metrics_snapshot_fallback_source = None
+            elif sources.strategy_params and sources.strategy_params.exists():
+                metrics_snapshot_fallback_source = str(sources.strategy_params)
 
     local_matched_games_rows: List[Dict[str, object]] = []
     local_matched_games_summary = {"rows_count": 0, "profit_sum_table": 0.0}
@@ -1186,7 +1193,10 @@ def main() -> None:
         strategy_as_of_date = as_of_date
 
     strategy_params_path = output_dir / "strategy_params.json"
-    if strategy_params_path.exists():
+    if metrics_snapshot_fallback_source and sources.strategy_params:
+        params = load_strategy_params(sources.strategy_params)
+        strategy_params_source = sources.strategy_params
+    elif strategy_params_path.exists():
         params = load_strategy_params(strategy_params_path)
         strategy_params_source = strategy_params_path
     elif sources.strategy_params:
@@ -1356,6 +1366,16 @@ def main() -> None:
         )
         settled_bets_summary = build_settled_bet_summary(settled_bets_rows)
 
+    metrics_snapshot_source = (
+        str(sources.metrics_snapshot)
+        if sources.metrics_snapshot
+        else (
+            f"missing (fallback: {metrics_snapshot_fallback_source})"
+            if metrics_snapshot_fallback_source
+            else "missing"
+        )
+    )
+
     summary_payload = {
         "last_run": last_run,
         "as_of_date": as_of_date,
@@ -1388,9 +1408,8 @@ def main() -> None:
             "bet_log_flat_file": str(sources.bet_log_flat)
             if sources.bet_log_flat
             else "missing",
-            "metrics_snapshot_source": str(sources.metrics_snapshot)
-            if sources.metrics_snapshot
-            else "missing",
+            "metrics_snapshot_source": metrics_snapshot_source,
+            "metrics_snapshot_fallback_source": metrics_snapshot_fallback_source or "missing",
         },
     }
 
@@ -1419,9 +1438,8 @@ def main() -> None:
         "as_of_date": as_of_date,
         "source_root_used": str(source_root) if source_root else "missing",
         "expected_lightgbm_dir": str(expected_lightgbm_dir) if expected_lightgbm_dir else "missing",
-        "metrics_snapshot_source": str(sources.metrics_snapshot)
-        if sources.metrics_snapshot
-        else "missing",
+        "metrics_snapshot_source": metrics_snapshot_source,
+        "metrics_snapshot_fallback_source": metrics_snapshot_fallback_source or "missing",
         "strategy_params_source": str(strategy_params_source)
         if strategy_params_source
         else "missing",
