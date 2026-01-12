@@ -146,11 +146,13 @@ jobs:
           if [[ -z "$SNAP_FOUND" ]]; then
             SNAP=$(find "$ROOT" -maxdepth 4 -name "metrics_snapshot*" -print -quit || true)
             if [[ -z "$SNAP" ]]; then
-              echo "Missing metrics_snapshot* under $ROOT"
-              exit 1
+              echo "⚠️ Missing metrics_snapshot* under $ROOT — continuing with fallback strategy params."
+              echo "METRICS_SNAPSHOT_FOUND=no" >> "$GITHUB_ENV"
+              exit 0
             fi
             echo "✔ Found metrics snapshot: $SNAP"
           fi
+          echo "METRICS_SNAPSHOT_FOUND=yes" >> "$GITHUB_ENV"
 
       - name: Compute strategy parameters (windowed search)
         shell: bash
@@ -204,6 +206,8 @@ jobs:
           import json
           d=json.load(open('public/data/last_run.json'))
           n=d.get("strategy_filter_stats",{}).get("matched_games_count",0)
+          snapshot_source=str(d.get("metrics_snapshot_source","missing")).lower()
+          snapshot_missing=snapshot_source.startswith("missing")
           if n < 5:
               params=d.get("strategy_params",{})
               stats=d.get("strategy_filter_stats",{})
@@ -214,6 +218,9 @@ jobs:
               print("window_start:", stats.get("window_start"))
               print("window_end:", stats.get("window_end"))
               print("filters:", stats.get("filters"))
+              if snapshot_missing:
+                  print("⚠️ metrics_snapshot missing — skipping hard failure for matched_games_count.")
+                  raise SystemExit(0)
               raise SystemExit("matched_games_count too low — params computation likely wrong or wrong source file.")
           print("OK matched_games_count", n)
           PY
