@@ -107,6 +107,10 @@ jobs:
           git -C Basketball_prediction checkout 2026
           git -C Basketball_prediction reset --hard origin/2026
           echo "✔ Basketball_prediction refreshed to latest origin/2026"
+          echo "Basketball_prediction ref info:"
+          git -C Basketball_prediction branch --show-current
+          git -C Basketball_prediction rev-parse HEAD
+          git -C Basketball_prediction log -1 --oneline
 
       - name: Install system dependencies (optional)
         run: sudo apt-get update && sudo apt-get install -y libatlas-base-dev
@@ -163,6 +167,20 @@ jobs:
         run: |
           set -euo pipefail
           python scripts/generate_dashboard_data.py --source-root "$GITHUB_WORKSPACE/Basketball_prediction/2026"
+
+      - name: Debug last_run.json filters and params
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "=== active_filters ==="
+          python - <<'PY'
+          import json
+          d=json.load(open("public/data/last_run.json"))
+          print(d.get("active_filters"))
+          print("active_filters_human:", d.get("active_filters_human"))
+          print("params_used_type:", d.get("params_used_type"))
+          print("matched_games_count:", d.get("strategy_filter_stats",{}).get("matched_games_count"))
+          PY
 
       - name: Debug Basketball_prediction snapshot candidates
         shell: bash
