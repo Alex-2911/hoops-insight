@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { StatCard } from "@/components/cards/StatCard";
 import type {
+  LastRunPayload,
   SummaryPayload,
   TablesPayload,
 } from "@/data/dashboardTypes";
@@ -16,6 +17,7 @@ import { fmtCurrencyEUR, fmtNumber, fmtPercent } from "@/lib/format";
 const Index = () => {
   const [summary, setSummary] = useState<SummaryPayload | null>(null);
   const [tables, setTables] = useState<TablesPayload | null>(null);
+  const [lastRun, setLastRun] = useState<LastRunPayload | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const baseUrl = import.meta.env.BASE_URL ?? "/";
 
@@ -23,9 +25,10 @@ const Index = () => {
     let alive = true;
     const load = async () => {
       try {
-        const [summaryRes, tablesRes] = await Promise.all([
+        const [summaryRes, tablesRes, lastRunRes] = await Promise.all([
           fetch(`${baseUrl}data/summary.json`),
           fetch(`${baseUrl}data/tables.json`),
+          fetch(`${baseUrl}data/last_run.json`),
         ]);
 
         if (!summaryRes.ok || !tablesRes.ok) {
@@ -34,10 +37,14 @@ const Index = () => {
 
         const summaryJson = (await summaryRes.json()) as SummaryPayload;
         const tablesJson = (await tablesRes.json()) as TablesPayload;
+        const lastRunJson = lastRunRes.ok
+          ? ((await lastRunRes.json()) as LastRunPayload)
+          : null;
 
         if (alive) {
           setSummary(summaryJson);
           setTables(tablesJson);
+          setLastRun(lastRunJson);
         }
       } catch (err) {
         if (alive) {
@@ -126,8 +133,13 @@ const Index = () => {
   };
   const metricsSnapshotSource = summary?.source?.metrics_snapshot_source ?? "missing";
   const betLogFlatSource = summary?.source?.bet_log_flat_file ?? "missing";
+  const localMatchedGamesSource = tables?.local_matched_games_source ?? "";
   const localParamsMissing =
     strategyParams.source === "missing" || metricsSnapshotSource === "missing";
+  const realBetsAvailable =
+    summary?.real_bets_available !== false && betLogFlatSource !== "missing";
+  const summaryAsOfDate = summary?.as_of_date ?? summaryStats.as_of_date ?? "—";
+  const lastRunTimestamp = summary?.last_run ?? lastRun?.last_run ?? "—";
 
   const overallAccuracyPct = fmtPercent(summaryStats.overall_accuracy * 100, 2);
   const calibrationWindowSize = calibrationMetrics.windowSize || strategyFilterStats.window_size;
@@ -144,6 +156,10 @@ const Index = () => {
       : Math.round(strategySummary.winRate * strategySummary.totalBets)
     : 0;
   const matchedGamesCount = strategyFilterStats.matched_games_count ?? 0;
+  const strategyLatestRowDate =
+    localMatchedGamesRows.length === 0
+      ? "—"
+      : localMatchedGamesRows.reduce((latest, row) => (row.date > latest ? row.date : latest), "—");
 
   const strategyParamsList = useMemo(() => {
     return Object.entries(strategyParams.params_used ?? {});
@@ -223,9 +239,17 @@ const Index = () => {
           />
 
           <StatCard
-            title="Last Update"
-            value={summaryStats.as_of_date}
-            subtitle={`Window size: ${strategyFilterStats.window_size}`}
+            title="As of"
+            value={summaryAsOfDate}
+            subtitle={
+              <div className="space-y-1">
+                <div>Last run: {lastRunTimestamp}</div>
+                <div>Window size: {strategyFilterStats.window_size}</div>
+                {localMatchedGamesSource ? (
+                  <div>Strategy latest row: {strategyLatestRowDate}</div>
+                ) : null}
+              </div>
+            }
             icon={<TrendingUp className="w-6 h-6" />}
           />
 
@@ -580,41 +604,59 @@ const Index = () => {
             These are real placed bets, settled after the fact using final results from combined_*.
           </p>
 
+          {!realBetsAvailable ? (
+            <div className="rounded-lg border border-border p-4 text-sm text-muted-foreground mb-6">
+              Real bets not available in this build (CI).
+            </div>
+          ) : null}
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             <div className="rounded-lg border border-border p-4">
               <div className="text-sm text-muted-foreground">Count</div>
-              <div className="text-2xl font-bold">{settledBetsSummary.count}</div>
+              <div className="text-2xl font-bold">
+                {realBetsAvailable ? settledBetsSummary.count : "N/A"}
+              </div>
             </div>
             <div className="rounded-lg border border-border p-4">
               <div className="text-sm text-muted-foreground">Wins</div>
-              <div className="text-2xl font-bold">{settledBetsSummary.wins}</div>
+              <div className="text-2xl font-bold">
+                {realBetsAvailable ? settledBetsSummary.wins : "N/A"}
+              </div>
             </div>
             <div className="rounded-lg border border-border p-4">
               <div className="text-sm text-muted-foreground">P/L</div>
               <div className="text-2xl font-bold">
-                {fmtCurrencyEUR(settledBetsSummary.profit_eur, 2)}
+                {realBetsAvailable
+                  ? fmtCurrencyEUR(settledBetsSummary.profit_eur, 2)
+                  : "N/A"}
               </div>
             </div>
             <div className="rounded-lg border border-border p-4">
               <div className="text-sm text-muted-foreground">ROI</div>
               <div className="text-2xl font-bold">
-                {fmtPercent(settledBetsSummary.roi_pct, 2)}
+                {realBetsAvailable ? fmtPercent(settledBetsSummary.roi_pct, 2) : "N/A"}
               </div>
             </div>
             <div className="rounded-lg border border-border p-4">
               <div className="text-sm text-muted-foreground">Avg Odds</div>
               <div className="text-2xl font-bold">
-                {fmtNumber(settledBetsSummary.avg_odds, 2)}
+                {realBetsAvailable ? fmtNumber(settledBetsSummary.avg_odds, 2) : "N/A"}
               </div>
             </div>
           </div>
 
-          <div className="text-xs text-muted-foreground mt-4">
-            Bets are settled only when a matching played game is available. Source: {betLogFlatSource}
-          </div>
+          {realBetsAvailable ? (
+            <div className="text-xs text-muted-foreground mt-4">
+              Bets are settled only when a matching played game is available. Source: {betLogFlatSource}
+            </div>
+          ) : null}
 
           <div className="mt-6 overflow-x-auto">
-            {settledBetsRows.length === 0 ? (
+            {!realBetsAvailable ? (
+              <div className="rounded-lg border border-border p-4 text-sm text-muted-foreground">
+                Real bets not available in this build (CI).
+              </div>
+            ) : settledBetsRows.length === 0 ? (
               <div className="rounded-lg border border-border p-4 text-sm text-muted-foreground">
                 No settled bets recorded for 2026 yet.
               </div>
