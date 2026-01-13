@@ -7,6 +7,7 @@ export interface SummaryStats {
 export interface SummaryPayload {
   last_run: string;
   as_of_date: string;
+  window_end?: string;
   generated_at?: string;
   real_bets_available?: boolean;
   summary_stats: SummaryStats;
@@ -39,6 +40,7 @@ export interface SummaryPayload {
     window_size: number;
     filters: Array<{ label: string; count: number }>;
     matched_games_count: number;
+    window_end?: string;
   };
   source: {
     combined_file: string;
@@ -51,6 +53,8 @@ export interface SummaryPayload {
 export interface LastRunPayload {
   last_run: string;
   as_of_date: string;
+  window_end?: string;
+  model_window_end?: string;
   generated_at?: string;
   run_timestamp?: string;
   active_filters?: string | null;

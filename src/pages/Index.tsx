@@ -130,6 +130,7 @@ const Index = () => {
     window_size: 200,
     filters: [],
     matched_games_count: 0,
+    window_end: undefined,
   };
   const metricsSnapshotSource = summary?.source?.metrics_snapshot_source ?? "missing";
   const betLogFlatSource = summary?.source?.bet_log_flat_file ?? "missing";
@@ -138,7 +139,13 @@ const Index = () => {
     strategyParams.source === "missing" || metricsSnapshotSource === "missing";
   const realBetsAvailable =
     summary?.real_bets_available !== false && betLogFlatSource !== "missing";
-  const summaryAsOfDate = summary?.as_of_date ?? "—";
+  const summaryAsOfDate =
+    summary?.as_of_date ??
+    summary?.window_end ??
+    lastRun?.window_end ??
+    lastRun?.model_window_end ??
+    strategyFilterStats.window_end ??
+    "—";
   const lastUpdateTimestamp =
     lastRun?.generated_at ??
     summary?.generated_at ??
@@ -278,7 +285,7 @@ const Index = () => {
                 <div>Last update: {lastUpdateTimestamp}</div>
                 <div>Window size: {strategyFilterStats.window_size}</div>
                 {localMatchedGamesSource && strategyLatestRowDate ? (
-                  <div>Strategy latest row: {strategyLatestRowDate}</div>
+                  <div>Strategy latest settled row: {strategyLatestRowDate}</div>
                 ) : null}
               </div>
             }
