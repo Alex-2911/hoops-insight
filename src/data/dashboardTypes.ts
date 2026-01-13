@@ -7,6 +7,7 @@ export interface SummaryStats {
 export interface SummaryPayload {
   last_run: string;
   as_of_date: string;
+  real_bets_available?: boolean;
   summary_stats: SummaryStats;
   kpis: {
     total_bets: number;
@@ -41,8 +42,17 @@ export interface SummaryPayload {
   source: {
     combined_file: string;
     bet_log_file: string;
-    bet_log_flat_file: string;
+    bet_log_flat_file?: string;
     metrics_snapshot_source: string;
+  };
+}
+
+export interface LastRunPayload {
+  last_run: string;
+  as_of_date: string;
+  records?: {
+    played_games?: number;
+    bet_log_rows?: number;
   };
 }
 
@@ -147,6 +157,7 @@ export interface TablesPayload {
   local_matched_games_profit_sum_table: number;
   local_matched_games_mismatch: boolean;
   local_matched_games_note: string;
+  local_matched_games_source?: string;
   bankroll_last_200: BankrollSummary;
   bankroll_ytd_2026: BankrollSummary;
   local_matched_games_avg_odds: number;
