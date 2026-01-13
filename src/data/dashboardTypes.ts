@@ -7,6 +7,7 @@ export interface SummaryStats {
 export interface SummaryPayload {
   last_run: string;
   as_of_date: string;
+  generated_at?: string;
   real_bets_available?: boolean;
   summary_stats: SummaryStats;
   kpis: {
@@ -32,7 +33,7 @@ export interface SummaryPayload {
     source: string;
     params: Record<string, string | number | boolean | null>;
     params_used: Record<string, string | number | boolean | null>;
-    active_filters: string;
+    active_filters?: string;
   };
   strategy_filter_stats: {
     window_size: number;
@@ -50,6 +51,13 @@ export interface SummaryPayload {
 export interface LastRunPayload {
   last_run: string;
   as_of_date: string;
+  generated_at?: string;
+  run_timestamp?: string;
+  active_filters?: string | null;
+  active_filters_human?: string | null;
+  strategy_filter_stats?: {
+    filters?: Array<{ label: string; count: number }>;
+  };
   records?: {
     played_games?: number;
     bet_log_rows?: number;

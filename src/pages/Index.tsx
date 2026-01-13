@@ -138,8 +138,14 @@ const Index = () => {
     strategyParams.source === "missing" || metricsSnapshotSource === "missing";
   const realBetsAvailable =
     summary?.real_bets_available !== false && betLogFlatSource !== "missing";
-  const summaryAsOfDate = summary?.as_of_date ?? summaryStats.as_of_date ?? "—";
-  const lastRunTimestamp = summary?.last_run ?? lastRun?.last_run ?? "—";
+  const summaryAsOfDate = summary?.as_of_date ?? "—";
+  const lastUpdateTimestamp =
+    lastRun?.generated_at ??
+    summary?.generated_at ??
+    lastRun?.run_timestamp ??
+    summary?.last_run ??
+    lastRun?.last_run ??
+    "—";
 
   const overallAccuracyPct = fmtPercent(summaryStats.overall_accuracy * 100, 2);
   const calibrationWindowSize = calibrationMetrics.windowSize || strategyFilterStats.window_size;
@@ -158,12 +164,38 @@ const Index = () => {
   const matchedGamesCount = strategyFilterStats.matched_games_count ?? 0;
   const strategyLatestRowDate =
     localMatchedGamesRows.length === 0
-      ? "—"
+      ? null
       : localMatchedGamesRows.reduce((latest, row) => (row.date > latest ? row.date : latest), "—");
 
   const strategyParamsList = useMemo(() => {
     return Object.entries(strategyParams.params_used ?? {});
   }, [strategyParams.params_used]);
+
+  const formatActiveFilters = (value?: string | null) => {
+    if (!value) {
+      return null;
+    }
+    const trimmed = value.trim();
+    if (!trimmed || trimmed.toLowerCase() === "none") {
+      return null;
+    }
+    return trimmed;
+  };
+
+  const formatFilterLabels = (filters?: Array<{ label: string }>) => {
+    if (!filters || filters.length === 0) {
+      return null;
+    }
+    return filters.map((filter) => filter.label).join(" • ");
+  };
+
+  const activeFiltersLabel =
+    formatActiveFilters(lastRun?.active_filters_human) ??
+    formatActiveFilters(lastRun?.active_filters) ??
+    formatActiveFilters(strategyParams.active_filters ?? null) ??
+    formatFilterLabels(lastRun?.strategy_filter_stats?.filters) ??
+    formatFilterLabels(strategyFilterStats.filters) ??
+    "No active filters.";
 
   const formatSigned = (value: number | null | undefined) => {
     if (typeof value !== "number" || !Number.isFinite(value)) {
@@ -243,9 +275,9 @@ const Index = () => {
             value={summaryAsOfDate}
             subtitle={
               <div className="space-y-1">
-                <div>Last run: {lastRunTimestamp}</div>
+                <div>Last update: {lastUpdateTimestamp}</div>
                 <div>Window size: {strategyFilterStats.window_size}</div>
-                {localMatchedGamesSource ? (
+                {localMatchedGamesSource && strategyLatestRowDate ? (
                   <div>Strategy latest row: {strategyLatestRowDate}</div>
                 ) : null}
               </div>
@@ -389,7 +421,7 @@ const Index = () => {
             Descriptive filter pass rates for the last {strategyFilterStats.window_size} games window. No recommendations or picks.
           </p>
           <div className="rounded-lg border border-border px-4 py-3 text-sm text-muted-foreground mb-6">
-            Active filters: <span className="text-foreground">{strategyParams.active_filters}</span>
+            Active filters: <span className="text-foreground">{activeFiltersLabel}</span>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="rounded-lg border border-border p-4">
@@ -606,7 +638,7 @@ const Index = () => {
 
           {!realBetsAvailable ? (
             <div className="rounded-lg border border-border p-4 text-sm text-muted-foreground mb-6">
-              Real bets not available in this build (CI).
+              Real bet log not included in this CI build (N/A).
             </div>
           ) : null}
 
@@ -654,7 +686,7 @@ const Index = () => {
           <div className="mt-6 overflow-x-auto">
             {!realBetsAvailable ? (
               <div className="rounded-lg border border-border p-4 text-sm text-muted-foreground">
-                Real bets not available in this build (CI).
+                Real bet log not included in this CI build (N/A).
               </div>
             ) : settledBetsRows.length === 0 ? (
               <div className="rounded-lg border border-border p-4 text-sm text-muted-foreground">
