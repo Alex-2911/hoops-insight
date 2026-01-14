@@ -1,0 +1,10 @@
+{
+  "params_used_label": "Historical",
+  "params_used": {
+    "home_win_rate_threshold": 0.55,
+    "odds_min": 2.1,
+    "odds_max": 3.1,
+    "prob_threshold": 0.4,
+    "min_ev_per_100": -5
+  }
+}

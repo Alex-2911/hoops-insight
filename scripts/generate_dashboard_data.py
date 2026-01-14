@@ -22,6 +22,7 @@ import json
 import math
 import os
 import re
+import shutil
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -106,6 +107,18 @@ def _max_date(rows: Iterable[Dict[str, object]], key: str = "date") -> Optional[
         if parsed:
             dates.append(parsed)
     return max(dates) if dates else None
+
+
+def compute_window_bounds(
+    rows: List[Dict[str, object]], window_size: int
+) -> Tuple[List[Dict[str, object]], Optional[datetime], Optional[datetime]]:
+    if not rows:
+        return [], None, None
+    sorted_rows = sorted(rows, key=lambda r: r["date"])
+    window_rows = sorted_rows[-window_size:] if window_size else sorted_rows
+    if not window_rows:
+        return [], None, None
+    return window_rows, window_rows[0]["date"], window_rows[-1]["date"]
 
 
 def _coerce_value(val: object) -> object:
@@ -389,6 +402,12 @@ def _find_strategy_params(lightgbm_dir: Path, as_of_date: Optional[str]) -> Opti
     return _find_latest_by_mtime(lightgbm_dir, "strategy_params*.txt")
 
 
+def _require_existing(path: Optional[Path], label: str) -> Path:
+    if path is None or not path.exists():
+        raise FileNotFoundError(f"Required source file missing: {label}")
+    return path
+
+
 def resolve_source_root(cli_root: Optional[str], repo_root: Path) -> Optional[Path]:
     env_root = os.getenv("SOURCE_ROOT", "").strip()
     if env_root:
@@ -626,10 +645,9 @@ def build_calibration_metrics(
             "windowSize": 0,
         }
 
-    sorted_rows = sorted(rows, key=lambda r: r["date"])
-    window_rows = sorted_rows[-window_size:] if window_size else sorted_rows
+    window_rows, _, window_end = compute_window_bounds(rows, window_size)
     window_size_used = len(window_rows)
-    as_of = window_rows[-1]["date"].strftime(DATE_FMT) if window_rows else "—"
+    as_of = window_end.strftime(DATE_FMT) if window_end else "—"
 
     p_raw = [r["prob_raw"] for r in window_rows if r["prob_raw"] is not None]
     y_raw = [int(r["home_team_won"]) for r in window_rows if r["prob_raw"] is not None]
@@ -741,10 +759,7 @@ def build_strategy_filter_stats(
             "window_start": None,
             "window_end": None,
         }
-    sorted_rows = sorted(rows, key=lambda r: r["date"])
-    window_rows = sorted_rows[-window_size:]
-    window_start = window_rows[0]["date"] if window_rows else None
-    window_end = window_rows[-1]["date"] if window_rows else None
+    window_rows, window_start, window_end = compute_window_bounds(rows, window_size)
     filters = [{"label": "Window games", "count": len(window_rows)}]
 
     min_prob_used = _get_param(
@@ -774,9 +789,9 @@ def build_strategy_filter_stats(
             r
             for r in current
             if _compute_ev_per_100(_prob_used(r), r.get("odds_home")) is not None
-            and _compute_ev_per_100(_prob_used(r), r.get("odds_home")) >= min_ev
+            and _compute_ev_per_100(_prob_used(r), r.get("odds_home")) > min_ev
         ]
-        filters.append({"label": f"EV €/100 ≥ {min_ev:.2f}", "count": len(current)})
+        filters.append({"label": f"EV €/100 > {min_ev:.2f}", "count": len(current)})
     if min_home_win_rate is not None:
         current = [
             r
@@ -1025,23 +1040,31 @@ def _human_readable_filters(params: Dict[str, object]) -> str:
     min_ev = _get_param(params, "min_ev", "min_ev_eur_per_100", "min_ev_per_100")
     min_home_win_rate = _get_param(params, "home_win_rate_threshold", "min_home_win_rate")
     prefer_lower_odds = params.get("prefer_lower_odds")
-    if min_prob_used is not None:
-        parts.append(f"Prob used ≥ {min_prob_used:.3f}")
-    if min_odds is not None and max_odds is not None:
-        parts.append(f"Odds {min_odds:.2f}–{max_odds:.2f}")
-    elif min_odds is not None:
-        parts.append(f"Odds ≥ {min_odds:.2f}")
-    elif max_odds is not None:
-        parts.append(f"Odds ≤ {max_odds:.2f}")
-    if min_ev is not None:
-        parts.append(f"EV €/100 ≥ {min_ev:.2f}")
+
+    def _format_signed(value: float) -> str:
+        if value.is_integer():
+            raw = f"{int(value)}"
+        else:
+            raw = f"{value:.2f}"
+        return raw.replace("-", "−")
+
     if min_home_win_rate is not None:
-        parts.append(f"Home win rate ≥ {min_home_win_rate:.2f}")
+        parts.append(f"HW ≥ {min_home_win_rate:.2f}")
+    if min_odds is not None and max_odds is not None:
+        parts.append(f"odds {min_odds:.2f}–{max_odds:.2f}")
+    elif min_odds is not None:
+        parts.append(f"odds ≥ {min_odds:.2f}")
+    elif max_odds is not None:
+        parts.append(f"odds ≤ {max_odds:.2f}")
+    if min_prob_used is not None:
+        parts.append(f"p ≥ {min_prob_used:.2f}")
+    if min_ev is not None:
+        parts.append(f"EV > {_format_signed(float(min_ev))}")
     if isinstance(prefer_lower_odds, str):
         prefer_lower_odds = prefer_lower_odds.lower() in {"true", "1", "yes"}
     if prefer_lower_odds:
         parts.append("Prefer lower odds")
-    return " • ".join(parts) if parts else "No active filters."
+    return " | ".join(parts) if parts else "No active filters."
 
 
 def build_bet_log_summary(rows: List[Dict[str, object]]) -> Dict[str, object]:
@@ -1140,6 +1163,19 @@ def write_json(path: Path, payload: Dict[str, object]) -> None:
         json.dump(payload, f, default=_serialize, ensure_ascii=False, indent=2)
 
 
+def copy_sources(output_dir: Path, sources: Dict[str, Path]) -> Dict[str, str]:
+    copied: Dict[str, str] = {}
+    sources_dir = output_dir / "sources"
+    sources_dir.mkdir(parents=True, exist_ok=True)
+    for label, path in sources.items():
+        if not path.exists():
+            continue
+        dest = sources_dir / path.name
+        shutil.copy2(path, dest)
+        copied[label] = str(Path("sources") / path.name)
+    return copied
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -1186,18 +1222,20 @@ def main() -> None:
     bankroll_history = build_bankroll_history(bet_log_rows)
 
     snapshot_as_of_date = None
-    as_of_date = max(r["date"] for r in played_rows).strftime(DATE_FMT)
+    window_rows, window_start_dt, window_end_dt = compute_window_bounds(
+        played_rows, CALIBRATION_WINDOW
+    )
+    as_of_date = window_end_dt.strftime(DATE_FMT) if window_end_dt else "—"
+    window_start_label = window_start_dt.strftime(DATE_FMT) if window_start_dt else None
+    window_end_label = window_end_dt.strftime(DATE_FMT) if window_end_dt else None
 
     expected_lightgbm_dir = source_root / "output" / "LightGBM" if source_root else None
     if expected_lightgbm_dir:
         sources = _resolve_sources(source_root, as_of_date)
 
-    metrics_snapshot = (
-        load_metrics_snapshot(sources.metrics_snapshot) if sources.metrics_snapshot else {}
-    )
+    metrics_snapshot_path = _require_existing(sources.metrics_snapshot, "metrics_snapshot")
+    metrics_snapshot = load_metrics_snapshot(metrics_snapshot_path)
     metrics_snapshot_fallback_source = None
-    if not sources.metrics_snapshot and sources.strategy_params and sources.strategy_params.exists():
-        metrics_snapshot_fallback_source = str(sources.strategy_params)
     realized_count_raw = _snapshot_value(metrics_snapshot, "realized", "count")
     realized_profit_raw = _snapshot_value(metrics_snapshot, "realized", "profit_sum")
     realized_roi_raw = _snapshot_value(metrics_snapshot, "realized", "roi")
@@ -1207,29 +1245,24 @@ def main() -> None:
     snapshot_as_of_raw = _snapshot_value(metrics_snapshot, "meta", "eval_base_date_max")
 
     snapshot_as_of_date = _safe_date(str(snapshot_as_of_raw)) if snapshot_as_of_raw else None
-    if snapshot_as_of_date:
-        as_of_date = snapshot_as_of_date.strftime(DATE_FMT)
-        if expected_lightgbm_dir:
-            sources = _resolve_sources(source_root, as_of_date)
-            metrics_snapshot = (
-                load_metrics_snapshot(sources.metrics_snapshot)
-                if sources.metrics_snapshot
-                else metrics_snapshot
-            )
-            realized_count_raw = _snapshot_value(metrics_snapshot, "realized", "count")
-            realized_profit_raw = _snapshot_value(metrics_snapshot, "realized", "profit_sum")
-            realized_roi_raw = _snapshot_value(metrics_snapshot, "realized", "roi")
-            realized_win_rate_raw = _snapshot_value(metrics_snapshot, "realized", "win_rate")
-            realized_sharpe_raw = _snapshot_value(metrics_snapshot, "realized", "sharpe_style")
-            ev_mean_raw = _snapshot_value(metrics_snapshot, "ev_stats", "mean")
-            if sources.metrics_snapshot:
-                metrics_snapshot_fallback_source = None
-            elif sources.strategy_params and sources.strategy_params.exists():
-                metrics_snapshot_fallback_source = str(sources.strategy_params)
+    if snapshot_as_of_date and expected_lightgbm_dir:
+        snapshot_label = snapshot_as_of_date.strftime(DATE_FMT)
+        sources = _resolve_sources(source_root, snapshot_label)
+        metrics_snapshot_path = _require_existing(sources.metrics_snapshot, "metrics_snapshot")
+        metrics_snapshot = load_metrics_snapshot(metrics_snapshot_path)
+        realized_count_raw = _snapshot_value(metrics_snapshot, "realized", "count")
+        realized_profit_raw = _snapshot_value(metrics_snapshot, "realized", "profit_sum")
+        realized_roi_raw = _snapshot_value(metrics_snapshot, "realized", "roi")
+        realized_win_rate_raw = _snapshot_value(metrics_snapshot, "realized", "win_rate")
+        realized_sharpe_raw = _snapshot_value(metrics_snapshot, "realized", "sharpe_style")
+        ev_mean_raw = _snapshot_value(metrics_snapshot, "ev_stats", "mean")
 
-    local_matched_games_rows: List[Dict[str, object]] = []
-    if sources.local_matched_games and sources.local_matched_games.exists():
-        local_matched_games_rows, _ = load_local_matched_games_csv(sources.local_matched_games)
+    local_matched_games_path = _require_existing(
+        sources.local_matched_games, "local_matched_games"
+    )
+    bet_log_flat_path = _require_existing(sources.bet_log_flat, "bet_log_flat_live")
+
+    local_matched_games_rows, _ = load_local_matched_games_csv(local_matched_games_path)
 
     strategy_params_path = output_dir / "strategy_params.json"
     if metrics_snapshot_fallback_source and sources.strategy_params:
@@ -1264,6 +1297,14 @@ def main() -> None:
             )
             if not params:
                 params = {"params_used": params_used}
+    raw_params_used_label = None
+    if isinstance(params, dict):
+        raw_params_used_label = (
+            params.get("params_used_label") or params.get("params_label") or params.get("label")
+        )
+    params_used_label = str(raw_params_used_label).strip() if raw_params_used_label else None
+    if not params_used_label:
+        params_used_label = "Historical"
     active_filters_label = _human_readable_filters(params_used)
 
     strategy_filter_stats = build_strategy_filter_stats(played_rows, params_used, window_size=200)
@@ -1274,7 +1315,7 @@ def main() -> None:
     )
     local_matched_games_count = len(local_matched_games_rows)
     local_matched_games_profit_sum = sum(row.get("pnl", 0.0) for row in local_matched_games_rows)
-    matched_count_table = local_matched_games_count if sources.local_matched_games else None
+    matched_count_table = local_matched_games_count
 
     matched_as_of_date = _max_date(local_matched_games_rows)
     if matched_as_of_date:
@@ -1305,6 +1346,17 @@ def main() -> None:
     realized_win_rate = _to_float(realized_win_rate_raw)
     realized_sharpe = _to_float(realized_sharpe_raw)
     ev_mean = _to_float(ev_mean_raw)
+    metrics_snapshot_summary = {
+        "realized_count": realized_count,
+        "realized_profit_eur": realized_profit,
+        "realized_roi": realized_roi,
+        "realized_win_rate": realized_win_rate,
+        "realized_sharpe": realized_sharpe,
+        "ev_mean": ev_mean,
+        "eval_base_date_max": snapshot_as_of_date.strftime(DATE_FMT)
+        if snapshot_as_of_date
+        else None,
+    }
     local_sharpe = (
         _compute_sharpe_style(local_matched_games_rows) if local_matched_games_rows else None
     )
@@ -1366,7 +1418,7 @@ def main() -> None:
 
     if matched_count_snapshot is not None:
         matched_count_used = matched_count_snapshot
-    elif matched_count_table is not None:
+    else:
         matched_count_used = matched_count_table
 
     if not params:
@@ -1409,31 +1461,13 @@ def main() -> None:
 
     last_run = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
-    bet_log_flat_rows: List[Dict[str, object]] = []
-    settled_bets_rows: List[Dict[str, object]] = []
-    settled_bets_summary = {
-        "count": 0,
-        "wins": 0,
-        "profit_eur": 0.0,
-        "roi_pct": 0.0,
-        "avg_odds": 0.0,
-    }
-    if sources.bet_log_flat and sources.bet_log_flat.exists():
-        bet_log_flat_rows = load_bet_log_flat(sources.bet_log_flat)
-        settled_bets_rows = build_settled_bets(
-            bet_log_flat_rows, played_rows, ytd_start=datetime(2026, 1, 1)
-        )
-        settled_bets_summary = build_settled_bet_summary(settled_bets_rows)
-
-    metrics_snapshot_source = (
-        str(sources.metrics_snapshot)
-        if sources.metrics_snapshot
-        else (
-            f"missing (fallback: {metrics_snapshot_fallback_source})"
-            if metrics_snapshot_fallback_source
-            else "missing"
-        )
+    bet_log_flat_rows = load_bet_log_flat(bet_log_flat_path)
+    settled_bets_rows = build_settled_bets(
+        bet_log_flat_rows, played_rows, ytd_start=datetime(2026, 1, 1)
     )
+    settled_bets_summary = build_settled_bet_summary(settled_bets_rows)
+
+    metrics_snapshot_source = str(metrics_snapshot_path)
 
     window_games_count = next(
         (
@@ -1447,6 +1481,9 @@ def main() -> None:
     summary_payload = {
         "last_run": last_run,
         "as_of_date": as_of_date,
+        "window_size": len(window_rows) if window_rows else 0,
+        "window_start": window_start_label,
+        "window_end": window_end_label,
         "summary_stats": {
             "total_games": total_games,
             "overall_accuracy": overall_accuracy,
@@ -1473,6 +1510,7 @@ def main() -> None:
             "params": params_used or {},
             "params_used": params_used or {},
             "active_filters": active_filters_label,
+            "params_used_label": params_used_label,
             "params_used_source": params_used_source or "missing",
         },
         "strategy_filter_stats": strategy_filter_stats,
@@ -1500,9 +1538,7 @@ def main() -> None:
         "local_matched_games_mismatch": local_matched_games_mismatch,
         "local_matched_games_note": local_matched_games_note
         or ("No matched games recorded for this window." if not local_matched_games_rows else ""),
-        "local_matched_games_source": str(sources.local_matched_games)
-        if sources.local_matched_games
-        else "missing",
+        "local_matched_games_source": str(local_matched_games_path),
         "bankroll_last_200": bankroll_last_200,
         "bankroll_ytd_2026": bankroll_ytd_2026,
         "local_matched_games_avg_odds": local_avg_odds,
@@ -1520,12 +1556,8 @@ def main() -> None:
         "strategy_params_source": str(strategy_params_source)
         if strategy_params_source
         else "missing",
-        "local_matched_games_source": str(sources.local_matched_games)
-        if sources.local_matched_games
-        else "missing",
-        "bet_log_flat_source": str(sources.bet_log_flat)
-        if sources.bet_log_flat
-        else "missing",
+        "local_matched_games_source": str(local_matched_games_path),
+        "bet_log_flat_source": str(bet_log_flat_path),
         "local_matched_games_rows": local_matched_games_count,
         "local_matched_games_profit_sum_table": local_matched_games_profit_sum,
         "matched_count_snapshot": matched_count_snapshot,
@@ -1536,9 +1568,12 @@ def main() -> None:
             "params": params or {},
             "params_used": params_used or {},
             "active_filters": active_filters_label,
+            "params_used_label": params_used_label,
             "params_used_source": params_used_source or "missing",
         },
         "strategy_filter_stats": strategy_filter_stats,
+        "active_filters_effective": active_filters_label,
+        "params_used_label": params_used_label,
         "records": {
             "played_games": total_games,
             "bet_log_rows": len(bet_log_rows),
@@ -1551,11 +1586,48 @@ def main() -> None:
         },
     }
 
+    copied_sources = copy_sources(
+        output_dir,
+        {
+            "combined_file": combined_path,
+            "metrics_snapshot": metrics_snapshot_path,
+            "local_matched_games": local_matched_games_path,
+            "bet_log_flat": bet_log_flat_path,
+        },
+    )
+
+    dashboard_payload = {
+        "as_of_date": as_of_date,
+        "window": {
+            "size": len(window_rows) if window_rows else 0,
+            "start": window_start_label,
+            "end": window_end_label,
+            "games_count": window_games_count,
+        },
+        "active_filters_effective": active_filters_label,
+        "params_used_label": params_used_label,
+        "metrics_snapshot_summary": metrics_snapshot_summary,
+        "summary": summary_payload,
+        "tables": tables_payload,
+        "last_run": last_run_payload,
+        "sources": {
+            "combined_file": str(combined_path),
+            "metrics_snapshot": metrics_snapshot_source,
+            "local_matched_games": str(local_matched_games_path),
+            "bet_log_flat": str(bet_log_flat_path),
+            "copied": copied_sources,
+        },
+    }
+
     write_json(output_dir / "summary.json", summary_payload)
     write_json(output_dir / "tables.json", tables_payload)
     write_json(output_dir / "last_run.json", last_run_payload)
+    write_json(output_dir / "dashboard_payload.json", dashboard_payload)
 
-    print(f"Wrote summary.json, tables.json, last_run.json to {output_dir}")
+    print(
+        "Wrote summary.json, tables.json, last_run.json, dashboard_payload.json "
+        f"to {output_dir}"
+    )
 
 
 if __name__ == "__main__":

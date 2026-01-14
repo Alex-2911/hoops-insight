@@ -1,0 +1,454 @@
+{
+  "as_of_date": "2026-01-07",
+  "window": {
+    "size": 200,
+    "start": "—",
+    "end": "2026-01-07",
+    "games_count": 0
+  },
+  "active_filters_effective": "HW ≥ 0.55 | odds 2.10–3.10 | p ≥ 0.40 | EV > −5",
+  "params_used_label": "Historical",
+  "metrics_snapshot_summary": {
+    "realized_count": null,
+    "realized_profit_eur": null,
+    "realized_roi": null,
+    "realized_win_rate": null,
+    "realized_sharpe": null,
+    "ev_mean": null,
+    "eval_base_date_max": null
+  },
+  "summary": {
+    "last_run": "2026-01-07T00:00:00+00:00",
+    "as_of_date": "2026-01-07",
+    "summary_stats": {
+      "total_games": 200,
+      "overall_accuracy": 0.545,
+      "as_of_date": "2026-01-07"
+    },
+    "kpis": {
+      "total_bets": 16,
+      "win_rate": 0.5625,
+      "roi_pct": 41.25,
+      "avg_ev_per_100": 24.01,
+      "avg_profit_per_bet_eur": 41.25,
+      "max_drawdown_eur": 400,
+      "max_drawdown_pct": 20.73
+    },
+    "strategy_summary": {
+      "totalBets": 16,
+      "totalProfitEur": 660,
+      "roiPct": 41.25,
+      "avgEvPer100": 24.01,
+      "winRate": 0.5625,
+      "sharpeStyle": 1.29,
+      "profitMetricsAvailable": true
+    },
+    "strategy_params": {
+      "source": "/Users/alexanderrazmyslov/1. Python/Basketball_prediction/2026/output/LightGBM/strategy_params.txt",
+      "params": {
+        "home_win_rate_min": 0.5,
+        "odds_min": 2.0,
+        "odds_max": 3.2,
+        "win_prob_min": 0.4,
+        "ev_per_100_min": -5.0
+      }
+    },
+    "strategy_filter_stats": {
+      "window_size": 200,
+      "filters": [
+        {
+          "label": "Home win rate ≥ 0.50",
+          "count": 136
+        },
+        {
+          "label": "Odds range 2.00–3.20",
+          "count": 28
+        },
+        {
+          "label": "Win prob ≥ 0.40",
+          "count": 21
+        },
+        {
+          "label": "EV per €100 > -5.0",
+          "count": 16
+        }
+      ],
+      "matched_games_count": 16
+    },
+    "source": {
+      "combined_file": "/Users/alexanderrazmyslov/1. Python/Basketball_prediction/2026/output/LightGBM/Kelly/combined_nba_predictions_iso_2026-01-07.csv",
+      "bet_log_file": "/Users/alexanderrazmyslov/1. Python/Basketball_prediction/2026/output/LightGBM/bet_log_live.csv",
+      "metrics_snapshot_source": "/Users/alexanderrazmyslov/1. Python/Basketball_prediction/2026/output/LightGBM/strategy_params.txt"
+    }
+  },
+  "tables": {
+    "historical_stats": [],
+    "accuracy_threshold_stats": [],
+    "calibration_metrics": {
+      "asOfDate": "2026-01-07",
+      "brierBefore": 0.241,
+      "brierAfter": 0.241,
+      "logLossBefore": 0.676,
+      "logLossAfter": 0.676,
+      "fittedGames": 200,
+      "ece": 0.042,
+      "calibrationSlope": 0.734,
+      "calibrationIntercept": 0.146,
+      "avgPredictedProb": 0.5444,
+      "baseRate": 0.545,
+      "actualWinPct": 0.545,
+      "windowSize": 200
+    },
+    "home_win_rates_last20": [
+      {
+        "team": "HOU",
+        "totalLast20Games": 14,
+        "totalHomeGames": 4,
+        "homeWins": 4,
+        "homeWinRate": 1.0
+      },
+      {
+        "team": "DEN",
+        "totalLast20Games": 15,
+        "totalHomeGames": 6,
+        "homeWins": 5,
+        "homeWinRate": 0.8333333333333334
+      },
+      {
+        "team": "PHO",
+        "totalLast20Games": 13,
+        "totalHomeGames": 5,
+        "homeWins": 4,
+        "homeWinRate": 0.8
+      },
+      {
+        "team": "DAL",
+        "totalLast20Games": 13,
+        "totalHomeGames": 5,
+        "homeWins": 4,
+        "homeWinRate": 0.8
+      },
+      {
+        "team": "DET",
+        "totalLast20Games": 13,
+        "totalHomeGames": 5,
+        "homeWins": 4,
+        "homeWinRate": 0.8
+      },
+      {
+        "team": "LAC",
+        "totalLast20Games": 12,
+        "totalHomeGames": 8,
+        "homeWins": 6,
+        "homeWinRate": 0.75
+      },
+      {
+        "team": "GSW",
+        "totalLast20Games": 14,
+        "totalHomeGames": 8,
+        "homeWins": 6,
+        "homeWinRate": 0.75
+      },
+      {
+        "team": "MIN",
+        "totalLast20Games": 14,
+        "totalHomeGames": 7,
+        "homeWins": 5,
+        "homeWinRate": 0.7142857142857143
+      },
+      {
+        "team": "POR",
+        "totalLast20Games": 14,
+        "totalHomeGames": 9,
+        "homeWins": 6,
+        "homeWinRate": 0.6666666666666666
+      },
+      {
+        "team": "OKC",
+        "totalLast20Games": 15,
+        "totalHomeGames": 11,
+        "homeWins": 7,
+        "homeWinRate": 0.6363636363636364
+      },
+      {
+        "team": "BOS",
+        "totalLast20Games": 12,
+        "totalHomeGames": 5,
+        "homeWins": 3,
+        "homeWinRate": 0.6
+      },
+      {
+        "team": "PHI",
+        "totalLast20Games": 12,
+        "totalHomeGames": 5,
+        "homeWins": 3,
+        "homeWinRate": 0.6
+      },
+      {
+        "team": "TOR",
+        "totalLast20Games": 13,
+        "totalHomeGames": 7,
+        "homeWins": 4,
+        "homeWinRate": 0.5714285714285714
+      },
+      {
+        "team": "NYK",
+        "totalLast20Games": 15,
+        "totalHomeGames": 7,
+        "homeWins": 4,
+        "homeWinRate": 0.5714285714285714
+      },
+      {
+        "team": "SAS",
+        "totalLast20Games": 15,
+        "totalHomeGames": 7,
+        "homeWins": 4,
+        "homeWinRate": 0.5714285714285714
+      },
+      {
+        "team": "CLE",
+        "totalLast20Games": 14,
+        "totalHomeGames": 7,
+        "homeWins": 4,
+        "homeWinRate": 0.5714285714285714
+      }
+    ],
+    "bet_log_summary": {
+      "asOfDate": "2026-01-05",
+      "totalBets": 16,
+      "totalStakedEur": 1600,
+      "totalProfitEur": 660,
+      "roiPct": 41.25,
+      "avgStakeEur": 100,
+      "avgProfitPerBetEur": 41.25,
+      "winRate": 0.5625,
+      "avgEvPer100": 24.01
+    },
+    "bankroll_history": [],
+    "local_matched_games_rows": [
+      {
+        "date": "2026-01-05",
+        "home_team": "DET",
+        "away_team": "NYK",
+        "home_win_rate": 0.62,
+        "prob_iso": 0.69,
+        "prob_used": 0.69,
+        "odds_1": 2.3,
+        "ev_eur_per_100": 57.84,
+        "win": 1,
+        "pnl": 130
+      },
+      {
+        "date": "2026-01-03",
+        "home_team": "MIA",
+        "away_team": "MIN",
+        "home_win_rate": 0.6,
+        "prob_iso": 0.6,
+        "prob_used": 0.6,
+        "odds_1": 2.24,
+        "ev_eur_per_100": 35.44,
+        "win": 0,
+        "pnl": -100
+      },
+      {
+        "date": "2026-01-01",
+        "home_team": "DAL",
+        "away_team": "PHI",
+        "home_win_rate": 0.86,
+        "prob_iso": 0.47,
+        "prob_used": 0.47,
+        "odds_1": 2.14,
+        "ev_eur_per_100": 1.29,
+        "win": 0,
+        "pnl": -100
+      },
+      {
+        "date": "2025-12-30",
+        "home_team": "LAL",
+        "away_team": "DET",
+        "home_win_rate": 0.6,
+        "prob_iso": 0.64,
+        "prob_used": 0.64,
+        "odds_1": 2.24,
+        "ev_eur_per_100": 42.55,
+        "win": 0,
+        "pnl": -100
+      },
+      {
+        "date": "2025-12-29",
+        "home_team": "CHO",
+        "away_team": "MIL",
+        "home_win_rate": 0.5,
+        "prob_iso": 0.47,
+        "prob_used": 0.47,
+        "odds_1": 2.36,
+        "ev_eur_per_100": 11.71,
+        "win": 0,
+        "pnl": -100
+      },
+      {
+        "date": "2025-12-29",
+        "home_team": "TOR",
+        "away_team": "ORL",
+        "home_win_rate": 0.58,
+        "prob_iso": 0.47,
+        "prob_used": 0.47,
+        "odds_1": 2.02,
+        "ev_eur_per_100": -4.39,
+        "win": 1,
+        "pnl": 102
+      },
+      {
+        "date": "2025-12-29",
+        "home_team": "MIA",
+        "away_team": "DEN",
+        "home_win_rate": 0.6,
+        "prob_iso": 0.47,
+        "prob_used": 0.47,
+        "odds_1": 2.14,
+        "ev_eur_per_100": 1.29,
+        "win": 1,
+        "pnl": 114
+      },
+      {
+        "date": "2025-12-28",
+        "home_team": "TOR",
+        "away_team": "GSW",
+        "home_win_rate": 0.55,
+        "prob_iso": 0.47,
+        "prob_used": 0.47,
+        "odds_1": 2.54,
+        "ev_eur_per_100": 20.23,
+        "win": 1,
+        "pnl": 154
+      },
+      {
+        "date": "2025-12-27",
+        "home_team": "ORL",
+        "away_team": "DEN",
+        "home_win_rate": 0.7,
+        "prob_iso": 0.47,
+        "prob_used": 0.47,
+        "odds_1": 2.6,
+        "ev_eur_per_100": 23.07,
+        "win": 1,
+        "pnl": 160
+      },
+      {
+        "date": "2025-12-25",
+        "home_team": "LAL",
+        "away_team": "HOU",
+        "home_win_rate": 0.71,
+        "prob_iso": 0.47,
+        "prob_used": 0.47,
+        "odds_1": 2.1,
+        "ev_eur_per_100": -0.6,
+        "win": 0,
+        "pnl": -100
+      },
+      {
+        "date": "2025-12-23",
+        "home_team": "SAS",
+        "away_team": "OKC",
+        "home_win_rate": 0.71,
+        "prob_iso": 0.64,
+        "prob_used": 0.64,
+        "odds_1": 3.1,
+        "ev_eur_per_100": 97.27,
+        "win": 1,
+        "pnl": 210
+      },
+      {
+        "date": "2025-12-23",
+        "home_team": "DAL",
+        "away_team": "DEN",
+        "home_win_rate": 0.6,
+        "prob_iso": 0.47,
+        "prob_used": 0.47,
+        "odds_1": 2.95,
+        "ev_eur_per_100": 39.63,
+        "win": 1,
+        "pnl": 195
+      },
+      {
+        "date": "2025-12-18",
+        "home_team": "PHO",
+        "away_team": "GSW",
+        "home_win_rate": 0.56,
+        "prob_iso": 0.47,
+        "prob_used": 0.47,
+        "odds_1": 2.05,
+        "ev_eur_per_100": -2.97,
+        "win": 1,
+        "pnl": 105
+      },
+      {
+        "date": "2025-12-18",
+        "home_team": "DAL",
+        "away_team": "DET",
+        "home_win_rate": 0.5,
+        "prob_iso": 0.64,
+        "prob_used": 0.64,
+        "odds_1": 2.9,
+        "ev_eur_per_100": 84.55,
+        "win": 1,
+        "pnl": 190
+      },
+      {
+        "date": "2025-12-13",
+        "home_team": "ORL",
+        "away_team": "NYK",
+        "home_win_rate": 0.82,
+        "prob_iso": 0.47,
+        "prob_used": 0.47,
+        "odds_1": 2.64,
+        "ev_eur_per_100": 24.96,
+        "win": 0,
+        "pnl": -100
+      },
+      {
+        "date": "2025-12-05",
+        "home_team": "ATL",
+        "away_team": "DEN",
+        "home_win_rate": 0.62,
+        "prob_iso": 0.47,
+        "prob_used": 0.47,
+        "odds_1": 2.7,
+        "ev_eur_per_100": 27.8,
+        "win": 0,
+        "pnl": -100
+      }
+    ],
+    "local_matched_games_count": 16,
+    "local_matched_games_profit_sum_table": 660,
+    "local_matched_games_mismatch": false,
+    "local_matched_games_note": "",
+    "bankroll_last_200": {
+      "start": 1000,
+      "stake": 100,
+      "net_pl": 660,
+      "bankroll": 1660
+    },
+    "bankroll_ytd_2026": {
+      "start": 1000,
+      "stake": 100,
+      "net_pl": -70,
+      "bankroll": 930
+    }
+  },
+  "last_run": {
+    "last_run": "2026-01-03T15:26:14+00:00",
+    "as_of_date": "2025-12-29",
+    "records": {
+      "played_games": 467,
+      "bet_log_rows": 47
+    }
+  },
+  "sources": {
+    "combined_file": "/Users/alexanderrazmyslov/1. Python/Basketball_prediction/2026/output/LightGBM/Kelly/combined_nba_predictions_iso_2026-01-07.csv",
+    "metrics_snapshot": "/Users/alexanderrazmyslov/1. Python/Basketball_prediction/2026/output/LightGBM/strategy_params.txt",
+    "local_matched_games": "missing",
+    "bet_log_flat": "missing",
+    "copied": {}
+  }
+}
