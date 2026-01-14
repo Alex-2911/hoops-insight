@@ -34,6 +34,7 @@ import pandas as pd
 DATE_FMT = "%Y-%m-%d"
 CALIBRATION_WINDOW = 200
 DEFAULT_MAX_ODDS_FALLBACK = 3.2
+RISK_MIN_SAMPLE = 5
 THRESHOLDS = [
     {"label": "> 0.60", "thresholdType": "gt", "threshold": 0.60},
     {"label": "<= 0.40", "thresholdType": "lt", "threshold": 0.40},
@@ -820,7 +821,7 @@ def _compute_local_bankroll(rows: List[Dict[str, object]], start: float, stake: 
 def _compute_sharpe_style(rows: List[Dict[str, object]]) -> Optional[float]:
     pnl_values = [row.get("pnl") for row in rows if row.get("pnl") is not None]
     n_trades = len(pnl_values)
-    if n_trades < 5:
+    if n_trades < RISK_MIN_SAMPLE:
         return None
     mean_pnl = sum(pnl_values) / n_trades
     variance = sum((pnl - mean_pnl) ** 2 for pnl in pnl_values) / n_trades
@@ -1120,6 +1121,19 @@ def compute_max_drawdown(history: List[Dict[str, object]]) -> Tuple[float, float
     return max_dd, max_dd_pct
 
 
+def compute_local_risk_metrics(
+    rows: List[Dict[str, object]], start: float, min_sample: int = RISK_MIN_SAMPLE
+) -> Tuple[Optional[float], Optional[float], Optional[float]]:
+    if not rows or len(rows) < min_sample:
+        return None, None, None
+    sharpe_style = _compute_sharpe_style(rows)
+    equity_history = build_local_equity_history(rows, start)
+    if len(equity_history) < min_sample:
+        return sharpe_style, None, None
+    max_dd_eur, max_dd_pct = compute_max_drawdown(equity_history)
+    return sharpe_style, max_dd_eur, max_dd_pct
+
+
 def write_json(path: Path, payload: Dict[str, object]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as f:
@@ -1291,7 +1305,9 @@ def main() -> None:
     realized_win_rate = _to_float(realized_win_rate_raw)
     realized_sharpe = _to_float(realized_sharpe_raw)
     ev_mean = _to_float(ev_mean_raw)
-    local_sharpe = _compute_sharpe_style(local_matched_games_rows) if local_matched_games_rows else None
+    local_sharpe = (
+        _compute_sharpe_style(local_matched_games_rows) if local_matched_games_rows else None
+    )
     local_avg_odds = (
         _safe_div(
             sum(row.get("odds_1", 0.0) for row in local_matched_games_rows),
@@ -1383,10 +1399,9 @@ def main() -> None:
     ]
     bankroll_ytd_2026 = _compute_local_bankroll(ytd_rows, 1000.0, 100.0)
     local_equity_history = build_local_equity_history(local_matched_games_rows, 1000.0)
-    if len(local_equity_history) >= 2:
-        local_max_dd_eur, local_max_dd_pct = compute_max_drawdown(local_equity_history)
-    else:
-        local_max_dd_eur, local_max_dd_pct = None, None
+    _, local_max_dd_eur, local_max_dd_pct = compute_local_risk_metrics(
+        local_matched_games_rows, 1000.0, RISK_MIN_SAMPLE
+    )
 
     total_games = len(played_rows)
     total_correct = sum(int(r["home_team_won"]) for r in played_rows)
