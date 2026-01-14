@@ -1,24 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { StatCard } from "@/components/cards/StatCard";
-import type {
-  LastRunPayload,
-  SummaryPayload,
-  TablesPayload,
-} from "@/data/dashboardTypes";
-import { Target, TrendingUp, Activity, BarChart3, Info } from "lucide-react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import type { DashboardPayload } from "@/data/dashboardTypes";
+import { Target, TrendingUp, Activity, BarChart3 } from "lucide-react";
 import { fmtCurrencyEUR, fmtNumber, fmtPercent } from "@/lib/format";
 import { shouldShowRiskMetrics } from "@/lib/riskMetrics";
 
 const Index = () => {
-  const [summary, setSummary] = useState<SummaryPayload | null>(null);
-  const [tables, setTables] = useState<TablesPayload | null>(null);
-  const [lastRun, setLastRun] = useState<LastRunPayload | null>(null);
+  const [payload, setPayload] = useState<DashboardPayload | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const baseUrl = import.meta.env.BASE_URL ?? "/";
 
@@ -26,26 +14,16 @@ const Index = () => {
     let alive = true;
     const load = async () => {
       try {
-        const [summaryRes, tablesRes, lastRunRes] = await Promise.all([
-          fetch(`${baseUrl}data/summary.json`),
-          fetch(`${baseUrl}data/tables.json`),
-          fetch(`${baseUrl}data/last_run.json`),
-        ]);
+        const payloadRes = await fetch(`${baseUrl}data/dashboard_payload.json`);
 
-        if (!summaryRes.ok || !tablesRes.ok) {
+        if (!payloadRes.ok) {
           throw new Error("Failed to load dashboard data.");
         }
 
-        const summaryJson = (await summaryRes.json()) as SummaryPayload;
-        const tablesJson = (await tablesRes.json()) as TablesPayload;
-        const lastRunJson = lastRunRes.ok
-          ? ((await lastRunRes.json()) as LastRunPayload)
-          : null;
+        const payloadJson = (await payloadRes.json()) as DashboardPayload;
 
         if (alive) {
-          setSummary(summaryJson);
-          setTables(tablesJson);
-          setLastRun(lastRunJson);
+          setPayload(payloadJson);
         }
       } catch (err) {
         if (alive) {
@@ -59,6 +37,15 @@ const Index = () => {
       alive = false;
     };
   }, []);
+
+  const summary = payload?.summary ?? null;
+  const tables = payload?.tables ?? null;
+  const windowInfo = payload?.window ?? {
+    size: 0,
+    start: "—",
+    end: "—",
+    games_count: 0,
+  };
 
   const summaryStats = summary?.summary_stats ?? {
     total_games: 0,
@@ -124,47 +111,40 @@ const Index = () => {
     params_used: {},
     active_filters: "No active filters.",
   };
-  const strategyFilterStats = summary?.strategy_filter_stats ?? {
-    window_size: 200,
-    filters: [],
-    matched_games_count: 0,
-    window_end: undefined,
+  const metricsSnapshotSummary = payload?.metrics_snapshot_summary ?? {
+    realized_count: null,
+    realized_profit_eur: null,
+    realized_roi: null,
+    realized_win_rate: null,
+    realized_sharpe: null,
+    ev_mean: null,
+    eval_base_date_max: null,
   };
-  const metricsSnapshotSource = summary?.source?.metrics_snapshot_source ?? "missing";
-  const betLogFlatSource = summary?.source?.bet_log_flat_file ?? "missing";
-  const localMatchedGamesSource = tables?.local_matched_games_source ?? "";
-  const localParamsAvailable = localMatchedGamesRows.length > 0;
-  const localParamsMissing = !localParamsAvailable;
-  const realBetsAvailable =
-    summary?.real_bets_available !== false && betLogFlatSource !== "missing";
-  const summaryAsOfDate =
-    summary?.as_of_date ??
-    summary?.window_end ??
-    lastRun?.window_end ??
-    lastRun?.model_window_end ??
-    strategyFilterStats.window_end ??
-    "—";
-  const lastUpdateTimestamp =
-    lastRun?.generated_at ??
-    summary?.generated_at ??
-    lastRun?.run_timestamp ??
-    summary?.last_run ??
-    lastRun?.last_run ??
-    "—";
-
+  const metricsSnapshotSource =
+    payload?.sources?.metrics_snapshot ??
+    summary?.source?.metrics_snapshot_source ??
+    "missing";
+  const betLogFlatSource =
+    payload?.sources?.bet_log_flat ?? summary?.source?.bet_log_flat_file ?? "missing";
+  const localMatchedGamesSource =
+    payload?.sources?.local_matched_games ??
+    tables?.local_matched_games_source ??
+    "missing";
+  const summaryAsOfDate = payload?.as_of_date ?? summary?.as_of_date ?? "—";
   const overallAccuracyPct = fmtPercent(summaryStats.overall_accuracy * 100, 2);
-  const windowSize =
-    strategyFilterStats.window_size || calibrationMetrics.windowSize || summaryStats.total_games || 200;
-  const windowStartLabel = strategyFilterStats.window_start ?? "—";
-  const windowEndLabel = strategyFilterStats.window_end ?? summaryAsOfDate ?? "—";
-  const calibrationWindowSize = windowSize;
-  const windowGamesLabel = windowSize;
+  const windowSize = windowInfo.size || calibrationMetrics.windowSize || summaryStats.total_games || 200;
+  const windowStartLabel = windowInfo.start ?? summary?.window_start ?? "—";
+  const windowEndLabel = windowInfo.end ?? summary?.window_end ?? summaryAsOfDate ?? "—";
+  const windowGamesLabel = windowInfo.games_count ?? windowSize;
+  const activeFiltersEffective =
+    payload?.active_filters_effective ?? strategyParams.active_filters ?? "No active filters.";
+  const paramsUsedLabel =
+    payload?.params_used_label ?? strategyParams.params_used_label ?? "Historical";
 
   const topHomeTeams = useMemo(() => {
     return [...homeWinRatesLast20].sort((a, b) => b.homeWinRate - a.homeWinRate);
   }, [homeWinRatesLast20]);
 
-  const matchedGamesCount = strategyFilterStats.matched_games_count ?? 0;
   const settledSimulatedBetsCount = localMatchedGamesCount;
   const strategySubsetAvailable = settledSimulatedBetsCount > 0;
   const strategySubsetWins = strategySubsetAvailable
@@ -215,47 +195,8 @@ const Index = () => {
   }, [bankrollLast200.stake, localMatchedGamesRows, settledSimulatedBetsCount]);
 
   const strategyAsOfDate = strategyLatestRowDate ?? strategySummary.asOfDate ?? "—";
-  const calibrationAsOfDate =
-    calibrationMetrics.asOfDate || strategyFilterStats.window_end || summaryAsOfDate || "—";
   const showRiskMetrics = shouldShowRiskMetrics(settledSimulatedBetsCount);
   const localMatchedGamesProfitSumDisplay = localParamsSummary.totalProfitEur;
-
-  const strategyParamsList = useMemo(() => {
-    return Object.entries(strategyParams.params_used ?? {});
-  }, [strategyParams.params_used]);
-
-  const formatParamLabel = (key: string) => {
-    if (key === "n_trades") {
-      return "n_trades (filter-pass games)";
-    }
-    return key;
-  };
-
-  const formatActiveFilters = (value?: string | null) => {
-    if (!value) {
-      return null;
-    }
-    const trimmed = value.trim();
-    if (!trimmed || trimmed.toLowerCase() === "none") {
-      return null;
-    }
-    return trimmed;
-  };
-
-  const formatFilterLabels = (filters?: Array<{ label: string }>) => {
-    if (!filters || filters.length === 0) {
-      return null;
-    }
-    return filters.map((filter) => filter.label).join(" • ");
-  };
-
-  const activeFiltersLabel =
-    formatActiveFilters(lastRun?.active_filters_human) ??
-    formatActiveFilters(lastRun?.active_filters) ??
-    formatActiveFilters(strategyParams.active_filters ?? null) ??
-    formatFilterLabels(lastRun?.strategy_filter_stats?.filters) ??
-    formatFilterLabels(strategyFilterStats.filters) ??
-    "No active filters.";
 
   const formatSigned = (value: number | null | undefined) => {
     if (typeof value !== "number" || !Number.isFinite(value)) {
@@ -274,28 +215,99 @@ const Index = () => {
           <div className="max-w-3xl mx-auto text-center animate-fade-in">
             <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-full text-sm font-medium mb-6">
               <Activity className="w-4 h-4" />
-              Hoops Insight • Results & Statistics
+              Hoops Insight • Historical only
             </div>
 
             <h1 className="text-4xl md:text-5xl font-bold mb-4 leading-tight">
-              Historical NBA Results & Model Statistics
+              Hoops Insight • Historical only
             </h1>
 
             <p className="text-lg text-muted-foreground mb-2">
-              This page displays historical results and statistical summaries only.
-            </p>
-
-            <p className="text-sm text-muted-foreground">
-              <span className="font-medium text-foreground">Legal:</span> This
-              website does not provide predictions for future sporting or betting
-              outcomes. It serves purely for historical model accuracy and
-              statistical analysis of NBA games.
+              Historical results and statistical summaries only (no future predictions).
             </p>
             {loadError && (
               <p className="mt-3 text-sm text-red-400">
                 Data unavailable: {loadError}
               </p>
             )}
+          </div>
+        </div>
+      </section>
+
+      {/* As of / window */}
+      <section className="container mx-auto px-4 py-6">
+        <div className="glass-card p-6 flex flex-col gap-2 text-sm text-muted-foreground">
+          <div>
+            <span className="text-foreground font-medium">As of:</span>{" "}
+            {summaryAsOfDate}
+          </div>
+          <div>
+            <span className="text-foreground font-medium">Window:</span>{" "}
+            {windowSize} games ({windowStartLabel} → {windowEndLabel})
+          </div>
+        </div>
+      </section>
+
+      {/* How to read / Context & Assumptions */}
+      <section className="container mx-auto px-4 py-6">
+        <div className="glass-card p-6">
+          <h2 className="text-xl font-bold mb-2">How to read / Context &amp; Assumptions</h2>
+          <ul className="list-disc list-inside text-sm text-muted-foreground space-y-2">
+            <li>All metrics are historical only; no future predictions are shown.</li>
+            <li>Window stats use the last {windowSize} played games ({windowStartLabel} → {windowEndLabel}).</li>
+            <li>Placed bets are settled against final results; simulated strategy uses the same window dates.</li>
+          </ul>
+        </div>
+      </section>
+
+      {/* metrics_snapshot */}
+      <section className="container mx-auto px-4 py-6">
+        <div className="glass-card p-6">
+          <h2 className="text-xl font-bold mb-2">metrics_snapshot</h2>
+          <p className="text-sm text-muted-foreground mb-4">Source: {metricsSnapshotSource}</p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+            <div className="rounded-lg border border-border p-4">
+              <div className="text-muted-foreground">Realized count</div>
+              <div className="text-lg font-semibold">{metricsSnapshotSummary.realized_count ?? "—"}</div>
+            </div>
+            <div className="rounded-lg border border-border p-4">
+              <div className="text-muted-foreground">Realized profit</div>
+              <div className="text-lg font-semibold">
+                {metricsSnapshotSummary.realized_profit_eur !== null
+                  ? fmtCurrencyEUR(metricsSnapshotSummary.realized_profit_eur, 2)
+                  : "—"}
+              </div>
+            </div>
+            <div className="rounded-lg border border-border p-4">
+              <div className="text-muted-foreground">Realized ROI</div>
+              <div className="text-lg font-semibold">
+                {metricsSnapshotSummary.realized_roi !== null
+                  ? fmtPercent(metricsSnapshotSummary.realized_roi * 100, 2)
+                  : "—"}
+              </div>
+            </div>
+            <div className="rounded-lg border border-border p-4">
+              <div className="text-muted-foreground">Realized win rate</div>
+              <div className="text-lg font-semibold">
+                {metricsSnapshotSummary.realized_win_rate !== null
+                  ? fmtPercent(metricsSnapshotSummary.realized_win_rate * 100, 2)
+                  : "—"}
+              </div>
+            </div>
+            <div className="rounded-lg border border-border p-4">
+              <div className="text-muted-foreground">Realized Sharpe</div>
+              <div className="text-lg font-semibold">
+                {metricsSnapshotSummary.realized_sharpe !== null
+                  ? fmtNumber(metricsSnapshotSummary.realized_sharpe, 3)
+                  : "—"}
+              </div>
+            </div>
+            <div className="rounded-lg border border-border p-4">
+              <div className="text-muted-foreground">Snapshot as of</div>
+              <div className="text-lg font-semibold">
+                {metricsSnapshotSummary.eval_base_date_max ?? "—"}
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -307,11 +319,8 @@ const Index = () => {
           <p className="text-sm text-muted-foreground">
             Source: {summary?.source?.combined_file ?? "combined_nba_predictions_*"} (played games only, windowed).
           </p>
-          <p className="text-xs text-muted-foreground">
-            Metrics snapshot: {metricsSnapshotSource}
-          </p>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
             title="Overall Accuracy"
             value={overallAccuracyPct}
@@ -331,123 +340,25 @@ const Index = () => {
           />
 
           <StatCard
-            title="As of"
-            value={summaryAsOfDate}
-            subtitle={
-              <div className="space-y-1">
-                <div>Last update (UTC): {lastUpdateTimestamp}</div>
-                <div>Window size: {windowSize}</div>
-                <div>
-                  Strategy latest settled row:{" "}
-                  {settledSimulatedBetsCount > 0 ? strategyLatestRowDate ?? "—" : "—"}
-                </div>
-              </div>
-            }
-            icon={<TrendingUp className="w-6 h-6" />}
-          />
-
-          <StatCard
-            title={
-              <div className="flex items-center gap-2">
-                <span>Calibration (Brier)</span>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        type="button"
-                        className="text-muted-foreground hover:text-foreground"
-                        aria-label="Brier Score info"
-                      >
-                        <Info className="h-4 w-4" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <div className="font-semibold">Brier Score</div>
-                      <div className="text-xs text-muted-foreground">
-                        Measures probability accuracy (0=best). ~0.20 good, ~0.25 ok,
-                        &gt;0.30 weak (depends on base rate).
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-            }
+            title="Brier (after)"
             value={fmtNumber(calibrationMetrics.brierAfter, 3)}
             subtitle={`Before: ${fmtNumber(calibrationMetrics.brierBefore, 3)}`}
             icon={<BarChart3 className="w-6 h-6" />}
           />
-        </div>
-      </section>
 
-      {/* Calibration */}
-      <section className="container mx-auto px-4 py-10">
-        <div className="glass-card p-6">
-          <h2 className="text-xl font-bold mb-2">Calibration Quality</h2>
-          <p className="text-sm text-muted-foreground mb-6">
-            Calibration metrics computed on the last {calibrationWindowSize} played games only. Historical results only.
-          </p>
+          <StatCard
+            title="Log Loss (after)"
+            value={fmtNumber(calibrationMetrics.logLossAfter, 3)}
+            subtitle={`Before: ${fmtNumber(calibrationMetrics.logLossBefore, 3)}`}
+            icon={<TrendingUp className="w-6 h-6" />}
+          />
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="rounded-lg border border-border p-4">
-              <div className="font-semibold mb-2">Brier Score</div>
-              <div className="text-sm text-muted-foreground">
-                {fmtNumber(calibrationMetrics.brierAfter, 3)} (raw)
-              </div>
-            </div>
-
-            <div className="rounded-lg border border-border p-4">
-              <div className="font-semibold mb-2">Log Loss</div>
-              <div className="text-sm text-muted-foreground">
-                {fmtNumber(calibrationMetrics.logLossAfter, 3)} (raw)
-              </div>
-            </div>
-
-            <div className="rounded-lg border border-border p-4">
-              <div className="font-semibold mb-2">ECE</div>
-              <div className="text-sm text-muted-foreground">
-                {fmtNumber(calibrationMetrics.ece, 3)} (raw)
-              </div>
-            </div>
-
-            <div className="rounded-lg border border-border p-4">
-              <div className="font-semibold mb-2">Calibration Slope</div>
-              <div className="text-sm text-muted-foreground">
-                {fmtNumber(calibrationMetrics.calibrationSlope, 3)} (raw)
-              </div>
-            </div>
-
-            <div className="rounded-lg border border-border p-4">
-              <div className="font-semibold mb-2">Calibration Intercept</div>
-              <div className="text-sm text-muted-foreground">
-                {fmtNumber(calibrationMetrics.calibrationIntercept, 3)} (raw)
-              </div>
-            </div>
-
-            <div className="rounded-lg border border-border p-4">
-              <div className="font-semibold mb-2">Avg Predicted Prob</div>
-              <div className="text-sm text-muted-foreground">
-                {fmtPercent(calibrationMetrics.avgPredictedProb * 100, 2)} (raw)
-              </div>
-            </div>
-
-            <div className="rounded-lg border border-border p-4">
-              <div className="font-semibold mb-2">Base Rate</div>
-              <div className="text-sm text-muted-foreground">
-                {fmtPercent(calibrationMetrics.baseRate * 100, 2)}
-              </div>
-            </div>
-
-            <div className="rounded-lg border border-border p-4">
-              <div className="font-semibold mb-2">Actual Win %</div>
-              <div className="text-sm text-muted-foreground">
-                {fmtPercent(calibrationMetrics.actualWinPct * 100, 2)}
-              </div>
-            </div>
-          </div>
-          <div className="text-xs text-muted-foreground mt-4">
-            Fitted games: {calibrationMetrics.fittedGames} • Window: {calibrationWindowSize} • As of{" "}
-            {calibrationAsOfDate}
-          </div>
+          <StatCard
+            title="ECE (after)"
+            value={fmtNumber(calibrationMetrics.ece, 3)}
+            subtitle={`Window: ${windowSize}`}
+            icon={<Activity className="w-6 h-6" />}
+          />
         </div>
       </section>
 
@@ -460,14 +371,57 @@ const Index = () => {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+        <div className="rounded-lg border border-border px-4 py-3 text-sm text-muted-foreground mb-4">
+          <span className="font-medium text-foreground">Active Filters (effective):</span>{" "}
+          <span className="text-foreground">{activeFiltersEffective}</span>
+        </div>
+        <div className="text-xs text-muted-foreground mb-6">
+          Params used: {paramsUsedLabel}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+          <StatCard
+            title="Strategy matches (window)"
+            value={settledSimulatedBetsCount}
+            subtitle={`Wins: ${strategySubsetWins}`}
+            icon={<Target className="w-6 h-6" />}
+          />
+          <StatCard
+            title="ROI (window subset)"
+            value={fmtPercent(localParamsSummary.roiPct, 2)}
+            subtitle={`Net P/L: ${fmtCurrencyEUR(localParamsSummary.totalProfitEur, 2)}`}
+            icon={<TrendingUp className="w-6 h-6" />}
+          />
+          <StatCard
+            title="Sharpe (window subset)"
+            value={
+              showRiskMetrics && typeof strategySummary.sharpeStyle === "number"
+                ? fmtNumber(strategySummary.sharpeStyle, 3)
+                : "—"
+            }
+            subtitle="Local params, settled only"
+            icon={<BarChart3 className="w-6 h-6" />}
+          />
+          <StatCard
+            title="Max Drawdown"
+            value={
+              showRiskMetrics
+                ? fmtCurrencyEUR(summary?.kpis?.max_drawdown_eur, 2)
+                : "—"
+            }
+            subtitle={
+              showRiskMetrics
+                ? fmtPercent(summary?.kpis?.max_drawdown_pct, 2)
+                : "—"
+            }
+            icon={<Activity className="w-6 h-6" />}
+          />
           <StatCard
             title="Bankroll (Last 200 Games)"
             value={fmtCurrencyEUR(bankrollLast200.bankroll, 2)}
             subtitle={`Start ${fmtCurrencyEUR(bankrollLast200.start, 0)} • Net P/L: ${fmtCurrencyEUR(bankrollLast200.net_pl, 2)}`}
             icon={<Activity className="w-6 h-6" />}
           />
-
           <StatCard
             title="Bankroll (2026 YTD, Simulated)"
             value={fmtCurrencyEUR(bankrollYtd2026.bankroll, 2)}
@@ -476,170 +430,9 @@ const Index = () => {
           />
         </div>
 
-        <div className="glass-card p-6">
-          <h2 className="text-xl font-bold mb-2">Strategy Filter Coverage</h2>
-          <p className="text-sm text-muted-foreground mb-6">
-            Descriptive filter pass rates for the last {windowSize} games window. Counts separate filter passes from
-            simulated bets (settled rows only).
-          </p>
-          <div className="rounded-lg border border-border px-4 py-3 text-sm text-muted-foreground mb-6">
-            Active filters: <span className="text-foreground">{activeFiltersLabel}</span>
-          </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="rounded-lg border border-border p-4">
-              <div className="font-semibold mb-3">Filter params</div>
-              {strategyParamsList.length === 0 ? (
-                <div className="text-sm text-muted-foreground">
-                  No strategy params found.
-                </div>
-              ) : (
-                <ul className="space-y-2 text-sm">
-                  {strategyParamsList.map(([key, value]) => (
-                    <li key={key} className="flex items-center justify-between">
-                      <span className="text-muted-foreground">{formatParamLabel(key)}</span>
-                      <span className="font-medium text-foreground">{String(value)}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-            <div className="rounded-lg border border-border p-4">
-              <div className="font-semibold mb-3">Coverage counts</div>
-              <ul className="space-y-2 text-sm">
-                {strategyFilterStats.filters.map((item) => (
-                  <li key={item.label} className="flex items-center justify-between">
-                    <span className="text-muted-foreground">{item.label}</span>
-                    <span className="font-medium text-foreground">{item.count}</span>
-                  </li>
-                ))}
-                <li className="flex items-center justify-between pt-2 border-t border-border/50">
-                  <span className="text-muted-foreground">Filter-pass games (window)</span>
-                  <span className="font-medium text-foreground">{matchedGamesCount}</span>
-                </li>
-                <li className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Simulated bets (settled rows)</span>
-                  <span className="font-medium text-foreground">
-                    {settledSimulatedBetsCount}
-                  </span>
-                </li>
-              </ul>
-              <div className="mt-4 text-xs text-muted-foreground">
-                Matched subset accuracy:{" "}
-                {strategySubsetAvailable
-                  ? fmtPercent(
-                      (strategySubsetWins / Math.max(settledSimulatedBetsCount, 1)) * 100,
-                      2,
-                    )
-                  : "N/A"}{" "}
-                • Simulated bets: {settledSimulatedBetsCount}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                Params source: {strategyParams.source}
-              </div>
-            </div>
-          </div>
-          <div className="text-xs text-muted-foreground mt-4">
-            Avg odds (window subset): {fmtNumber(localParamsSummary.avgOdds || localMatchedGamesAvgOdds, 2)} • Lower odds
-            keep ROI interpretation stable.
-          </div>
-        </div>
-      </section>
-
-      {/* Local params bet log summary (historical only) */}
-      <section className="container mx-auto px-4 py-10">
-        <div className="glass-card p-6">
-          <h2 className="text-xl font-bold mb-2">Local Params Bet Log Summary (Settled Games)</h2>
-          <p className="text-sm text-muted-foreground mb-6">
-            Aggregated statistics from strategy-matched bets in the last {windowSize} games window. Metrics are computed
-            directly from the rows shown in the local matched games table.
-          </p>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
-            <div className="rounded-lg border border-border p-4">
-              <div className="text-sm text-muted-foreground">Bets (Local Params)</div>
-              <div className="text-2xl font-bold">
-                {localParamsMissing ? 0 : localParamsSummary.totalBets}
-              </div>
-            </div>
-            <div className="rounded-lg border border-border p-4">
-              <div className="text-sm text-muted-foreground">Profit (Local Params)</div>
-              <div className="text-2xl font-bold">
-                {!localParamsMissing
-                  ? fmtCurrencyEUR(localParamsSummary.totalProfitEur, 2)
-                  : "N/A"}
-              </div>
-            </div>
-            <div className="rounded-lg border border-border p-4">
-              <div className="text-sm text-muted-foreground">ROI (Local Params)</div>
-              <div className="text-2xl font-bold">
-                {!localParamsMissing
-                  ? fmtPercent(localParamsSummary.roiPct, 2)
-                  : "N/A"}
-              </div>
-            </div>
-            <div className="rounded-lg border border-border p-4">
-              <div className="text-sm text-muted-foreground">Avg Stake (Local Params)</div>
-              <div className="text-2xl font-bold">{fmtCurrencyEUR(bankrollLast200.stake, 2)}</div>
-            </div>
-            <div className="rounded-lg border border-border p-4">
-              <div className="text-sm text-muted-foreground">Avg EV €/100 (Local Params)</div>
-              <div className="text-2xl font-bold">
-                {localParamsMissing ? "N/A" : fmtNumber(localParamsSummary.avgEvPer100, 2)}
-              </div>
-            </div>
-            <div className="rounded-lg border border-border p-4">
-              <div className="text-sm text-muted-foreground">Avg Odds (Local Params)</div>
-              <div className="text-2xl font-bold">
-                {localParamsMissing
-                  ? "N/A"
-                  : fmtNumber(localParamsSummary.avgOdds || localMatchedGamesAvgOdds, 2)}
-              </div>
-            </div>
-          </div>
-
-          <div className="text-xs text-muted-foreground mt-4">
-            As of {strategyAsOfDate} • Windowed historical / settled only.
-          </div>
-        </div>
-      </section>
-
-      {/* Risk metrics */}
-      <section className="container mx-auto px-4 py-10">
-        <div className="glass-card p-6">
-          <h2 className="text-xl font-bold mb-2">
-            Risk Metrics (Local Params, Last {windowSize} Games Window)
-          </h2>
-          <p className="text-sm text-muted-foreground mb-6">
-            Risk metrics are computed on settled bets that match the local params within the same windowed date range.
-          </p>
-          <p className="text-xs text-muted-foreground mb-4">
-            Max drawdown uses the simulated equity curve of the local matched games table; values are hidden for
-            extremely small samples (fewer than 5 settled bets).
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="rounded-lg border border-border p-4">
-              <div className="font-semibold mb-2">Sharpe Ratio</div>
-              <div className="text-2xl font-bold">
-                {!localParamsMissing &&
-                showRiskMetrics &&
-                typeof strategySummary.sharpeStyle === "number"
-                  ? fmtNumber(strategySummary.sharpeStyle, 3)
-                  : "—"}
-              </div>
-            </div>
-            <div className="rounded-lg border border-border p-4">
-              <div className="font-semibold mb-2">Max Drawdown</div>
-              <div className="text-2xl font-bold">
-                {showRiskMetrics ? fmtCurrencyEUR(summary?.kpis?.max_drawdown_eur, 2) : "—"}
-              </div>
-            </div>
-            <div className="rounded-lg border border-border p-4">
-              <div className="font-semibold mb-2">Max Drawdown %</div>
-              <div className="text-2xl font-bold">
-                {showRiskMetrics ? fmtPercent(summary?.kpis?.max_drawdown_pct, 2) : "—"}
-              </div>
-            </div>
-          </div>
+        <div className="text-xs text-muted-foreground">
+          Avg odds (window subset): {fmtNumber(localParamsSummary.avgOdds || localMatchedGamesAvgOdds, 2)} • Strategy as of{" "}
+          {strategyAsOfDate}
         </div>
       </section>
 
@@ -707,28 +500,6 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Debug footer (temporary) */}
-      {import.meta.env.VITE_DEBUG_DASHBOARD === "true" ? (
-        <section className="container mx-auto px-4 pb-10">
-          <div className="rounded-lg border border-border px-4 py-3 text-xs text-muted-foreground">
-            <div className="font-semibold text-foreground mb-2">Debug</div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              <div>
-                <div>Combined file: {summary?.source?.combined_file ?? "missing"}</div>
-                <div>Metrics snapshot: {summary?.source?.metrics_snapshot_source ?? "missing"}</div>
-                <div>Local matched games: {localMatchedGamesSource || "missing"}</div>
-              </div>
-              <div>
-                <div>Window games: {windowSize}</div>
-                <div>Filter-pass: {matchedGamesCount}</div>
-                <div>Matched (simulated bets): {settledSimulatedBetsCount}</div>
-                <div>Rows in table: {localMatchedGamesRows.length}</div>
-              </div>
-            </div>
-          </div>
-        </section>
-      ) : null}
-
       {/* Placed bets (real) */}
       <section className="container mx-auto px-4 py-10">
         <div className="mb-6">
@@ -743,59 +514,45 @@ const Index = () => {
             These are real placed bets, settled after the fact using final results from combined_*.
           </p>
 
-          {!realBetsAvailable ? (
-            <div className="rounded-lg border border-border p-4 text-sm text-muted-foreground mb-6">
-              Real bet log not included in this CI build (N/A).
-            </div>
-          ) : null}
-
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             <div className="rounded-lg border border-border p-4">
               <div className="text-sm text-muted-foreground">Count</div>
               <div className="text-2xl font-bold">
-                {realBetsAvailable ? settledBetsSummary.count : "N/A"}
+                {settledBetsSummary.count}
               </div>
             </div>
             <div className="rounded-lg border border-border p-4">
               <div className="text-sm text-muted-foreground">Wins</div>
               <div className="text-2xl font-bold">
-                {realBetsAvailable ? settledBetsSummary.wins : "N/A"}
+                {settledBetsSummary.wins}
               </div>
             </div>
             <div className="rounded-lg border border-border p-4">
               <div className="text-sm text-muted-foreground">P/L</div>
               <div className="text-2xl font-bold">
-                {realBetsAvailable
-                  ? fmtCurrencyEUR(settledBetsSummary.profit_eur, 2)
-                  : "N/A"}
+                {fmtCurrencyEUR(settledBetsSummary.profit_eur, 2)}
               </div>
             </div>
             <div className="rounded-lg border border-border p-4">
               <div className="text-sm text-muted-foreground">ROI</div>
               <div className="text-2xl font-bold">
-                {realBetsAvailable ? fmtPercent(settledBetsSummary.roi_pct, 2) : "N/A"}
+                {fmtPercent(settledBetsSummary.roi_pct, 2)}
               </div>
             </div>
             <div className="rounded-lg border border-border p-4">
               <div className="text-sm text-muted-foreground">Avg Odds</div>
               <div className="text-2xl font-bold">
-                {realBetsAvailable ? fmtNumber(settledBetsSummary.avg_odds, 2) : "N/A"}
+                {fmtNumber(settledBetsSummary.avg_odds, 2)}
               </div>
             </div>
           </div>
 
-          {realBetsAvailable ? (
-            <div className="text-xs text-muted-foreground mt-4">
-              Bets are settled only when a matching played game is available. Source: {betLogFlatSource}
-            </div>
-          ) : null}
+          <div className="text-xs text-muted-foreground mt-4">
+            Bets are settled only when a matching played game is available. Source: {betLogFlatSource}
+          </div>
 
           <div className="mt-6 overflow-x-auto">
-            {!realBetsAvailable ? (
-              <div className="rounded-lg border border-border p-4 text-sm text-muted-foreground">
-                Real bet log not included in this CI build (N/A).
-              </div>
-            ) : settledBetsRows.length === 0 ? (
+            {settledBetsRows.length === 0 ? (
               <div className="rounded-lg border border-border p-4 text-sm text-muted-foreground">
                 No settled bets recorded for 2026 yet.
               </div>

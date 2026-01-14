@@ -8,6 +8,8 @@ export interface SummaryPayload {
   last_run: string;
   as_of_date: string;
   window_end?: string;
+  window_start?: string;
+  window_size?: number;
   generated_at?: string;
   real_bets_available?: boolean;
   summary_stats: SummaryStats;
@@ -35,6 +37,7 @@ export interface SummaryPayload {
     params: Record<string, string | number | boolean | null>;
     params_used: Record<string, string | number | boolean | null>;
     active_filters?: string;
+    params_used_label?: string;
   };
   strategy_filter_stats: {
     window_size: number;
@@ -54,6 +57,37 @@ export interface SummaryPayload {
     bet_log_file: string;
     bet_log_flat_file?: string;
     metrics_snapshot_source: string;
+  };
+}
+
+export interface DashboardPayload {
+  as_of_date: string;
+  window: {
+    size: number;
+    start?: string | null;
+    end?: string | null;
+    games_count?: number;
+  };
+  active_filters_effective: string;
+  params_used_label?: string;
+  metrics_snapshot_summary?: {
+    realized_count: number | null;
+    realized_profit_eur: number | null;
+    realized_roi: number | null;
+    realized_win_rate: number | null;
+    realized_sharpe: number | null;
+    ev_mean: number | null;
+    eval_base_date_max?: string | null;
+  };
+  summary: SummaryPayload;
+  tables: TablesPayload;
+  last_run?: LastRunPayload | null;
+  sources?: {
+    combined_file: string;
+    metrics_snapshot: string;
+    local_matched_games: string;
+    bet_log_flat: string;
+    copied?: Record<string, string>;
   };
 }
 
