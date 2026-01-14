@@ -13,6 +13,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { fmtCurrencyEUR, fmtNumber, fmtPercent } from "@/lib/format";
+import { shouldShowRiskMetrics } from "@/lib/riskMetrics";
 
 const Index = () => {
   const [summary, setSummary] = useState<SummaryPayload | null>(null);
@@ -82,12 +83,9 @@ const Index = () => {
   };
   const homeWinRatesLast20 = tables?.home_win_rates_last20 ?? [];
   const localMatchedGamesRows = tables?.local_matched_games_rows ?? [];
-  const localMatchedGamesCount =
-    tables?.local_matched_games_count ?? localMatchedGamesRows.length;
+  const localMatchedGamesCount = localMatchedGamesRows.length;
   const localMatchedGamesMismatch = tables?.local_matched_games_mismatch ?? false;
   const localMatchedGamesNote = tables?.local_matched_games_note ?? "";
-  const localMatchedGamesProfitSum =
-    tables?.local_matched_games_profit_sum_table ?? 0;
   const bankrollLast200 = tables?.bankroll_last_200 ?? {
     start: 1000,
     stake: 100,
@@ -135,8 +133,7 @@ const Index = () => {
   const metricsSnapshotSource = summary?.source?.metrics_snapshot_source ?? "missing";
   const betLogFlatSource = summary?.source?.bet_log_flat_file ?? "missing";
   const localMatchedGamesSource = tables?.local_matched_games_source ?? "";
-  const localParamsAvailable =
-    localMatchedGamesRows.length > 0 || strategySummary.totalBets > 0;
+  const localParamsAvailable = localMatchedGamesRows.length > 0;
   const localParamsMissing = !localParamsAvailable;
   const realBetsAvailable =
     summary?.real_bets_available !== false && betLogFlatSource !== "missing";
@@ -156,26 +153,24 @@ const Index = () => {
     "—";
 
   const overallAccuracyPct = fmtPercent(summaryStats.overall_accuracy * 100, 2);
-  const calibrationWindowSize = calibrationMetrics.windowSize || strategyFilterStats.window_size;
-  const windowGamesLabel = calibrationWindowSize || summaryStats.total_games;
+  const windowSize =
+    strategyFilterStats.window_size || calibrationMetrics.windowSize || summaryStats.total_games || 200;
+  const windowStartLabel = strategyFilterStats.window_start ?? "—";
+  const windowEndLabel = strategyFilterStats.window_end ?? summaryAsOfDate ?? "—";
+  const calibrationWindowSize = windowSize;
+  const windowGamesLabel = windowSize;
 
   const topHomeTeams = useMemo(() => {
     return [...homeWinRatesLast20].sort((a, b) => b.homeWinRate - a.homeWinRate);
   }, [homeWinRatesLast20]);
 
   const matchedGamesCount = strategyFilterStats.matched_games_count ?? 0;
-  const strategyCounts = summary?.strategy_counts ?? {
-    window_games_count:
-      strategyFilterStats.filters.find((filter) => filter.label === "Window games")?.count ?? 0,
-    filter_pass_count: matchedGamesCount,
-    simulated_bets_count: localMatchedGamesCount,
-    settled_bets_count: localMatchedGamesCount,
-  };
-  const strategySubsetAvailable = strategyCounts.simulated_bets_count > 0;
+  const settledSimulatedBetsCount = localMatchedGamesCount;
+  const strategySubsetAvailable = settledSimulatedBetsCount > 0;
   const strategySubsetWins = strategySubsetAvailable
     ? localMatchedGamesRows.length
       ? localMatchedGamesRows.filter((game) => game.win === 1).length
-      : Math.round(strategySummary.winRate * strategyCounts.simulated_bets_count)
+      : Math.round(strategySummary.winRate * settledSimulatedBetsCount)
     : 0;
   const strategyLatestRowDate = useMemo(() => {
     if (localMatchedGamesRows.length === 0) {
@@ -187,6 +182,43 @@ const Index = () => {
     }
     return [...dates].sort().at(-1) ?? null;
   }, [localMatchedGamesRows]);
+
+  const localParamsSummary = useMemo(() => {
+    const count = settledSimulatedBetsCount;
+    if (count === 0) {
+      return {
+        totalBets: 0,
+        totalProfitEur: 0,
+        roiPct: 0,
+        avgEvPer100: 0,
+        avgOdds: 0,
+      };
+    }
+    const totals = localMatchedGamesRows.reduce(
+      (acc, row) => {
+        acc.profit += row.pnl ?? 0;
+        acc.ev += row.ev_eur_per_100 ?? 0;
+        acc.odds += row.odds_1 ?? 0;
+        return acc;
+      },
+      { profit: 0, ev: 0, odds: 0 },
+    );
+    const totalStake = bankrollLast200.stake * count;
+    const roiPct = totalStake > 0 ? (totals.profit / totalStake) * 100 : 0;
+    return {
+      totalBets: count,
+      totalProfitEur: totals.profit,
+      roiPct,
+      avgEvPer100: totals.ev / count,
+      avgOdds: totals.odds / count,
+    };
+  }, [bankrollLast200.stake, localMatchedGamesRows, settledSimulatedBetsCount]);
+
+  const strategyAsOfDate = strategyLatestRowDate ?? strategySummary.asOfDate ?? "—";
+  const calibrationAsOfDate =
+    calibrationMetrics.asOfDate || strategyFilterStats.window_end || summaryAsOfDate || "—";
+  const showRiskMetrics = shouldShowRiskMetrics(settledSimulatedBetsCount);
+  const localMatchedGamesProfitSumDisplay = localParamsSummary.totalProfitEur;
 
   const strategyParamsList = useMemo(() => {
     return Object.entries(strategyParams.params_used ?? {});
@@ -273,7 +305,10 @@ const Index = () => {
         <div className="mb-6">
           <h2 className="text-2xl font-bold">Window Performance (Model)</h2>
           <p className="text-sm text-muted-foreground">
-            Source: combined_nba_predictions_* (played games only, windowed).
+            Source: {summary?.source?.combined_file ?? "combined_nba_predictions_*"} (played games only, windowed).
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Metrics snapshot: {metricsSnapshotSource}
           </p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -284,14 +319,11 @@ const Index = () => {
               <div className="space-y-1">
                 <div>Window games: {windowGamesLabel}</div>
                 <div>
-                  Window: {strategyFilterStats.window_start ?? "—"} →{" "}
-                  {strategyFilterStats.window_end ?? "—"}
+                  Window: {windowStartLabel} → {windowEndLabel}
                 </div>
                 <div>
                   Strategy subset in window:{" "}
-                  {strategySubsetAvailable
-                    ? `${strategyCounts.simulated_bets_count} matches • ${strategySubsetWins} won`
-                    : "N/A (missing local snapshot)"}
+                  {`${settledSimulatedBetsCount} matches • ${strategySubsetWins} won`}
                 </div>
               </div>
             }
@@ -304,10 +336,11 @@ const Index = () => {
             subtitle={
               <div className="space-y-1">
                 <div>Last update (UTC): {lastUpdateTimestamp}</div>
-                <div>Window size: {strategyFilterStats.window_size}</div>
-                {localMatchedGamesSource && strategyLatestRowDate ? (
-                  <div>Strategy latest settled row: {strategyLatestRowDate}</div>
-                ) : null}
+                <div>Window size: {windowSize}</div>
+                <div>
+                  Strategy latest settled row:{" "}
+                  {settledSimulatedBetsCount > 0 ? strategyLatestRowDate ?? "—" : "—"}
+                </div>
               </div>
             }
             icon={<TrendingUp className="w-6 h-6" />}
@@ -413,7 +446,7 @@ const Index = () => {
           </div>
           <div className="text-xs text-muted-foreground mt-4">
             Fitted games: {calibrationMetrics.fittedGames} • Window: {calibrationWindowSize} • As of{" "}
-            {calibrationMetrics.asOfDate}
+            {calibrationAsOfDate}
           </div>
         </div>
       </section>
@@ -423,7 +456,7 @@ const Index = () => {
         <div className="mb-6">
           <h2 className="text-2xl font-bold">Strategy (Simulated on Window Subset)</h2>
           <p className="text-sm text-muted-foreground">
-            Source: local_matched_games_YYYY-MM-DD.csv (window subset only).
+            Source: {localMatchedGamesSource || "local_matched_games_YYYY-MM-DD.csv"} (window subset only).
           </p>
         </div>
 
@@ -446,8 +479,8 @@ const Index = () => {
         <div className="glass-card p-6">
           <h2 className="text-xl font-bold mb-2">Strategy Filter Coverage</h2>
           <p className="text-sm text-muted-foreground mb-6">
-            Descriptive filter pass rates for the last {strategyFilterStats.window_size} games window. Counts separate
-            filter passes from simulated bets (settled rows only).
+            Descriptive filter pass rates for the last {windowSize} games window. Counts separate filter passes from
+            simulated bets (settled rows only).
           </p>
           <div className="rounded-lg border border-border px-4 py-3 text-sm text-muted-foreground mb-6">
             Active filters: <span className="text-foreground">{activeFiltersLabel}</span>
@@ -481,12 +514,12 @@ const Index = () => {
                 ))}
                 <li className="flex items-center justify-between pt-2 border-t border-border/50">
                   <span className="text-muted-foreground">Filter-pass games (window)</span>
-                  <span className="font-medium text-foreground">{strategyCounts.filter_pass_count}</span>
+                  <span className="font-medium text-foreground">{matchedGamesCount}</span>
                 </li>
                 <li className="flex items-center justify-between">
                   <span className="text-muted-foreground">Simulated bets (settled rows)</span>
                   <span className="font-medium text-foreground">
-                    {strategyCounts.simulated_bets_count}
+                    {settledSimulatedBetsCount}
                   </span>
                 </li>
               </ul>
@@ -494,11 +527,11 @@ const Index = () => {
                 Matched subset accuracy:{" "}
                 {strategySubsetAvailable
                   ? fmtPercent(
-                      (strategySubsetWins / Math.max(strategyCounts.simulated_bets_count, 1)) * 100,
+                      (strategySubsetWins / Math.max(settledSimulatedBetsCount, 1)) * 100,
                       2,
                     )
                   : "N/A"}{" "}
-                • Simulated bets: {strategyCounts.simulated_bets_count}
+                • Simulated bets: {settledSimulatedBetsCount}
               </div>
               <div className="text-xs text-muted-foreground">
                 Params source: {strategyParams.source}
@@ -506,7 +539,8 @@ const Index = () => {
             </div>
           </div>
           <div className="text-xs text-muted-foreground mt-4">
-            Avg odds (window subset): {fmtNumber(localMatchedGamesAvgOdds, 2)} • Lower odds keep ROI interpretation stable.
+            Avg odds (window subset): {fmtNumber(localParamsSummary.avgOdds || localMatchedGamesAvgOdds, 2)} • Lower odds
+            keep ROI interpretation stable.
           </div>
         </div>
       </section>
@@ -516,28 +550,30 @@ const Index = () => {
         <div className="glass-card p-6">
           <h2 className="text-xl font-bold mb-2">Local Params Bet Log Summary (Settled Games)</h2>
           <p className="text-sm text-muted-foreground mb-6">
-            Aggregated statistics from strategy-matched bets in the last {strategyFilterStats.window_size} games window.
-            Metrics are computed directly from the rows shown in the local matched games table.
+            Aggregated statistics from strategy-matched bets in the last {windowSize} games window. Metrics are computed
+            directly from the rows shown in the local matched games table.
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
             <div className="rounded-lg border border-border p-4">
               <div className="text-sm text-muted-foreground">Bets (Local Params)</div>
-              <div className="text-2xl font-bold">{localParamsMissing ? 0 : strategySummary.totalBets}</div>
+              <div className="text-2xl font-bold">
+                {localParamsMissing ? 0 : localParamsSummary.totalBets}
+              </div>
             </div>
             <div className="rounded-lg border border-border p-4">
               <div className="text-sm text-muted-foreground">Profit (Local Params)</div>
               <div className="text-2xl font-bold">
-                {!localParamsMissing && strategySummary.profitMetricsAvailable
-                  ? fmtCurrencyEUR(strategySummary.totalProfitEur, 2)
+                {!localParamsMissing
+                  ? fmtCurrencyEUR(localParamsSummary.totalProfitEur, 2)
                   : "N/A"}
               </div>
             </div>
             <div className="rounded-lg border border-border p-4">
               <div className="text-sm text-muted-foreground">ROI (Local Params)</div>
               <div className="text-2xl font-bold">
-                {!localParamsMissing && strategySummary.profitMetricsAvailable
-                  ? fmtPercent(strategySummary.roiPct, 2)
+                {!localParamsMissing
+                  ? fmtPercent(localParamsSummary.roiPct, 2)
                   : "N/A"}
               </div>
             </div>
@@ -548,19 +584,21 @@ const Index = () => {
             <div className="rounded-lg border border-border p-4">
               <div className="text-sm text-muted-foreground">Avg EV €/100 (Local Params)</div>
               <div className="text-2xl font-bold">
-                {localParamsMissing ? "N/A" : fmtNumber(strategySummary.avgEvPer100, 2)}
+                {localParamsMissing ? "N/A" : fmtNumber(localParamsSummary.avgEvPer100, 2)}
               </div>
             </div>
             <div className="rounded-lg border border-border p-4">
               <div className="text-sm text-muted-foreground">Avg Odds (Local Params)</div>
               <div className="text-2xl font-bold">
-                {localParamsMissing ? "N/A" : fmtNumber(localMatchedGamesAvgOdds, 2)}
+                {localParamsMissing
+                  ? "N/A"
+                  : fmtNumber(localParamsSummary.avgOdds || localMatchedGamesAvgOdds, 2)}
               </div>
             </div>
           </div>
 
           <div className="text-xs text-muted-foreground mt-4">
-            As of {strategySummary.asOfDate} • Windowed historical / settled only.
+            As of {strategyAsOfDate} • Windowed historical / settled only.
           </div>
         </div>
       </section>
@@ -569,7 +607,7 @@ const Index = () => {
       <section className="container mx-auto px-4 py-10">
         <div className="glass-card p-6">
           <h2 className="text-xl font-bold mb-2">
-            Risk Metrics (Local Params, Last {strategyFilterStats.window_size} Games Window)
+            Risk Metrics (Local Params, Last {windowSize} Games Window)
           </h2>
           <p className="text-sm text-muted-foreground mb-6">
             Risk metrics are computed on settled bets that match the local params within the same windowed date range.
@@ -582,7 +620,9 @@ const Index = () => {
             <div className="rounded-lg border border-border p-4">
               <div className="font-semibold mb-2">Sharpe Ratio</div>
               <div className="text-2xl font-bold">
-                {!localParamsMissing && typeof strategySummary.sharpeStyle === "number"
+                {!localParamsMissing &&
+                showRiskMetrics &&
+                typeof strategySummary.sharpeStyle === "number"
                   ? fmtNumber(strategySummary.sharpeStyle, 3)
                   : "—"}
               </div>
@@ -590,13 +630,13 @@ const Index = () => {
             <div className="rounded-lg border border-border p-4">
               <div className="font-semibold mb-2">Max Drawdown</div>
               <div className="text-2xl font-bold">
-                {fmtCurrencyEUR(summary?.kpis?.max_drawdown_eur, 2)}
+                {showRiskMetrics ? fmtCurrencyEUR(summary?.kpis?.max_drawdown_eur, 2) : "—"}
               </div>
             </div>
             <div className="rounded-lg border border-border p-4">
               <div className="font-semibold mb-2">Max Drawdown %</div>
               <div className="text-2xl font-bold">
-                {fmtPercent(summary?.kpis?.max_drawdown_pct, 2)}
+                {showRiskMetrics ? fmtPercent(summary?.kpis?.max_drawdown_pct, 2) : "—"}
               </div>
             </div>
           </div>
@@ -607,18 +647,18 @@ const Index = () => {
       <section className="container mx-auto px-4 py-10">
         <div className="glass-card p-6">
           <h2 className="text-xl font-bold mb-2">
-            LOCAL MATCHED GAMES (LAST {strategyFilterStats.window_size} WINDOW)
+            LOCAL MATCHED GAMES (LAST {windowSize} WINDOW)
           </h2>
           <p className="text-sm text-muted-foreground mb-2">
-            Settled simulated bets (last {strategyFilterStats.window_size} window):{" "}
-            {localMatchedGamesCount}
+            Settled simulated bets (last {windowSize} window): {settledSimulatedBetsCount}
           </p>
           <p className="text-sm text-muted-foreground mb-6">
-            Rows: {localMatchedGamesCount} • Net P/L: {fmtCurrencyEUR(localMatchedGamesProfitSum, 2)}
+            Rows: {settledSimulatedBetsCount} • Net P/L:{" "}
+            {fmtCurrencyEUR(localMatchedGamesProfitSumDisplay, 2)}
           </p>
           <p className="text-xs text-muted-foreground mb-6">
             Source: {localMatchedGamesSource || "missing"} • Window:{" "}
-            {strategyFilterStats.window_start ?? "—"} → {strategyFilterStats.window_end ?? "—"}
+            {windowStartLabel} → {windowEndLabel}
           </p>
 
           {localMatchedGamesMismatch || localMatchedGamesRows.length === 0 ? (
@@ -679,9 +719,9 @@ const Index = () => {
                 <div>Local matched games: {localMatchedGamesSource || "missing"}</div>
               </div>
               <div>
-                <div>Window games: {strategyCounts.window_games_count}</div>
-                <div>Filter-pass: {strategyCounts.filter_pass_count}</div>
-                <div>Matched (simulated bets): {strategyCounts.simulated_bets_count}</div>
+                <div>Window games: {windowSize}</div>
+                <div>Filter-pass: {matchedGamesCount}</div>
+                <div>Matched (simulated bets): {settledSimulatedBetsCount}</div>
                 <div>Rows in table: {localMatchedGamesRows.length}</div>
               </div>
             </div>
@@ -800,10 +840,10 @@ const Index = () => {
       <section className="container mx-auto px-4 py-10">
         <div className="glass-card p-6">
           <h2 className="text-xl font-bold mb-2">
-            Home Win Rate (Last {strategyFilterStats.window_size} Games Window)
+            Home Win Rate (Last {windowSize} Games Window)
           </h2>
           <p className="text-sm text-muted-foreground mb-6">
-            Windowed home win rate per team; computed only on home games inside the last {strategyFilterStats.window_size} games.
+            Windowed home win rate per team; computed only on home games inside the last {windowSize} games.
           </p>
 
           <div className="overflow-x-auto">
@@ -834,7 +874,7 @@ const Index = () => {
           </div>
 
           <div className="text-xs text-muted-foreground mt-4">
-            Showing all teams with home win rate &gt; 50% in the last {strategyFilterStats.window_size} games.
+            Showing all teams with home win rate &gt; 50% in the last {windowSize} games.
           </div>
         </div>
       </section>
