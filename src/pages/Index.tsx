@@ -135,8 +135,9 @@ const Index = () => {
   const metricsSnapshotSource = summary?.source?.metrics_snapshot_source ?? "missing";
   const betLogFlatSource = summary?.source?.bet_log_flat_file ?? "missing";
   const localMatchedGamesSource = tables?.local_matched_games_source ?? "";
-  const localParamsMissing =
-    strategyParams.source === "missing" || metricsSnapshotSource === "missing";
+  const localParamsAvailable =
+    localMatchedGamesRows.length > 0 || strategySummary.totalBets > 0;
+  const localParamsMissing = !localParamsAvailable;
   const realBetsAvailable =
     summary?.real_bets_available !== false && betLogFlatSource !== "missing";
   const summaryAsOfDate =
@@ -176,14 +177,27 @@ const Index = () => {
       ? localMatchedGamesRows.filter((game) => game.win === 1).length
       : Math.round(strategySummary.winRate * strategyCounts.simulated_bets_count)
     : 0;
-  const strategyLatestRowDate =
-    localMatchedGamesRows.length === 0
-      ? null
-      : localMatchedGamesRows.reduce((latest, row) => (row.date > latest ? row.date : latest), "—");
+  const strategyLatestRowDate = useMemo(() => {
+    if (localMatchedGamesRows.length === 0) {
+      return null;
+    }
+    const dates = localMatchedGamesRows.map((row) => row.date).filter(Boolean);
+    if (dates.length === 0) {
+      return null;
+    }
+    return [...dates].sort().at(-1) ?? null;
+  }, [localMatchedGamesRows]);
 
   const strategyParamsList = useMemo(() => {
     return Object.entries(strategyParams.params_used ?? {});
   }, [strategyParams.params_used]);
+
+  const formatParamLabel = (key: string) => {
+    if (key === "n_trades") {
+      return "n_trades (filter-pass games)";
+    }
+    return key;
+  };
 
   const formatActiveFilters = (value?: string | null) => {
     if (!value) {
@@ -270,6 +284,10 @@ const Index = () => {
               <div className="space-y-1">
                 <div>Window games: {windowGamesLabel}</div>
                 <div>
+                  Window: {strategyFilterStats.window_start ?? "—"} →{" "}
+                  {strategyFilterStats.window_end ?? "—"}
+                </div>
+                <div>
                   Strategy subset in window:{" "}
                   {strategySubsetAvailable
                     ? `${strategyCounts.simulated_bets_count} matches • ${strategySubsetWins} won`
@@ -285,7 +303,7 @@ const Index = () => {
             value={summaryAsOfDate}
             subtitle={
               <div className="space-y-1">
-                <div>Last update: {lastUpdateTimestamp}</div>
+                <div>Last update (UTC): {lastUpdateTimestamp}</div>
                 <div>Window size: {strategyFilterStats.window_size}</div>
                 {localMatchedGamesSource && strategyLatestRowDate ? (
                   <div>Strategy latest settled row: {strategyLatestRowDate}</div>
@@ -445,7 +463,7 @@ const Index = () => {
                 <ul className="space-y-2 text-sm">
                   {strategyParamsList.map(([key, value]) => (
                     <li key={key} className="flex items-center justify-between">
-                      <span className="text-muted-foreground">{key}</span>
+                      <span className="text-muted-foreground">{formatParamLabel(key)}</span>
                       <span className="font-medium text-foreground">{String(value)}</span>
                     </li>
                   ))}
@@ -558,7 +576,7 @@ const Index = () => {
           </p>
           <p className="text-xs text-muted-foreground mb-4">
             Max drawdown uses the simulated equity curve of the local matched games table; values are hidden for
-            extremely small samples.
+            extremely small samples (fewer than 5 settled bets).
           </p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="rounded-lg border border-border p-4">
@@ -592,7 +610,8 @@ const Index = () => {
             LOCAL MATCHED GAMES (LAST {strategyFilterStats.window_size} WINDOW)
           </h2>
           <p className="text-sm text-muted-foreground mb-2">
-            n_trades (last {strategyFilterStats.window_size} window): {localMatchedGamesCount}
+            Settled simulated bets (last {strategyFilterStats.window_size} window):{" "}
+            {localMatchedGamesCount}
           </p>
           <p className="text-sm text-muted-foreground mb-6">
             Rows: {localMatchedGamesCount} • Net P/L: {fmtCurrencyEUR(localMatchedGamesProfitSum, 2)}
@@ -649,24 +668,26 @@ const Index = () => {
       </section>
 
       {/* Debug footer (temporary) */}
-      <section className="container mx-auto px-4 pb-10">
-        <div className="rounded-lg border border-border px-4 py-3 text-xs text-muted-foreground">
-          <div className="font-semibold text-foreground mb-2">Debug</div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            <div>
-              <div>Combined file: {summary?.source?.combined_file ?? "missing"}</div>
-              <div>Metrics snapshot: {summary?.source?.metrics_snapshot_source ?? "missing"}</div>
-              <div>Local matched games: {localMatchedGamesSource || "missing"}</div>
-            </div>
-            <div>
-              <div>Window games: {strategyCounts.window_games_count}</div>
-              <div>Filter-pass: {strategyCounts.filter_pass_count}</div>
-              <div>Matched (simulated bets): {strategyCounts.simulated_bets_count}</div>
-              <div>Rows in table: {localMatchedGamesRows.length}</div>
+      {import.meta.env.VITE_DEBUG_DASHBOARD === "true" ? (
+        <section className="container mx-auto px-4 pb-10">
+          <div className="rounded-lg border border-border px-4 py-3 text-xs text-muted-foreground">
+            <div className="font-semibold text-foreground mb-2">Debug</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <div>
+                <div>Combined file: {summary?.source?.combined_file ?? "missing"}</div>
+                <div>Metrics snapshot: {summary?.source?.metrics_snapshot_source ?? "missing"}</div>
+                <div>Local matched games: {localMatchedGamesSource || "missing"}</div>
+              </div>
+              <div>
+                <div>Window games: {strategyCounts.window_games_count}</div>
+                <div>Filter-pass: {strategyCounts.filter_pass_count}</div>
+                <div>Matched (simulated bets): {strategyCounts.simulated_bets_count}</div>
+                <div>Rows in table: {localMatchedGamesRows.length}</div>
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      ) : null}
 
       {/* Placed bets (real) */}
       <section className="container mx-auto px-4 py-10">
