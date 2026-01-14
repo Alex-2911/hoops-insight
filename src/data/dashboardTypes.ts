@@ -17,8 +17,8 @@ export interface SummaryPayload {
     roi_pct: number;
     avg_ev_per_100: number;
     avg_profit_per_bet_eur: number;
-    max_drawdown_eur: number;
-    max_drawdown_pct: number;
+    max_drawdown_eur: number | null;
+    max_drawdown_pct: number | null;
   };
   strategy_summary: {
     totalBets: number;
@@ -40,7 +40,14 @@ export interface SummaryPayload {
     window_size: number;
     filters: Array<{ label: string; count: number }>;
     matched_games_count: number;
+    window_start?: string;
     window_end?: string;
+  };
+  strategy_counts: {
+    window_games_count: number;
+    filter_pass_count: number;
+    simulated_bets_count: number;
+    settled_bets_count: number;
   };
   source: {
     combined_file: string;
