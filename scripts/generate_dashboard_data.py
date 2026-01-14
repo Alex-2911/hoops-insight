@@ -964,8 +964,8 @@ def build_settled_bets(
         played = played_lookup.get((bet_date.strftime(DATE_FMT), home_team, away_team))
         if not played:
             continue
-        winner = home_team if int(played["home_team_won"]) == 1 else away_team
-        win = 1 if pick_team == winner else 0
+        home_team_won = int(played.get("home_team_won") or 0)
+        win = 1 if home_team_won == 1 else 0
         odds = bet.get("odds")
         if odds is None or not isinstance(odds, (int, float)) or odds <= 0:
             odds = 1.0
@@ -1000,6 +1000,49 @@ def build_settled_bets(
             continue
         deduped[key] = row
     return list(deduped.values())
+
+
+def assert_settled_bets_match_local(
+    settled_rows: List[Dict[str, object]],
+    local_rows: List[Dict[str, object]],
+) -> None:
+    local_lookup: Dict[Tuple[str, str, str], int] = {}
+    for row in local_rows:
+        date = row.get("date")
+        if not date:
+            continue
+        key = (
+            str(date),
+            _safe_team(row.get("home_team")),
+            _safe_team(row.get("away_team")),
+        )
+        if not key[1] or not key[2]:
+            continue
+        local_lookup[key] = int(row.get("win") or 0)
+
+    mismatches = []
+    for row in settled_rows:
+        date = row.get("date")
+        if not date:
+            continue
+        key = (
+            str(date),
+            _safe_team(row.get("home_team")),
+            _safe_team(row.get("away_team")),
+        )
+        if key not in local_lookup:
+            continue
+        local_win = local_lookup[key]
+        settled_win = int(row.get("win") or 0)
+        if local_win != settled_win:
+            mismatches.append((key, settled_win, local_win))
+
+    if mismatches:
+        sample = mismatches[:5]
+        raise RuntimeError(
+            "Settled bets win mismatch with local matched games "
+            f"({len(mismatches)} mismatches). Sample: {sample}"
+        )
 
 
 def build_settled_bet_summary(rows: List[Dict[str, object]]) -> Dict[str, object]:
@@ -1465,6 +1508,7 @@ def main() -> None:
     settled_bets_rows = build_settled_bets(
         bet_log_flat_rows, played_rows, ytd_start=datetime(2026, 1, 1)
     )
+    assert_settled_bets_match_local(settled_bets_rows, local_matched_games_rows)
     settled_bets_summary = build_settled_bet_summary(settled_bets_rows)
 
     metrics_snapshot_source = str(metrics_snapshot_path)
