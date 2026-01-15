@@ -85,7 +85,6 @@ export interface DashboardPayload {
   sources?: {
     combined_file: string;
     metrics_snapshot: string;
-    local_matched_games: string;
     bet_log_flat: string;
     copied?: Record<string, string>;
   };
@@ -104,7 +103,6 @@ export interface DashboardState {
   last_update_utc: string;
   sources: {
     combined: string;
-    local_matched: string;
     bet_log: string;
     metrics_snapshot?: string;
   };
@@ -186,19 +184,6 @@ export interface BankrollEntry {
   profit: number;
 }
 
-export interface LocalMatchedGame {
-  date: string;
-  home_team: string;
-  away_team: string;
-  home_win_rate: number;
-  prob_iso: number;
-  prob_used: number;
-  odds_1: number;
-  ev_eur_per_100: number;
-  win: number;
-  pnl: number;
-}
-
 export interface SettledBet {
   date: string;
   home_team: string;
@@ -224,15 +209,7 @@ export interface TablesPayload {
   home_win_rates_last20: HomeWinRate[];
   bet_log_summary: BetLogSummary;
   bankroll_history: BankrollEntry[];
-  local_matched_games_rows: LocalMatchedGame[];
-  local_matched_games_count: number;
-  local_matched_games_profit_sum_table: number;
-  local_matched_games_mismatch: boolean;
-  local_matched_games_note: string;
-  local_matched_games_source?: string;
-  bankroll_last_200: BankrollSummary;
   bankroll_ytd_2026: BankrollSummary;
-  local_matched_games_avg_odds: number;
   settled_bets_rows: SettledBet[];
   settled_bets_summary: {
     count: number;
