@@ -91,6 +91,25 @@ export interface DashboardPayload {
   };
 }
 
+export interface DashboardState {
+  as_of_date: string;
+  window_size: number;
+  window_start?: string | null;
+  window_end?: string | null;
+  active_filters_text: string;
+  params_used_label: string;
+  params_source_label: string;
+  strategy_as_of_date?: string | null;
+  strategy_matches_window?: number;
+  last_update_utc: string;
+  sources: {
+    combined: string;
+    local_matched: string;
+    bet_log: string;
+    metrics_snapshot?: string;
+  };
+}
+
 export interface LastRunPayload {
   last_run: string;
   as_of_date: string;

@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { StatCard } from "@/components/cards/StatCard";
-import type { DashboardPayload } from "@/data/dashboardTypes";
+import type { DashboardPayload, DashboardState } from "@/data/dashboardTypes";
 import { Target, TrendingUp, Activity, BarChart3 } from "lucide-react";
 import { fmtCurrencyEUR, fmtNumber, fmtPercent } from "@/lib/format";
 import { shouldShowRiskMetrics } from "@/lib/riskMetrics";
 
 const Index = () => {
   const [payload, setPayload] = useState<DashboardPayload | null>(null);
+  const [dashboardState, setDashboardState] = useState<DashboardState | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const baseUrl = import.meta.env.BASE_URL ?? "/";
 
@@ -14,16 +15,21 @@ const Index = () => {
     let alive = true;
     const load = async () => {
       try {
-        const payloadRes = await fetch(`${baseUrl}data/dashboard_payload.json`);
+        const [payloadRes, stateRes] = await Promise.all([
+          fetch(`${baseUrl}data/dashboard_payload.json`),
+          fetch(`${baseUrl}data/dashboard_state.json`),
+        ]);
 
-        if (!payloadRes.ok) {
+        if (!payloadRes.ok || !stateRes.ok) {
           throw new Error("Failed to load dashboard data.");
         }
 
         const payloadJson = (await payloadRes.json()) as DashboardPayload;
+        const stateJson = (await stateRes.json()) as DashboardState;
 
         if (alive) {
           setPayload(payloadJson);
+          setDashboardState(stateJson);
         }
       } catch (err) {
         if (alive) {
@@ -87,13 +93,30 @@ const Index = () => {
   };
   const localMatchedGamesAvgOdds = tables?.local_matched_games_avg_odds ?? 0;
   const settledBetsRows = tables?.settled_bets_rows ?? [];
-  const settledBetsSummary = tables?.settled_bets_summary ?? {
-    count: 0,
-    wins: 0,
-    profit_eur: 0,
-    roi_pct: 0,
-    avg_odds: 0,
-  };
+  const settledBetsSummary = useMemo(() => {
+    if (!settledBetsRows.length) {
+      return {
+        count: 0,
+        wins: 0,
+        profit_eur: 0,
+        roi_pct: 0,
+        avg_odds: 0,
+      };
+    }
+    const wins = settledBetsRows.filter((row) => row.win === 1).length;
+    const profit = settledBetsRows.reduce((acc, row) => acc + (row.pnl ?? 0), 0);
+    const totalStake = settledBetsRows.reduce((acc, row) => acc + (row.stake ?? 0), 0);
+    const avgOdds =
+      settledBetsRows.reduce((acc, row) => acc + (row.odds ?? 0), 0) /
+      settledBetsRows.length;
+    return {
+      count: settledBetsRows.length,
+      wins,
+      profit_eur: profit,
+      roi_pct: totalStake > 0 ? (profit / totalStake) * 100 : 0,
+      avg_odds: avgOdds,
+    };
+  }, [settledBetsRows]);
 
   const strategySummary = summary?.strategy_summary ?? {
     totalBets: 0,
@@ -121,25 +144,39 @@ const Index = () => {
     eval_base_date_max: null,
   };
   const metricsSnapshotSource =
+    dashboardState?.sources?.metrics_snapshot ??
     payload?.sources?.metrics_snapshot ??
     summary?.source?.metrics_snapshot_source ??
-    "missing";
-  const betLogFlatSource =
-    payload?.sources?.bet_log_flat ?? summary?.source?.bet_log_flat_file ?? "missing";
+    "metrics_snapshot.json";
+  const betLogFlatSource = dashboardState?.sources?.bet_log ?? "bet_log_flat_live.csv";
   const localMatchedGamesSource =
-    payload?.sources?.local_matched_games ??
-    tables?.local_matched_games_source ??
-    "missing";
-  const summaryAsOfDate = payload?.as_of_date ?? summary?.as_of_date ?? "—";
+    dashboardState?.sources?.local_matched ?? "local_matched_games_latest.csv";
+  const combinedSource = dashboardState?.sources?.combined ?? "combined_latest.csv";
+  const summaryAsOfDate =
+    dashboardState?.as_of_date ?? payload?.as_of_date ?? summary?.as_of_date ?? "—";
   const overallAccuracyPct = fmtPercent(summaryStats.overall_accuracy * 100, 2);
-  const windowSize = windowInfo.size || calibrationMetrics.windowSize || summaryStats.total_games || 200;
-  const windowStartLabel = windowInfo.start ?? summary?.window_start ?? "—";
-  const windowEndLabel = windowInfo.end ?? summary?.window_end ?? summaryAsOfDate ?? "—";
+  const windowSize =
+    dashboardState?.window_size ||
+    windowInfo.size ||
+    calibrationMetrics.windowSize ||
+    summaryStats.total_games ||
+    200;
+  const windowStartLabel =
+    dashboardState?.window_start ?? windowInfo.start ?? summary?.window_start ?? "—";
+  const windowEndLabel =
+    dashboardState?.window_end ?? windowInfo.end ?? summary?.window_end ?? summaryAsOfDate ?? "—";
   const windowGamesLabel = windowInfo.games_count ?? windowSize;
   const activeFiltersEffective =
-    payload?.active_filters_effective ?? strategyParams.active_filters ?? "No active filters.";
+    dashboardState?.active_filters_text ??
+    payload?.active_filters_effective ??
+    strategyParams.active_filters ??
+    "No active filters.";
   const paramsUsedLabel =
-    payload?.params_used_label ?? strategyParams.params_used_label ?? "Historical";
+    dashboardState?.params_used_label ??
+    payload?.params_used_label ??
+    strategyParams.params_used_label ??
+    "Historical";
+  const paramsSourceLabel = dashboardState?.params_source_label ?? "strategy_params.json";
 
   const topHomeTeams = useMemo(() => {
     return [...homeWinRatesLast20].sort((a, b) => b.homeWinRate - a.homeWinRate);
@@ -148,9 +185,7 @@ const Index = () => {
   const settledSimulatedBetsCount = localMatchedGamesCount;
   const strategySubsetAvailable = settledSimulatedBetsCount > 0;
   const strategySubsetWins = strategySubsetAvailable
-    ? localMatchedGamesRows.length
-      ? localMatchedGamesRows.filter((game) => game.win === 1).length
-      : Math.round(strategySummary.winRate * settledSimulatedBetsCount)
+    ? localMatchedGamesRows.filter((game) => game.win === 1).length
     : 0;
   const strategyLatestRowDate = useMemo(() => {
     if (localMatchedGamesRows.length === 0) {
@@ -194,7 +229,11 @@ const Index = () => {
     };
   }, [bankrollLast200.stake, localMatchedGamesRows, settledSimulatedBetsCount]);
 
-  const strategyAsOfDate = strategyLatestRowDate ?? strategySummary.asOfDate ?? "—";
+  const strategyAsOfDate =
+    strategyLatestRowDate ??
+    dashboardState?.strategy_as_of_date ??
+    strategySummary.asOfDate ??
+    "—";
   const showRiskMetrics = shouldShowRiskMetrics(settledSimulatedBetsCount);
   const localMatchedGamesProfitSumDisplay = localParamsSummary.totalProfitEur;
 
@@ -317,7 +356,7 @@ const Index = () => {
         <div className="mb-6">
           <h2 className="text-2xl font-bold">Window Performance (Model)</h2>
           <p className="text-sm text-muted-foreground">
-            Source: {summary?.source?.combined_file ?? "combined_nba_predictions_*"} (played games only, windowed).
+            Source: {combinedSource} (played games only, windowed).
           </p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -367,7 +406,7 @@ const Index = () => {
         <div className="mb-6">
           <h2 className="text-2xl font-bold">Strategy (Simulated on Window Subset)</h2>
           <p className="text-sm text-muted-foreground">
-            Source: {localMatchedGamesSource || "local_matched_games_YYYY-MM-DD.csv"} (window subset only).
+            Source: {localMatchedGamesSource} (window subset only).
           </p>
         </div>
 
@@ -376,7 +415,7 @@ const Index = () => {
           <span className="text-foreground">{activeFiltersEffective}</span>
         </div>
         <div className="text-xs text-muted-foreground mb-6">
-          Params used: {paramsUsedLabel}
+          Params used: {paramsUsedLabel} • Source: {paramsSourceLabel}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
@@ -505,13 +544,13 @@ const Index = () => {
         <div className="mb-6">
           <h2 className="text-2xl font-bold">Placed Bets (Real) — 2026 YTD</h2>
           <p className="text-sm text-muted-foreground">
-            Source: bet_log_flat_live.csv, settled against combined_nba_predictions_* outcomes.
+            Source: {betLogFlatSource}, settled against {combinedSource} outcomes.
           </p>
         </div>
         <div className="glass-card p-6">
           <h2 className="text-xl font-bold mb-2">Settled Bets (2026)</h2>
           <p className="text-sm text-muted-foreground mb-6">
-            These are real placed bets, settled after the fact using final results from combined_*.
+            These are real placed bets, settled after the fact using final results from {combinedSource}.
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">

@@ -872,6 +872,12 @@ def _snapshot_value(snapshot: Dict[str, Dict[str, object]], section: str, metric
     return snapshot.get(section, {}).get(metric)
 
 
+def _label_path(path: Optional[Path]) -> str:
+    if not path:
+        return "missing"
+    return path.name
+
+
 def load_bet_log(path: Path) -> List[Dict[str, object]]:
     rows = []
     for row in _read_csv_normalized(path):
@@ -1206,12 +1212,12 @@ def write_json(path: Path, payload: Dict[str, object]) -> None:
         json.dump(payload, f, default=_serialize, ensure_ascii=False, indent=2)
 
 
-def copy_sources(output_dir: Path, sources: Dict[str, Path]) -> Dict[str, str]:
+def copy_sources(output_dir: Path, sources: Dict[str, Optional[Path]]) -> Dict[str, str]:
     copied: Dict[str, str] = {}
     sources_dir = output_dir / "sources"
     sources_dir.mkdir(parents=True, exist_ok=True)
     for label, path in sources.items():
-        if not path.exists():
+        if not path or not path.exists():
             continue
         dest = sources_dir / path.name
         shutil.copy2(path, dest)
@@ -1233,14 +1239,32 @@ def main() -> None:
         default=None,
         help="Output dir for artifacts (default: hoops-insight/public/data).",
     )
+    parser.add_argument(
+        "--data-dir",
+        type=str,
+        default=None,
+        help="Optional public/data directory to load pre-copied artifacts from.",
+    )
     args = parser.parse_args()
 
     repo_root = Path(__file__).resolve().parents[1]
-    source_root = resolve_source_root(args.source_root, repo_root)
+    data_dir = Path(args.data_dir) if args.data_dir else None
+    source_root = None if data_dir else resolve_source_root(args.source_root, repo_root)
 
     output_dir = Path(args.output_dir) if args.output_dir else repo_root / "public" / "data"
 
-    sources = _resolve_sources(source_root, None)
+    if data_dir:
+        sources = SourcePaths(
+            combined_iso=data_dir / "combined_latest.csv",
+            combined_acc=None,
+            bet_log=None,
+            bet_log_flat=(data_dir / "bet_log_flat_live.csv") if (data_dir / "bet_log_flat_live.csv").exists() else None,
+            metrics_snapshot=data_dir / "metrics_snapshot.json",
+            local_matched_games=data_dir / "local_matched_games_latest.csv",
+            strategy_params=(data_dir / "strategy_params.json") if (data_dir / "strategy_params.json").exists() else None,
+        )
+    else:
+        sources = _resolve_sources(source_root, None)
     if sources.combined_iso:
         combined_path = sources.combined_iso
     elif sources.combined_acc:
@@ -1303,7 +1327,9 @@ def main() -> None:
     local_matched_games_path = _require_existing(
         sources.local_matched_games, "local_matched_games"
     )
-    bet_log_flat_path = _require_existing(sources.bet_log_flat, "bet_log_flat_live")
+    bet_log_flat_path = (
+        sources.bet_log_flat if sources.bet_log_flat and sources.bet_log_flat.exists() else None
+    )
 
     local_matched_games_rows, _ = load_local_matched_games_csv(local_matched_games_path)
 
@@ -1321,7 +1347,7 @@ def main() -> None:
         params = {}
         strategy_params_source = None
 
-    params_used_source = str(strategy_params_source) if strategy_params_source else None
+    params_used_source = _label_path(strategy_params_source) if strategy_params_source else None
     params_used = params.get("params_used") if isinstance(params, dict) else None
     if isinstance(params_used, str):
         params_used = {"label": params_used}
@@ -1336,7 +1362,7 @@ def main() -> None:
         if snapshot_params:
             params_used = snapshot_params
             params_used_source = (
-                str(sources.metrics_snapshot) if sources.metrics_snapshot else "metrics_snapshot"
+                _label_path(sources.metrics_snapshot) if sources.metrics_snapshot else "metrics_snapshot"
             )
             if not params:
                 params = {"params_used": params_used}
@@ -1504,14 +1530,15 @@ def main() -> None:
 
     last_run = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
-    bet_log_flat_rows = load_bet_log_flat(bet_log_flat_path)
+    bet_log_flat_rows = load_bet_log_flat(bet_log_flat_path) if bet_log_flat_path else []
     settled_bets_rows = build_settled_bets(
         bet_log_flat_rows, played_rows, ytd_start=datetime(2026, 1, 1)
     )
-    assert_settled_bets_match_local(settled_bets_rows, local_matched_games_rows)
+    if bet_log_flat_rows:
+        assert_settled_bets_match_local(settled_bets_rows, local_matched_games_rows)
     settled_bets_summary = build_settled_bet_summary(settled_bets_rows)
 
-    metrics_snapshot_source = str(metrics_snapshot_path)
+    metrics_snapshot_source = _label_path(metrics_snapshot_path)
 
     window_games_count = next(
         (
@@ -1550,7 +1577,7 @@ def main() -> None:
             "settled_bets_count": local_matched_games_count,
         },
         "strategy_params": {
-            "source": str(strategy_params_source) if strategy_params_source else "missing",
+            "source": _label_path(strategy_params_source),
             "params": params_used or {},
             "params_used": params_used or {},
             "active_filters": active_filters_label,
@@ -1559,7 +1586,7 @@ def main() -> None:
         },
         "strategy_filter_stats": strategy_filter_stats,
         "source": {
-            "combined_file": str(combined_path),
+            "combined_file": _label_path(combined_path),
             "bet_log_file": str(sources.bet_log) if sources.bet_log else "missing",
             "bet_log_flat_file": str(sources.bet_log_flat)
             if sources.bet_log_flat
@@ -1582,7 +1609,7 @@ def main() -> None:
         "local_matched_games_mismatch": local_matched_games_mismatch,
         "local_matched_games_note": local_matched_games_note
         or ("No matched games recorded for this window." if not local_matched_games_rows else ""),
-        "local_matched_games_source": str(local_matched_games_path),
+        "local_matched_games_source": _label_path(local_matched_games_path),
         "bankroll_last_200": bankroll_last_200,
         "bankroll_ytd_2026": bankroll_ytd_2026,
         "local_matched_games_avg_odds": local_avg_odds,
@@ -1597,18 +1624,16 @@ def main() -> None:
         "expected_lightgbm_dir": str(expected_lightgbm_dir) if expected_lightgbm_dir else "missing",
         "metrics_snapshot_source": metrics_snapshot_source,
         "metrics_snapshot_fallback_source": metrics_snapshot_fallback_source or "missing",
-        "strategy_params_source": str(strategy_params_source)
-        if strategy_params_source
-        else "missing",
-        "local_matched_games_source": str(local_matched_games_path),
-        "bet_log_flat_source": str(bet_log_flat_path),
+        "strategy_params_source": _label_path(strategy_params_source),
+        "local_matched_games_source": _label_path(local_matched_games_path),
+        "bet_log_flat_source": _label_path(bet_log_flat_path),
         "local_matched_games_rows": local_matched_games_count,
         "local_matched_games_profit_sum_table": local_matched_games_profit_sum,
         "matched_count_snapshot": matched_count_snapshot,
         "matched_count_table": matched_count_table,
         "matched_count_used": matched_count_used,
         "strategy_params": {
-            "source": str(strategy_params_source) if strategy_params_source else "missing",
+            "source": _label_path(strategy_params_source),
             "params": params or {},
             "params_used": params_used or {},
             "active_filters": active_filters_label,
@@ -1655,11 +1680,39 @@ def main() -> None:
         "tables": tables_payload,
         "last_run": last_run_payload,
         "sources": {
-            "combined_file": str(combined_path),
+            "combined_file": _label_path(combined_path),
             "metrics_snapshot": metrics_snapshot_source,
-            "local_matched_games": str(local_matched_games_path),
-            "bet_log_flat": str(bet_log_flat_path),
+            "local_matched_games": _label_path(local_matched_games_path),
+            "bet_log_flat": _label_path(bet_log_flat_path),
             "copied": copied_sources,
+        },
+    }
+
+    window_size_label = strategy_filter_stats.get("window_size") or CALIBRATION_WINDOW
+    window_start_display = window_start_label or "—"
+    window_end_display = window_end_label or "—"
+    active_filters_text = (
+        f"{active_filters_label} | window {window_size_label} ({window_start_display} → {window_end_display})"
+    )
+
+    dashboard_state = {
+        "as_of_date": as_of_date,
+        "window_size": window_size_label,
+        "window_start": window_start_label,
+        "window_end": window_end_label,
+        "active_filters_text": active_filters_text,
+        "params_used_label": params_used_label,
+        "params_source_label": _label_path(strategy_params_source),
+        "strategy_as_of_date": matched_as_of_date.strftime(DATE_FMT)
+        if matched_as_of_date
+        else None,
+        "strategy_matches_window": local_matched_games_count,
+        "last_update_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "sources": {
+            "combined": _label_path(combined_path),
+            "local_matched": _label_path(local_matched_games_path),
+            "bet_log": _label_path(bet_log_flat_path),
+            "metrics_snapshot": _label_path(metrics_snapshot_path),
         },
     }
 
@@ -1667,9 +1720,10 @@ def main() -> None:
     write_json(output_dir / "tables.json", tables_payload)
     write_json(output_dir / "last_run.json", last_run_payload)
     write_json(output_dir / "dashboard_payload.json", dashboard_payload)
+    write_json(output_dir / "dashboard_state.json", dashboard_state)
 
     print(
-        "Wrote summary.json, tables.json, last_run.json, dashboard_payload.json "
+        "Wrote summary.json, tables.json, last_run.json, dashboard_payload.json, dashboard_state.json "
         f"to {output_dir}"
     )
 
