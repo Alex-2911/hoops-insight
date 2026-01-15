@@ -108,6 +108,32 @@ const Index = () => {
     settledBetsSummary.count > 0
       ? (settledBetsSummary.wins / settledBetsSummary.count) * 100
       : 0;
+  const strategySummary = summary?.strategy_summary ?? {
+    totalBets: 0,
+    totalProfitEur: 0,
+    roiPct: 0,
+    avgEvPer100: 0,
+    winRate: 0,
+    sharpeStyle: null,
+    profitMetricsAvailable: false,
+    asOfDate: "—",
+  };
+  const strategyFilterStats = summary?.strategy_filter_stats ?? {
+    window_size: windowSize,
+    filters: [],
+    matched_games_count: 0,
+    window_start: windowStartLabel,
+    window_end: windowEndLabel,
+  };
+  const localMatchedGamesRows = tables?.local_matched_games_rows ?? [];
+  const localMatchedGamesCount =
+    tables?.local_matched_games_count ??
+    strategyFilterStats.matched_games_count ??
+    0;
+  const localMatchedGamesProfit =
+    typeof tables?.local_matched_games_profit_sum_table === "number"
+      ? tables.local_matched_games_profit_sum_table
+      : strategySummary.totalProfitEur ?? 0;
 
   const renderMetricTitle = (label: string, tooltipContent: React.ReactNode) => (
     <span className="inline-flex items-center gap-2">
@@ -330,6 +356,103 @@ const Index = () => {
             />
           </div>
         </TooltipProvider>
+      </section>
+
+      {/* Strategy (simulated on window subset) */}
+      <section className="container mx-auto px-4 py-10">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <div className="flex flex-wrap items-center gap-3">
+              <h2 className="text-2xl font-bold">Strategy (Simulated on Window Subset)</h2>
+              <span className="rounded-full border border-border px-2 py-1 text-xs font-semibold tracking-wide text-muted-foreground">
+                LOCAL_MATCHED_GAMES
+              </span>
+            </div>
+            <p className="text-sm text-muted-foreground">SIMULATED SUBSET (WINDOW-ONLY)</p>
+          </div>
+          <div className="text-xs text-muted-foreground">
+            Matched games: {localMatchedGamesCount}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard
+            title="Simulated Bets"
+            value={`${strategySummary.totalBets}`}
+            subtitle={`Window subset size: ${strategyFilterStats.window_size}`}
+            icon={<Target className="w-6 h-6" />}
+          />
+          <StatCard
+            title="Win Rate"
+            value={fmtPercent(strategySummary.winRate * 100, 2)}
+            subtitle={`As of: ${strategySummary.asOfDate ?? "—"}`}
+            icon={<TrendingUp className="w-6 h-6" />}
+          />
+          <StatCard
+            title="ROI"
+            value={fmtPercent(strategySummary.roiPct, 2)}
+            subtitle={`Avg EV/€100: ${fmtNumber(strategySummary.avgEvPer100, 2)}`}
+            icon={<BarChart3 className="w-6 h-6" />}
+          />
+          <StatCard
+            title="Profit (EUR)"
+            value={fmtCurrencyEUR(localMatchedGamesProfit, 2)}
+            subtitle={`Sharpe-style: ${fmtNumber(strategySummary.sharpeStyle, 2)}`}
+            icon={<Activity className="w-6 h-6" />}
+          />
+        </div>
+
+        <div className="glass-card p-6 mt-6">
+          <div className="overflow-x-auto">
+            {localMatchedGamesRows.length === 0 ? (
+              <div className="rounded-lg border border-border p-4 text-sm text-muted-foreground">
+                No simulated matches available for the current window.
+              </div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left border-b border-border">
+                    <th className="py-2 pr-4">Date</th>
+                    <th className="py-2 pr-4">Home</th>
+                    <th className="py-2 pr-4">Away</th>
+                    <th className="py-2 pr-4">Home Win Rate</th>
+                    <th className="py-2 pr-4">Prob (Iso)</th>
+                    <th className="py-2 pr-4">Prob (Used)</th>
+                    <th className="py-2 pr-4">Odds</th>
+                    <th className="py-2 pr-4">EV/€100</th>
+                    <th className="py-2 pr-4">Result</th>
+                    <th className="py-2 pr-4">P/L</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {localMatchedGamesRows.map((row) => (
+                    <tr
+                      key={`${row.date}-${row.home_team}-${row.away_team}-${row.odds_1}`}
+                      className="border-b border-border/50"
+                    >
+                      <td className="py-2 pr-4">{row.date}</td>
+                      <td className="py-2 pr-4 font-medium">{row.home_team}</td>
+                      <td className="py-2 pr-4">{row.away_team}</td>
+                      <td className="py-2 pr-4">
+                        {fmtPercent(row.home_win_rate * 100, 0)}
+                      </td>
+                      <td className="py-2 pr-4">
+                        {fmtPercent(row.prob_iso * 100, 1)}
+                      </td>
+                      <td className="py-2 pr-4">
+                        {fmtPercent(row.prob_used * 100, 1)}
+                      </td>
+                      <td className="py-2 pr-4">{fmtNumber(row.odds_1, 2)}</td>
+                      <td className="py-2 pr-4">{formatSigned(row.ev_eur_per_100)}</td>
+                      <td className="py-2 pr-4">{row.win === 1 ? "✅" : "❌"}</td>
+                      <td className="py-2 pr-4">{formatSigned(row.pnl)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
       </section>
 
       {/* Placed bets overview */}
