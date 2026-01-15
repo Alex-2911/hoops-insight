@@ -91,7 +91,6 @@ const Index = () => {
     net_pl: 0,
     bankroll: 1000,
   };
-  const localMatchedGamesAvgOdds = tables?.local_matched_games_avg_odds ?? 0;
   const settledBetsRows = tables?.settled_bets_rows ?? [];
   const settledBetsSummary = useMemo(() => {
     if (!settledBetsRows.length) {
@@ -179,7 +178,9 @@ const Index = () => {
   const paramsSourceLabel = dashboardState?.params_source_label ?? "strategy_params.json";
 
   const topHomeTeams = useMemo(() => {
-    return [...homeWinRatesLast20].sort((a, b) => b.homeWinRate - a.homeWinRate);
+    return [...homeWinRatesLast20]
+      .filter((team) => team.homeWinRate > 0.5)
+      .sort((a, b) => b.homeWinRate - a.homeWinRate);
   }, [homeWinRatesLast20]);
 
   const settledSimulatedBetsCount = localMatchedGamesCount;
@@ -247,106 +248,87 @@ const Index = () => {
 
   return (
     <>
-      {/* Header / Hero */}
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent" />
-        <div className="container mx-auto px-4 py-16 relative">
-          <div className="max-w-3xl mx-auto text-center animate-fade-in">
-            <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-full text-sm font-medium mb-6">
-              <Activity className="w-4 h-4" />
-              Hoops Insight • Historical only
+      {/* Top bar */}
+      <section className="container mx-auto px-4 py-6">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <img
+                src={`${baseUrl}favicon.ico`}
+                alt="Hoops Insight"
+                className="h-8 w-8 rounded-md border border-border"
+              />
+              <span className="text-lg font-semibold tracking-tight">Hoops Insight</span>
             </div>
+            <button className="rounded-full border border-border px-4 py-1 text-sm font-medium">
+              Dashboard
+            </button>
+          </div>
+          <div className="flex flex-wrap items-center justify-end gap-2 text-xs text-muted-foreground">
+            <span className="rounded-full border border-border px-3 py-1">
+              Historical only
+            </span>
+            <span className="rounded-full border border-border px-3 py-1">
+              Last update: {summaryAsOfDate}
+            </span>
+            <span className="rounded-full border border-border px-3 py-1">
+              Window: {windowSize} games
+            </span>
+          </div>
+          {loadError && (
+            <p className="text-sm text-red-400">Data unavailable: {loadError}</p>
+          )}
+        </div>
+      </section>
 
-            <h1 className="text-4xl md:text-5xl font-bold mb-4 leading-tight">
-              Hoops Insight • Historical only
-            </h1>
-
-            <p className="text-lg text-muted-foreground mb-2">
-              Historical results and statistical summaries only (no future predictions).
+      {/* Context & Assumptions */}
+      <section className="container mx-auto px-4 py-6">
+        <div className="glass-card p-6">
+          <h2 className="text-xl font-bold mb-3">Context &amp; Assumptions</h2>
+          <div className="text-sm text-muted-foreground space-y-3">
+            <div>
+              <span className="font-medium text-foreground">Active Filters (effective)</span>
+              <div className="text-foreground">
+                {`${activeFiltersEffective} | window ${windowSize} (${windowStartLabel} → ${windowEndLabel})`}
+              </div>
+            </div>
+            <div className="text-foreground">Params used: {paramsUsedLabel}</div>
+            <div className="text-foreground">Params source: {paramsSourceLabel}</div>
+            <p>
+              Historical results and statistical summaries only; no future predictions are shown.
             </p>
-            {loadError && (
-              <p className="mt-3 text-sm text-red-400">
-                Data unavailable: {loadError}
-              </p>
-            )}
-          </div>
-        </div>
-      </section>
-
-      {/* As of / window */}
-      <section className="container mx-auto px-4 py-6">
-        <div className="glass-card p-6 flex flex-col gap-2 text-sm text-muted-foreground">
-          <div>
-            <span className="text-foreground font-medium">As of:</span>{" "}
-            {summaryAsOfDate}
-          </div>
-          <div>
-            <span className="text-foreground font-medium">Window:</span>{" "}
-            {windowSize} games ({windowStartLabel} → {windowEndLabel})
-          </div>
-        </div>
-      </section>
-
-      {/* How to read / Context & Assumptions */}
-      <section className="container mx-auto px-4 py-6">
-        <div className="glass-card p-6">
-          <h2 className="text-xl font-bold mb-2">How to read / Context &amp; Assumptions</h2>
-          <ul className="list-disc list-inside text-sm text-muted-foreground space-y-2">
-            <li>All metrics are historical only; no future predictions are shown.</li>
-            <li>Window stats use the last {windowSize} played games ({windowStartLabel} → {windowEndLabel}).</li>
-            <li>Placed bets are settled against final results; simulated strategy uses the same window dates.</li>
-          </ul>
-        </div>
-      </section>
-
-      {/* metrics_snapshot */}
-      <section className="container mx-auto px-4 py-6">
-        <div className="glass-card p-6">
-          <h2 className="text-xl font-bold mb-2">metrics_snapshot</h2>
-          <p className="text-sm text-muted-foreground mb-4">Source: {metricsSnapshotSource}</p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-            <div className="rounded-lg border border-border p-4">
-              <div className="text-muted-foreground">Realized count</div>
-              <div className="text-lg font-semibold">{metricsSnapshotSummary.realized_count ?? "—"}</div>
-            </div>
-            <div className="rounded-lg border border-border p-4">
-              <div className="text-muted-foreground">Realized profit</div>
-              <div className="text-lg font-semibold">
-                {metricsSnapshotSummary.realized_profit_eur !== null
-                  ? fmtCurrencyEUR(metricsSnapshotSummary.realized_profit_eur, 2)
-                  : "—"}
+            <details className="text-xs text-muted-foreground">
+              <summary className="cursor-pointer">metrics_snapshot</summary>
+              <div className="mt-2 flex flex-wrap gap-3">
+                <span>Source: {metricsSnapshotSource}</span>
+                <span>Realized count: {metricsSnapshotSummary.realized_count ?? "—"}</span>
+                <span>
+                  Realized profit:{" "}
+                  {metricsSnapshotSummary.realized_profit_eur !== null
+                    ? fmtCurrencyEUR(metricsSnapshotSummary.realized_profit_eur, 2)
+                    : "—"}
+                </span>
+                <span>
+                  Realized ROI:{" "}
+                  {metricsSnapshotSummary.realized_roi !== null
+                    ? fmtPercent(metricsSnapshotSummary.realized_roi * 100, 2)
+                    : "—"}
+                </span>
+                <span>
+                  Realized win rate:{" "}
+                  {metricsSnapshotSummary.realized_win_rate !== null
+                    ? fmtPercent(metricsSnapshotSummary.realized_win_rate * 100, 2)
+                    : "—"}
+                </span>
+                <span>
+                  Realized Sharpe:{" "}
+                  {metricsSnapshotSummary.realized_sharpe !== null
+                    ? fmtNumber(metricsSnapshotSummary.realized_sharpe, 3)
+                    : "—"}
+                </span>
+                <span>Snapshot as of: {metricsSnapshotSummary.eval_base_date_max ?? "—"}</span>
               </div>
-            </div>
-            <div className="rounded-lg border border-border p-4">
-              <div className="text-muted-foreground">Realized ROI</div>
-              <div className="text-lg font-semibold">
-                {metricsSnapshotSummary.realized_roi !== null
-                  ? fmtPercent(metricsSnapshotSummary.realized_roi * 100, 2)
-                  : "—"}
-              </div>
-            </div>
-            <div className="rounded-lg border border-border p-4">
-              <div className="text-muted-foreground">Realized win rate</div>
-              <div className="text-lg font-semibold">
-                {metricsSnapshotSummary.realized_win_rate !== null
-                  ? fmtPercent(metricsSnapshotSummary.realized_win_rate * 100, 2)
-                  : "—"}
-              </div>
-            </div>
-            <div className="rounded-lg border border-border p-4">
-              <div className="text-muted-foreground">Realized Sharpe</div>
-              <div className="text-lg font-semibold">
-                {metricsSnapshotSummary.realized_sharpe !== null
-                  ? fmtNumber(metricsSnapshotSummary.realized_sharpe, 3)
-                  : "—"}
-              </div>
-            </div>
-            <div className="rounded-lg border border-border p-4">
-              <div className="text-muted-foreground">Snapshot as of</div>
-              <div className="text-lg font-semibold">
-                {metricsSnapshotSummary.eval_base_date_max ?? "—"}
-              </div>
-            </div>
+            </details>
           </div>
         </div>
       </section>
@@ -364,38 +346,29 @@ const Index = () => {
             title="Overall Accuracy"
             value={overallAccuracyPct}
             subtitle={
-              <div className="space-y-1">
-                <div>Window games: {windowGamesLabel}</div>
-                <div>
-                  Window: {windowStartLabel} → {windowEndLabel}
-                </div>
-                <div>
-                  Strategy subset in window:{" "}
-                  {`${settledSimulatedBetsCount} matches • ${strategySubsetWins} won`}
-                </div>
-              </div>
+              <div>Window games: {windowGamesLabel}</div>
             }
             icon={<Target className="w-6 h-6" />}
           />
 
           <StatCard
-            title="Brier (after)"
+            title="Calibration (Brier)"
             value={fmtNumber(calibrationMetrics.brierAfter, 3)}
             subtitle={`Before: ${fmtNumber(calibrationMetrics.brierBefore, 3)}`}
             icon={<BarChart3 className="w-6 h-6" />}
           />
 
           <StatCard
-            title="Log Loss (after)"
+            title="LogLoss"
             value={fmtNumber(calibrationMetrics.logLossAfter, 3)}
             subtitle={`Before: ${fmtNumber(calibrationMetrics.logLossBefore, 3)}`}
             icon={<TrendingUp className="w-6 h-6" />}
           />
 
           <StatCard
-            title="ECE (after)"
+            title="ECE"
             value={fmtNumber(calibrationMetrics.ece, 3)}
-            subtitle={`Window: ${windowSize}`}
+            subtitle={`Before: ${fmtNumber(calibrationMetrics.ece, 3)}`}
             icon={<Activity className="w-6 h-6" />}
           />
         </div>
@@ -410,68 +383,40 @@ const Index = () => {
           </p>
         </div>
 
-        <div className="rounded-lg border border-border px-4 py-3 text-sm text-muted-foreground mb-4">
-          <span className="font-medium text-foreground">Active Filters (effective):</span>{" "}
-          <span className="text-foreground">{activeFiltersEffective}</span>
-        </div>
-        <div className="text-xs text-muted-foreground mb-6">
-          Params used: {paramsUsedLabel} • Source: {paramsSourceLabel}
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <StatCard
-            title="Strategy matches (window)"
-            value={settledSimulatedBetsCount}
-            subtitle={`Wins: ${strategySubsetWins}`}
+            title="Strategy matches in window"
+            value={`${settledSimulatedBetsCount}`}
+            subtitle={`Window games: ${windowGamesLabel}`}
             icon={<Target className="w-6 h-6" />}
           />
           <StatCard
-            title="ROI (window subset)"
-            value={fmtPercent(localParamsSummary.roiPct, 2)}
-            subtitle={`Net P/L: ${fmtCurrencyEUR(localParamsSummary.totalProfitEur, 2)}`}
+            title="Wins / Win rate"
+            value={`${strategySubsetWins} / ${fmtPercent(
+              strategySubsetAvailable ? (strategySubsetWins / settledSimulatedBetsCount) * 100 : 0,
+              1,
+            )}`}
+            subtitle={`Strategy as of ${strategyAsOfDate}`}
             icon={<TrendingUp className="w-6 h-6" />}
           />
           <StatCard
-            title="Sharpe (window subset)"
-            value={
+            title="Bankroll (Last 200 Window)"
+            value={fmtCurrencyEUR(bankrollLast200.bankroll, 2)}
+            subtitle={`Net P/L: ${fmtCurrencyEUR(bankrollLast200.net_pl, 2)}`}
+            icon={<Activity className="w-6 h-6" />}
+          />
+          <StatCard
+            title="ROI / Sharpe / Max DD"
+            value={fmtPercent(localParamsSummary.roiPct, 2)}
+            subtitle={`Sharpe: ${
               showRiskMetrics && typeof strategySummary.sharpeStyle === "number"
-                ? fmtNumber(strategySummary.sharpeStyle, 3)
+                ? fmtNumber(strategySummary.sharpeStyle, 2)
                 : "—"
-            }
-            subtitle="Local params, settled only"
+            } • DD: ${
+              showRiskMetrics ? fmtCurrencyEUR(summary?.kpis?.max_drawdown_eur, 0) : "—"
+            }`}
             icon={<BarChart3 className="w-6 h-6" />}
           />
-          <StatCard
-            title="Max Drawdown"
-            value={
-              showRiskMetrics
-                ? fmtCurrencyEUR(summary?.kpis?.max_drawdown_eur, 2)
-                : "—"
-            }
-            subtitle={
-              showRiskMetrics
-                ? fmtPercent(summary?.kpis?.max_drawdown_pct, 2)
-                : "—"
-            }
-            icon={<Activity className="w-6 h-6" />}
-          />
-          <StatCard
-            title="Bankroll (Last 200 Games)"
-            value={fmtCurrencyEUR(bankrollLast200.bankroll, 2)}
-            subtitle={`Start ${fmtCurrencyEUR(bankrollLast200.start, 0)} • Net P/L: ${fmtCurrencyEUR(bankrollLast200.net_pl, 2)}`}
-            icon={<Activity className="w-6 h-6" />}
-          />
-          <StatCard
-            title="Bankroll (2026 YTD, Simulated)"
-            value={fmtCurrencyEUR(bankrollYtd2026.bankroll, 2)}
-            subtitle={`Start ${fmtCurrencyEUR(bankrollYtd2026.start, 0)} • Net P/L 2026: ${fmtCurrencyEUR(bankrollYtd2026.net_pl, 2)}`}
-            icon={<Activity className="w-6 h-6" />}
-          />
-        </div>
-
-        <div className="text-xs text-muted-foreground">
-          Avg odds (window subset): {fmtNumber(localParamsSummary.avgOdds || localMatchedGamesAvgOdds, 2)} • Strategy as of{" "}
-          {strategyAsOfDate}
         </div>
       </section>
 
@@ -479,14 +424,11 @@ const Index = () => {
       <section className="container mx-auto px-4 py-10">
         <div className="glass-card p-6">
           <h2 className="text-xl font-bold mb-2">
-            LOCAL MATCHED GAMES (LAST {windowSize} WINDOW)
+            LOCAL MATCHED GAMES (Window)
           </h2>
           <p className="text-sm text-muted-foreground mb-2">
-            Settled simulated bets (last {windowSize} window): {settledSimulatedBetsCount}
-          </p>
-          <p className="text-sm text-muted-foreground mb-6">
-            Rows: {settledSimulatedBetsCount} • Net P/L:{" "}
-            {fmtCurrencyEUR(localMatchedGamesProfitSumDisplay, 2)}
+            n={settledSimulatedBetsCount} • Wins={strategySubsetWins} • P/L{" "}
+            {formatSigned(localMatchedGamesProfitSumDisplay)}
           </p>
           <p className="text-xs text-muted-foreground mb-6">
             Source: {localMatchedGamesSource || "missing"} • Window:{" "}
@@ -548,49 +490,31 @@ const Index = () => {
           </p>
         </div>
         <div className="glass-card p-6">
-          <h2 className="text-xl font-bold mb-2">Settled Bets (2026)</h2>
-          <p className="text-sm text-muted-foreground mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <StatCard
+              title="Bankroll (2026 YTD · Placed Bets)"
+              value={fmtCurrencyEUR(bankrollYtd2026.bankroll, 2)}
+              subtitle={`Start ${fmtCurrencyEUR(bankrollYtd2026.start, 0)} • Net P/L: ${fmtCurrencyEUR(bankrollYtd2026.net_pl, 2)}`}
+              icon={<Activity className="w-6 h-6" />}
+            />
+            <StatCard
+              title="Settled Bets (2026)"
+              value={`${settledBetsSummary.count}`}
+              subtitle={`${settledBetsSummary.count} settled • ${settledBetsSummary.wins}W-${
+                settledBetsSummary.count - settledBetsSummary.wins
+              }L • ROI: ${fmtPercent(settledBetsSummary.roi_pct, 0)} • avg odds: ${fmtNumber(
+                settledBetsSummary.avg_odds,
+                2,
+              )}`}
+              icon={<Target className="w-6 h-6" />}
+            />
+          </div>
+
+          <div className="text-xs text-muted-foreground mb-6">
             These are real placed bets, settled after the fact using final results from {combinedSource}.
-          </p>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-            <div className="rounded-lg border border-border p-4">
-              <div className="text-sm text-muted-foreground">Count</div>
-              <div className="text-2xl font-bold">
-                {settledBetsSummary.count}
-              </div>
-            </div>
-            <div className="rounded-lg border border-border p-4">
-              <div className="text-sm text-muted-foreground">Wins</div>
-              <div className="text-2xl font-bold">
-                {settledBetsSummary.wins}
-              </div>
-            </div>
-            <div className="rounded-lg border border-border p-4">
-              <div className="text-sm text-muted-foreground">P/L</div>
-              <div className="text-2xl font-bold">
-                {fmtCurrencyEUR(settledBetsSummary.profit_eur, 2)}
-              </div>
-            </div>
-            <div className="rounded-lg border border-border p-4">
-              <div className="text-sm text-muted-foreground">ROI</div>
-              <div className="text-2xl font-bold">
-                {fmtPercent(settledBetsSummary.roi_pct, 2)}
-              </div>
-            </div>
-            <div className="rounded-lg border border-border p-4">
-              <div className="text-sm text-muted-foreground">Avg Odds</div>
-              <div className="text-2xl font-bold">
-                {fmtNumber(settledBetsSummary.avg_odds, 2)}
-              </div>
-            </div>
           </div>
 
-          <div className="text-xs text-muted-foreground mt-4">
-            Bets are settled only when a matching played game is available. Source: {betLogFlatSource}
-          </div>
-
-          <div className="mt-6 overflow-x-auto">
+          <div className="overflow-x-auto">
             {settledBetsRows.length === 0 ? (
               <div className="rounded-lg border border-border p-4 text-sm text-muted-foreground">
                 No settled bets recorded for 2026 yet.
@@ -602,10 +526,9 @@ const Index = () => {
                     <th className="py-2 pr-4">Date</th>
                     <th className="py-2 pr-4">Home</th>
                     <th className="py-2 pr-4">Away</th>
-                    <th className="py-2 pr-4">Pick</th>
-                    <th className="py-2 pr-4">Odds</th>
                     <th className="py-2 pr-4">Stake</th>
-                    <th className="py-2 pr-4">Win</th>
+                    <th className="py-2 pr-4">Odds</th>
+                    <th className="py-2 pr-4">Result</th>
                     <th className="py-2 pr-4">P/L</th>
                   </tr>
                 </thead>
@@ -618,9 +541,8 @@ const Index = () => {
                       <td className="py-2 pr-4">{bet.date}</td>
                       <td className="py-2 pr-4 font-medium">{bet.home_team}</td>
                       <td className="py-2 pr-4">{bet.away_team}</td>
-                      <td className="py-2 pr-4">{bet.pick_team}</td>
-                      <td className="py-2 pr-4">{fmtNumber(bet.odds, 2)}</td>
                       <td className="py-2 pr-4">{fmtCurrencyEUR(bet.stake, 2)}</td>
+                      <td className="py-2 pr-4">{fmtNumber(bet.odds, 2)}</td>
                       <td className="py-2 pr-4">{bet.win === 1 ? "✅" : "❌"}</td>
                       <td className="py-2 pr-4">{formatSigned(bet.pnl)}</td>
                     </tr>
@@ -636,7 +558,7 @@ const Index = () => {
       <section className="container mx-auto px-4 py-10">
         <div className="glass-card p-6">
           <h2 className="text-xl font-bold mb-2">
-            Home Win Rate (Last {windowSize} Games Window)
+            Home Win Rates (Window)
           </h2>
           <p className="text-sm text-muted-foreground mb-6">
             Windowed home win rate per team; computed only on home games inside the last {windowSize} games.
@@ -650,7 +572,7 @@ const Index = () => {
                   <th className="py-2 pr-4">Home Win Rate</th>
                   <th className="py-2 pr-4">Home Wins</th>
                   <th className="py-2 pr-4">Home Games</th>
-                  <th className="py-2 pr-4">Last 20 Games</th>
+                  <th className="py-2 pr-4">Window Games</th>
                 </tr>
               </thead>
               <tbody>
