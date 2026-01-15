@@ -448,48 +448,6 @@ const Index = () => {
         </TooltipProvider>
       </section>
 
-      {/* Placed bets overview */}
-      <section className="container mx-auto px-4 py-10">
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold">Placed Bets (Real) — Overview</h2>
-          <p className="text-sm text-muted-foreground">
-            Source: {betLogFlatSource} (settled only).
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard
-            title="Settled bets (2026)"
-            value={`${settledBetsSummary.count}`}
-            subtitle="Settled bets from the live log"
-            icon={<Target className="w-6 h-6" />}
-          />
-          <StatCard
-            title="Wins / Win rate"
-            value={`${settledBetsSummary.wins} / ${fmtPercent(settledWinRatePct, 2)}`}
-            subtitle={`${settledBetsSummary.wins} wins · ${
-              settledBetsSummary.count - settledBetsSummary.wins
-            } losses`}
-            icon={<TrendingUp className="w-6 h-6" />}
-          />
-          <StatCard
-            title="Bankroll (2026 YTD · Placed Bets)"
-            value={fmtCurrencyEUR(realBankroll, 2)}
-            subtitle={`Start ${fmtCurrencyEUR(START_BANKROLL_REAL, 0)} • Net P/L: ${fmtCurrencyEUR(
-              settledBetsSummary.profit_eur,
-              2,
-            )}`}
-            icon={<Activity className="w-6 h-6" />}
-          />
-          <StatCard
-            title="ROI / Avg Odds"
-            value={fmtPercent(settledBetsSummary.roi_pct, 2)}
-            subtitle={`Avg odds: ${fmtNumber(settledBetsSummary.avg_odds, 2)}`}
-            icon={<BarChart3 className="w-6 h-6" />}
-          />
-        </div>
-      </section>
-
       {/* Strategy (simulated) */}
       <section className="container mx-auto px-4 py-10">
         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -599,6 +557,48 @@ const Index = () => {
             </div>
           )}
           <p className="mt-3 text-xs text-muted-foreground">Source: {localMatchedGamesSourceLabel}</p>
+        </div>
+      </section>
+
+      {/* Placed bets overview */}
+      <section className="container mx-auto px-4 py-10">
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold">Placed Bets (Real) — Overview</h2>
+          <p className="text-sm text-muted-foreground">
+            Source: {betLogFlatSource} (settled only).
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard
+            title="Settled bets (2026)"
+            value={`${settledBetsSummary.count}`}
+            subtitle="Settled bets from the live log"
+            icon={<Target className="w-6 h-6" />}
+          />
+          <StatCard
+            title="Wins / Win rate"
+            value={`${settledBetsSummary.wins} / ${fmtPercent(settledWinRatePct, 2)}`}
+            subtitle={`${settledBetsSummary.wins} wins · ${
+              settledBetsSummary.count - settledBetsSummary.wins
+            } losses`}
+            icon={<TrendingUp className="w-6 h-6" />}
+          />
+          <StatCard
+            title="Bankroll (2026 YTD · Placed Bets)"
+            value={fmtCurrencyEUR(realBankroll, 2)}
+            subtitle={`Start ${fmtCurrencyEUR(START_BANKROLL_REAL, 0)} • Net P/L: ${fmtCurrencyEUR(
+              settledBetsSummary.profit_eur,
+              2,
+            )}`}
+            icon={<Activity className="w-6 h-6" />}
+          />
+          <StatCard
+            title="ROI / Avg Odds"
+            value={fmtPercent(settledBetsSummary.roi_pct, 2)}
+            subtitle={`Avg odds: ${fmtNumber(settledBetsSummary.avg_odds, 2)}`}
+            icon={<BarChart3 className="w-6 h-6" />}
+          />
         </div>
       </section>
 
