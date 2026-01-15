@@ -126,14 +126,66 @@ const Index = () => {
     window_end: windowEndLabel,
   };
   const localMatchedGamesRows = tables?.local_matched_games_rows ?? [];
+  const STAKE_FLAT_DEFAULT = 100;
+  const localMatchedGamesSummary = useMemo(() => {
+    if (!localMatchedGamesRows.length) {
+      return {
+        count: 0,
+        wins: 0,
+        profit: 0,
+        roiPct: 0,
+        bankroll: 1000,
+        winRatePct: 0,
+        sharpeStyle: null as number | null,
+        maxDrawdown: null as number | null,
+      };
+    }
+
+    const count = localMatchedGamesRows.length;
+    const wins = localMatchedGamesRows.filter((row) => row.win === 1).length;
+    const profit = localMatchedGamesRows.reduce((acc, row) => acc + (row.pnl ?? 0), 0);
+    const roiPct = (profit / (count * STAKE_FLAT_DEFAULT)) * 100;
+    const bankroll = 1000 + profit;
+    const winRatePct = count > 0 ? (wins / count) * 100 : 0;
+    const pnlValues = localMatchedGamesRows.map((row) => row.pnl ?? 0);
+    const meanPnl = pnlValues.reduce((acc, value) => acc + value, 0) / count;
+    const variance =
+      pnlValues.reduce((acc, value) => acc + (value - meanPnl) ** 2, 0) / count;
+    const stdDev = Math.sqrt(variance);
+    const sharpeStyle =
+      stdDev > 0 ? (meanPnl / stdDev) * Math.sqrt(count) : null;
+    let runningTotal = 0;
+    let peak = 0;
+    let maxDrawdown = 0;
+    pnlValues.forEach((value) => {
+      runningTotal += value;
+      if (runningTotal > peak) {
+        peak = runningTotal;
+      }
+      const drawdown = peak - runningTotal;
+      if (drawdown > maxDrawdown) {
+        maxDrawdown = drawdown;
+      }
+    });
+    return {
+      count,
+      wins,
+      profit,
+      roiPct,
+      bankroll,
+      winRatePct,
+      sharpeStyle,
+      maxDrawdown,
+    };
+  }, [localMatchedGamesRows]);
+  const localSharpeValue =
+    typeof strategySummary.sharpeStyle === "number"
+      ? strategySummary.sharpeStyle
+      : localMatchedGamesSummary.sharpeStyle;
   const localMatchedGamesCount =
     tables?.local_matched_games_count ??
     strategyFilterStats.matched_games_count ??
-    0;
-  const localMatchedGamesProfit =
-    typeof tables?.local_matched_games_profit_sum_table === "number"
-      ? tables.local_matched_games_profit_sum_table
-      : strategySummary.totalProfitEur ?? 0;
+    localMatchedGamesSummary.count;
 
   const renderMetricTitle = (label: string, tooltipContent: React.ReactNode) => (
     <span className="inline-flex items-center gap-2">
@@ -368,41 +420,62 @@ const Index = () => {
                 LOCAL_MATCHED_GAMES
               </span>
             </div>
-            <p className="text-sm text-muted-foreground">SIMULATED SUBSET (WINDOW-ONLY)</p>
+            <p className="text-sm text-muted-foreground">
+              Simulated performance on local_matched_games restricted to the window subset only
+              (not actual placed bets).
+            </p>
           </div>
-          <div className="text-xs text-muted-foreground">
-            Matched games: {localMatchedGamesCount}
-          </div>
+          <div className="text-xs text-muted-foreground">Matched games: {localMatchedGamesCount}</div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
-            title="Simulated Bets"
-            value={`${strategySummary.totalBets}`}
-            subtitle={`Window subset size: ${strategyFilterStats.window_size}`}
+            title="Strategy matches in window"
+            value={`${localMatchedGamesSummary.count}`}
+            subtitle="Simulated subset (window-only)"
             icon={<Target className="w-6 h-6" />}
           />
           <StatCard
-            title="Win Rate"
-            value={fmtPercent(strategySummary.winRate * 100, 2)}
-            subtitle={`As of: ${strategySummary.asOfDate ?? "—"}`}
+            title="Wins / Win rate"
+            value={`${localMatchedGamesSummary.wins} / ${fmtPercent(
+              localMatchedGamesSummary.winRatePct,
+              1,
+            )}`}
             icon={<TrendingUp className="w-6 h-6" />}
           />
           <StatCard
-            title="ROI"
-            value={fmtPercent(strategySummary.roiPct, 2)}
-            subtitle={`Avg EV/€100: ${fmtNumber(strategySummary.avgEvPer100, 2)}`}
-            icon={<BarChart3 className="w-6 h-6" />}
+            title="Bankroll (Last 200 Window)"
+            value={fmtCurrencyEUR(localMatchedGamesSummary.bankroll, 2)}
+            subtitle={`Net P/L: ${fmtCurrencyEUR(localMatchedGamesSummary.profit, 2)}`}
+            icon={<Activity className="w-6 h-6" />}
           />
           <StatCard
-            title="Profit (EUR)"
-            value={fmtCurrencyEUR(localMatchedGamesProfit, 2)}
-            subtitle={`Sharpe-style: ${fmtNumber(strategySummary.sharpeStyle, 2)}`}
-            icon={<Activity className="w-6 h-6" />}
+            title="ROI / Sharpe / Max DD"
+            value={fmtPercent(localMatchedGamesSummary.roiPct, 2)}
+            subtitle={
+              localMatchedGamesSummary.count < 5
+                ? "Sharpe: — • DD: —"
+                : `Sharpe: ${
+                    localSharpeValue !== null ? fmtNumber(localSharpeValue, 2) : "—"
+                  } • DD: ${fmtCurrencyEUR(localMatchedGamesSummary.maxDrawdown, 0)}`
+            }
+            icon={<BarChart3 className="w-6 h-6" />}
           />
         </div>
 
         <div className="glass-card p-6 mt-6">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="text-sm font-semibold tracking-wide text-muted-foreground">
+                LOCAL MATCHED GAMES (Window)
+              </div>
+              <div className="text-xs text-muted-foreground">Simulated subset (window-only)</div>
+            </div>
+            <div className="text-xs text-muted-foreground">
+              n={localMatchedGamesSummary.count} • Wins={localMatchedGamesSummary.wins} • P/L{" "}
+              {formatSigned(localMatchedGamesSummary.profit)}
+            </div>
+          </div>
           <div className="overflow-x-auto">
             {localMatchedGamesRows.length === 0 ? (
               <div className="rounded-lg border border-border p-4 text-sm text-muted-foreground">
@@ -416,11 +489,11 @@ const Index = () => {
                     <th className="py-2 pr-4">Home</th>
                     <th className="py-2 pr-4">Away</th>
                     <th className="py-2 pr-4">Home Win Rate</th>
-                    <th className="py-2 pr-4">Prob (Iso)</th>
-                    <th className="py-2 pr-4">Prob (Used)</th>
+                    <th className="py-2 pr-4">Prob ISO</th>
+                    <th className="py-2 pr-4">Prob Used</th>
                     <th className="py-2 pr-4">Odds</th>
-                    <th className="py-2 pr-4">EV/€100</th>
-                    <th className="py-2 pr-4">Result</th>
+                    <th className="py-2 pr-4">EV €/100</th>
+                    <th className="py-2 pr-4">Win</th>
                     <th className="py-2 pr-4">P/L</th>
                   </tr>
                 </thead>
@@ -430,20 +503,14 @@ const Index = () => {
                       key={`${row.date}-${row.home_team}-${row.away_team}-${row.odds_1}`}
                       className="border-b border-border/50"
                     >
-                      <td className="py-2 pr-4">{row.date}</td>
+                      <td className="py-2 pr-4">{row.date?.split(" ")[0] ?? "—"}</td>
                       <td className="py-2 pr-4 font-medium">{row.home_team}</td>
                       <td className="py-2 pr-4">{row.away_team}</td>
-                      <td className="py-2 pr-4">
-                        {fmtPercent(row.home_win_rate * 100, 0)}
-                      </td>
-                      <td className="py-2 pr-4">
-                        {fmtPercent(row.prob_iso * 100, 1)}
-                      </td>
-                      <td className="py-2 pr-4">
-                        {fmtPercent(row.prob_used * 100, 1)}
-                      </td>
+                      <td className="py-2 pr-4">{fmtNumber(row.home_win_rate, 2)}</td>
+                      <td className="py-2 pr-4">{fmtNumber(row.prob_iso, 2)}</td>
+                      <td className="py-2 pr-4">{fmtNumber(row.prob_used, 2)}</td>
                       <td className="py-2 pr-4">{fmtNumber(row.odds_1, 2)}</td>
-                      <td className="py-2 pr-4">{formatSigned(row.ev_eur_per_100)}</td>
+                      <td className="py-2 pr-4">{fmtNumber(row.ev_eur_per_100, 2)}</td>
                       <td className="py-2 pr-4">{row.win === 1 ? "✅" : "❌"}</td>
                       <td className="py-2 pr-4">{formatSigned(row.pnl)}</td>
                     </tr>
