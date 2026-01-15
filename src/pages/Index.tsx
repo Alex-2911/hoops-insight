@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { StatCard } from "@/components/cards/StatCard";
 import type { DashboardPayload, DashboardState } from "@/data/dashboardTypes";
-import { Target, TrendingUp, Activity, BarChart3 } from "lucide-react";
+import { Target, TrendingUp, Activity, BarChart3, Info } from "lucide-react";
 import { fmtCurrencyEUR, fmtNumber, fmtPercent } from "@/lib/format";
+import { Badge } from "@/components/ui/badge";
 
 const Index = () => {
   const [payload, setPayload] = useState<DashboardPayload | null>(null);
@@ -211,6 +212,24 @@ const Index = () => {
   }, [bankrollLast200.stake, localMatchedGamesRows, settledSimulatedBetsCount]);
 
   const localMatchedGamesProfitSumDisplay = localParamsSummary.totalProfitEur;
+  const localMatchedGamesWinRatePct =
+    settledSimulatedBetsCount > 0
+      ? (strategySubsetWins / settledSimulatedBetsCount) * 100
+      : 0;
+
+  const formatNumberOrNA = (value: unknown, decimals = 2) => {
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+      return "N/A";
+    }
+    return value.toFixed(decimals);
+  };
+
+  const formatDateLabel = (value: string) => {
+    if (!value) {
+      return "N/A";
+    }
+    return value.includes("T") ? value.split("T")[0] : value.split(" ")[0];
+  };
 
   const formatSigned = (value: number | null | undefined) => {
     if (typeof value !== "number" || !Number.isFinite(value)) {
@@ -219,6 +238,53 @@ const Index = () => {
     const sign = value >= 0 ? "+" : "-";
     return `${sign}€${fmtNumber(Math.abs(value), 2)}`;
   };
+
+  const formatSignedPlain = (value: number | null | undefined) => {
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+      return "N/A";
+    }
+    const sign = value >= 0 ? "+" : "-";
+    return `${sign}${fmtNumber(Math.abs(value), 2)}`;
+  };
+
+  const localMatchedGamesSorted = useMemo(() => {
+    return [...localMatchedGamesRows].sort((a, b) => b.date.localeCompare(a.date));
+  }, [localMatchedGamesRows]);
+
+  const localMatchedGamesSharpe = useMemo(() => {
+    if (settledSimulatedBetsCount < 5) {
+      return null;
+    }
+    const stake = bankrollLast200.stake || 1;
+    const returns = localMatchedGamesRows.map((row) => (row.pnl ?? 0) / stake);
+    const mean = returns.reduce((acc, value) => acc + value, 0) / returns.length;
+    const variance =
+      returns.reduce((acc, value) => acc + Math.pow(value - mean, 2), 0) / returns.length;
+    const stdDev = Math.sqrt(variance);
+    if (!Number.isFinite(stdDev) || stdDev === 0) {
+      return 0;
+    }
+    return (mean / stdDev) * Math.sqrt(returns.length);
+  }, [bankrollLast200.stake, localMatchedGamesRows, settledSimulatedBetsCount]);
+
+  const localMatchedGamesMaxDrawdown = useMemo(() => {
+    if (settledSimulatedBetsCount < 5) {
+      return null;
+    }
+    let peak = 0;
+    let drawdown = 0;
+    let cumulative = 0;
+    for (const row of localMatchedGamesRows) {
+      cumulative += row.pnl ?? 0;
+      if (cumulative > peak) {
+        peak = cumulative;
+      }
+      drawdown = Math.max(drawdown, peak - cumulative);
+    }
+    return drawdown;
+  }, [localMatchedGamesRows, settledSimulatedBetsCount]);
+
+  const localMatchedGamesSourceLabel = localMatchedGamesSource.split("/").pop() ?? "local_matched_games_latest.csv";
 
   return (
     <>
@@ -362,25 +428,70 @@ const Index = () => {
 
       {/* Strategy (simulated) */}
       <section className="container mx-auto px-4 py-10">
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold">Strategy (Simulated on Window Subset)</h2>
-          <p className="text-sm text-muted-foreground">
-            Source: {localMatchedGamesSource} (window subset only).
-          </p>
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="text-2xl font-bold">Strategy (Simulated on Window Subset)</h2>
+            <p className="text-sm text-muted-foreground">
+              Simulated performance on local_matched_games restricted to the window subset only (not actual placed
+              bets).
+            </p>
+          </div>
+          <Badge className="bg-foreground text-background px-3 py-1 text-[11px] tracking-wide">
+            LOCAL_MATCHED_GAMES
+          </Badge>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <StatCard
+            title="Strategy matches in window"
+            value={`${settledSimulatedBetsCount}`}
+          />
+          <StatCard
+            title="Wins / Win rate"
+            value={`${strategySubsetWins} / ${fmtPercent(localMatchedGamesWinRatePct, 1)}`}
+          />
+          <StatCard
+            title={
+              <span className="inline-flex items-center gap-2">
+                Bankroll (Last 200 Window)
+                <Info className="h-4 w-4 text-muted-foreground" />
+              </span>
+            }
+            value={fmtCurrencyEUR(bankrollLast200.bankroll, 2)}
+            subtitle={`Net P/L: ${fmtCurrencyEUR(bankrollLast200.net_pl, 2)}`}
+          />
+          <StatCard
+            title="ROI / Sharpe / Max DD"
+            value={fmtPercent(localParamsSummary.roiPct, 1)}
+            subtitle={
+              settledSimulatedBetsCount < 5
+                ? "Sharpe: — • DD: —"
+                : `Sharpe: ${formatNumberOrNA(localMatchedGamesSharpe, 2)} • DD: ${fmtCurrencyEUR(
+                    localMatchedGamesMaxDrawdown,
+                    2,
+                  )}`
+            }
+          />
         </div>
         <div className="glass-card p-6">
-          <p className="text-sm text-muted-foreground mb-2">
-            n={settledSimulatedBetsCount} • Wins={strategySubsetWins} • P/L{" "}
-            {formatSigned(localMatchedGamesProfitSumDisplay)}
-          </p>
-          <p className="text-xs text-muted-foreground mb-6">
-            Source: {localMatchedGamesSource || "missing"} • Window:{" "}
-            {windowStartLabel} → {windowEndLabel}
-          </p>
+          <div className="flex flex-col gap-3 border-b border-border/60 pb-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2 text-sm font-semibold">
+              <span>LOCAL MATCHED GAMES (Window)</span>
+              <Info className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <div className="text-sm text-muted-foreground">
+              n={settledSimulatedBetsCount} • Wins={strategySubsetWins} • P/L{" "}
+              {formatSigned(localMatchedGamesProfitSumDisplay)}
+            </div>
+          </div>
+          <div className="flex justify-center pt-4">
+            <Badge className="bg-muted text-muted-foreground text-[11px] tracking-wide">
+              SIMULATED SUBSET (WINDOW-ONLY)
+            </Badge>
+          </div>
 
           {localMatchedGamesMismatch || localMatchedGamesRows.length === 0 ? (
             <div className="rounded-lg border border-border p-4 text-sm text-muted-foreground">
-              {localMatchedGamesNote || "No matched games recorded for this window."}
+              {localMatchedGamesNote || "No matches in window."}
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -400,27 +511,30 @@ const Index = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {localMatchedGamesRows.map((game) => (
+                  {localMatchedGamesSorted.map((game) => (
                     <tr
                       key={`${game.date}-${game.home_team}-${game.away_team}`}
                       className="border-b border-border/50"
                     >
-                      <td className="py-2 pr-4">{game.date}</td>
-                      <td className="py-2 pr-4 font-medium">{game.home_team}</td>
-                      <td className="py-2 pr-4">{game.away_team}</td>
-                      <td className="py-2 pr-4">{fmtNumber(game.home_win_rate, 2)}</td>
-                      <td className="py-2 pr-4">{fmtNumber(game.prob_iso, 3)}</td>
-                      <td className="py-2 pr-4">{fmtNumber(game.prob_used, 3)}</td>
-                      <td className="py-2 pr-4">{fmtNumber(game.odds_1, 2)}</td>
-                      <td className="py-2 pr-4">{fmtNumber(game.ev_eur_per_100, 2)}</td>
-                      <td className="py-2 pr-4">{game.win === 1 ? "✅" : "❌"}</td>
-                      <td className="py-2 pr-4">{formatSigned(game.pnl)}</td>
+                      <td className="py-2 pr-4">{formatDateLabel(game.date)}</td>
+                      <td className="py-2 pr-4 font-medium">{game.home_team || "N/A"}</td>
+                      <td className="py-2 pr-4">{game.away_team || "N/A"}</td>
+                      <td className="py-2 pr-4">{formatNumberOrNA(game.home_win_rate, 2)}</td>
+                      <td className="py-2 pr-4">{formatNumberOrNA(game.prob_iso, 2)}</td>
+                      <td className="py-2 pr-4">{formatNumberOrNA(game.prob_used, 2)}</td>
+                      <td className="py-2 pr-4">{formatNumberOrNA(game.odds_1, 2)}</td>
+                      <td className="py-2 pr-4">{formatNumberOrNA(game.ev_eur_per_100, 2)}</td>
+                      <td className="py-2 pr-4">
+                        {game.win === 1 ? "✅" : game.win === 0 ? "❌" : "N/A"}
+                      </td>
+                      <td className="py-2 pr-4">{formatSignedPlain(game.pnl)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           )}
+          <p className="mt-3 text-xs text-muted-foreground">Source: {localMatchedGamesSourceLabel}</p>
         </div>
       </section>
 
