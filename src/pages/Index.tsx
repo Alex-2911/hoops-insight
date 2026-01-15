@@ -58,6 +58,8 @@ const Index = () => {
     overall_accuracy: 0,
     as_of_date: "—",
   };
+  const summaryAsOfDate =
+    dashboardState?.as_of_date ?? payload?.as_of_date ?? summary?.as_of_date ?? "—";
 
   const calibrationMetrics = tables?.calibration_metrics ?? {
     asOfDate: "—",
@@ -74,6 +76,17 @@ const Index = () => {
     actualWinPct: 0,
     windowSize: 0,
   };
+  const windowSize =
+    dashboardState?.window_size ||
+    windowInfo.size ||
+    calibrationMetrics.windowSize ||
+    summaryStats.total_games ||
+    200;
+  const windowStartLabel =
+    dashboardState?.window_start ?? windowInfo.start ?? summary?.window_start ?? "—";
+  const windowEndLabel =
+    dashboardState?.window_end ?? windowInfo.end ?? summary?.window_end ?? summaryAsOfDate ?? "—";
+  const windowGamesLabel = windowInfo.games_count ?? windowSize;
   const homeWinRatesLast20 = tables?.home_win_rates_last20 ?? [];
   const settledBetsRows = tables?.settled_bets_rows ?? [];
   const START_BANKROLL_REAL = 1000;
@@ -187,29 +200,31 @@ const Index = () => {
     strategyFilterStats.matched_games_count ??
     localMatchedGamesSummary.count;
 
-  const renderMetricTitle = (label: string, tooltipContent: React.ReactNode) => (
-    <span className="inline-flex items-center gap-2">
-      <span>{label}</span>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            aria-label={`${label} info`}
-            className="text-muted-foreground transition-colors hover:text-foreground"
+  function renderMetricTitle(label: string, tooltipContent: React.ReactNode) {
+    return (
+      <span className="inline-flex items-center gap-2">
+        <span>{label}</span>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              aria-label={`${label} info`}
+              className="text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <Info className="h-4 w-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent
+            side="top"
+            align="start"
+            className="max-w-[300px] whitespace-pre-line border-slate-800 bg-slate-900 text-slate-100"
           >
-            <Info className="h-4 w-4" />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent
-          side="top"
-          align="start"
-          className="max-w-[300px] whitespace-pre-line border-slate-800 bg-slate-900 text-slate-100"
-        >
-          <div className="space-y-2 text-sm leading-snug">{tooltipContent}</div>
-        </TooltipContent>
-      </Tooltip>
-    </span>
-  );
+            <div className="space-y-2 text-sm leading-snug">{tooltipContent}</div>
+          </TooltipContent>
+        </Tooltip>
+      </span>
+    );
+  }
 
   const strategyParams = summary?.strategy_params ?? {
     source: "missing",
@@ -233,20 +248,7 @@ const Index = () => {
     "metrics_snapshot.json";
   const betLogFlatSource = dashboardState?.sources?.bet_log ?? "bet_log_flat_live.csv";
   const combinedSource = dashboardState?.sources?.combined ?? "combined_latest.csv";
-  const summaryAsOfDate =
-    dashboardState?.as_of_date ?? payload?.as_of_date ?? summary?.as_of_date ?? "—";
   const overallAccuracyPct = fmtPercent(summaryStats.overall_accuracy * 100, 2);
-  const windowSize =
-    dashboardState?.window_size ||
-    windowInfo.size ||
-    calibrationMetrics.windowSize ||
-    summaryStats.total_games ||
-    200;
-  const windowStartLabel =
-    dashboardState?.window_start ?? windowInfo.start ?? summary?.window_start ?? "—";
-  const windowEndLabel =
-    dashboardState?.window_end ?? windowInfo.end ?? summary?.window_end ?? summaryAsOfDate ?? "—";
-  const windowGamesLabel = windowInfo.games_count ?? windowSize;
   const activeFiltersEffective =
     dashboardState?.active_filters_text ??
     payload?.active_filters_effective ??
@@ -265,13 +267,13 @@ const Index = () => {
       .sort((a, b) => b.homeWinRate - a.homeWinRate);
   }, [homeWinRatesLast20]);
 
-  const formatSigned = (value: number | null | undefined) => {
+  function formatSigned(value: number | null | undefined) {
     if (typeof value !== "number" || !Number.isFinite(value)) {
       return "—";
     }
     const sign = value >= 0 ? "+" : "-";
     return `${sign}€${fmtNumber(Math.abs(value), 2)}`;
-  };
+  }
 
   return (
     <>

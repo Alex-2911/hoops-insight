@@ -1,6 +1,4 @@
 import { ReactNode } from 'react';
-import { Navigation } from './Navigation';
-
 interface LayoutProps {
   children: ReactNode;
 }
@@ -8,10 +6,7 @@ interface LayoutProps {
 const Layout = ({ children }: LayoutProps) => {
   return (
     <div className="min-h-screen bg-background">
-      <Navigation />
-      <main className="pt-16">
-        {children}
-      </main>
+      <main>{children}</main>
       <footer className="border-t border-border py-8 mt-16">
         <div className="container mx-auto px-4 text-center text-muted-foreground text-sm">
           <p>NBA Results & Statistics • Historical analysis only</p>
