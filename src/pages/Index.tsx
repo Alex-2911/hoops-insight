@@ -4,6 +4,7 @@ import type { DashboardPayload, DashboardState } from "@/data/dashboardTypes";
 import { Target, TrendingUp, Activity, BarChart3, Info } from "lucide-react";
 import { fmtCurrencyEUR, fmtNumber, fmtPercent } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const Index = () => {
   const [payload, setPayload] = useState<DashboardPayload | null>(null);
@@ -118,6 +119,30 @@ const Index = () => {
     settledBetsSummary.count > 0
       ? (settledBetsSummary.wins / settledBetsSummary.count) * 100
       : 0;
+
+  const renderMetricTitle = (label: string, tooltipContent: React.ReactNode) => (
+    <span className="inline-flex items-center gap-2">
+      <span>{label}</span>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            aria-label={`${label} info`}
+            className="text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <Info className="h-4 w-4" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent
+          side="top"
+          align="start"
+          className="max-w-[300px] whitespace-pre-line border-slate-800 bg-slate-900 text-slate-100"
+        >
+          <div className="space-y-2 text-sm leading-snug">{tooltipContent}</div>
+        </TooltipContent>
+      </Tooltip>
+    </span>
+  );
 
   const strategyParams = summary?.strategy_params ?? {
     source: "missing",
@@ -351,37 +376,76 @@ const Index = () => {
             Source: {combinedSource} (played games only, windowed).
           </p>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard
-            title="Overall Accuracy"
-            value={overallAccuracyPct}
-            subtitle={
-              <div>Window games: {windowGamesLabel}</div>
-            }
-            icon={<Target className="w-6 h-6" />}
-          />
+        <TooltipProvider delayDuration={100}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatCard
+              title={renderMetricTitle(
+                "Overall Accuracy",
+                <>
+                  <p>
+                    Percentage of games in the current window where the model correctly predicted the winning team.
+                    Computed on played games only.
+                  </p>
+                  <p>Accuracy = correct predictions / total games in window.</p>
+                </>
+              )}
+              value={overallAccuracyPct}
+              subtitle={
+                <div>Window games: {windowGamesLabel}</div>
+              }
+              icon={<Target className="w-6 h-6" />}
+            />
 
-          <StatCard
-            title="Calibration (Brier)"
-            value={fmtNumber(calibrationMetrics.brierAfter, 3)}
-            subtitle={`Before: ${fmtNumber(calibrationMetrics.brierBefore, 3)}`}
-            icon={<BarChart3 className="w-6 h-6" />}
-          />
+            <StatCard
+              title={renderMetricTitle(
+                "Calibration (Brier)",
+                <>
+                  <p>Brier Score measures how well predicted probabilities match actual outcomes.</p>
+                  <p>It is the mean squared error between predicted probabilities and actual results (0 or 1).</p>
+                  <p>Lower values indicate better calibrated probabilities.</p>
+                  <p>Computed on the last 200 played games only.</p>
+                </>
+              )}
+              value={fmtNumber(calibrationMetrics.brierAfter, 3)}
+              subtitle={`Before: ${fmtNumber(calibrationMetrics.brierBefore, 3)}`}
+              icon={<BarChart3 className="w-6 h-6" />}
+            />
 
-          <StatCard
-            title="LogLoss"
-            value={fmtNumber(calibrationMetrics.logLossAfter, 3)}
-            subtitle={`Before: ${fmtNumber(calibrationMetrics.logLossBefore, 3)}`}
-            icon={<TrendingUp className="w-6 h-6" />}
-          />
+            <StatCard
+              title={renderMetricTitle(
+                "LogLoss",
+                <>
+                  <p>
+                    Log Loss evaluates probabilistic predictions by penalizing confident wrong predictions more
+                    strongly.
+                  </p>
+                  <p>Lower values indicate better probability estimates.</p>
+                  <p>Unlike accuracy, LogLoss accounts for confidence, not just correctness.</p>
+                </>
+              )}
+              value={fmtNumber(calibrationMetrics.logLossAfter, 3)}
+              subtitle={`Before: ${fmtNumber(calibrationMetrics.logLossBefore, 3)}`}
+              icon={<TrendingUp className="w-6 h-6" />}
+            />
 
-          <StatCard
-            title="ECE"
-            value={fmtNumber(calibrationMetrics.ece, 3)}
-            subtitle={`Before: ${fmtNumber(calibrationMetrics.ece, 3)}`}
-            icon={<Activity className="w-6 h-6" />}
-          />
-        </div>
+            <StatCard
+              title={renderMetricTitle(
+                "ECE",
+                <>
+                  <p>
+                    Expected Calibration Error (ECE) measures the average difference between predicted probabilities
+                    and observed win frequencies across probability bins.
+                  </p>
+                  <p>Lower values indicate better calibration.</p>
+                  <p>An ECE of 0 means perfect calibration.</p>
+                </>
+              )}
+              value={fmtNumber(calibrationMetrics.ece, 3)}
+              subtitle={`Before: ${fmtNumber(calibrationMetrics.ece, 3)}`}
+              icon={<Activity className="w-6 h-6" />}
+            />
+          </div>
+        </TooltipProvider>
       </section>
 
       {/* Placed bets overview */}
