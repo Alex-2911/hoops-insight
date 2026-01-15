@@ -3,7 +3,6 @@ import { StatCard } from "@/components/cards/StatCard";
 import type { DashboardPayload, DashboardState } from "@/data/dashboardTypes";
 import { Target, TrendingUp, Activity, BarChart3 } from "lucide-react";
 import { fmtCurrencyEUR, fmtNumber, fmtPercent } from "@/lib/format";
-import { shouldShowRiskMetrics } from "@/lib/riskMetrics";
 
 const Index = () => {
   const [payload, setPayload] = useState<DashboardPayload | null>(null);
@@ -85,13 +84,8 @@ const Index = () => {
     net_pl: 0,
     bankroll: 1000,
   };
-  const bankrollYtd2026 = tables?.bankroll_ytd_2026 ?? {
-    start: 1000,
-    stake: 100,
-    net_pl: 0,
-    bankroll: 1000,
-  };
   const settledBetsRows = tables?.settled_bets_rows ?? [];
+  const START_BANKROLL_REAL = 1000;
   const settledBetsSummary = useMemo(() => {
     if (!settledBetsRows.length) {
       return {
@@ -100,6 +94,7 @@ const Index = () => {
         profit_eur: 0,
         roi_pct: 0,
         avg_odds: 0,
+        total_stake: 0,
       };
     }
     const wins = settledBetsRows.filter((row) => row.win === 1).length;
@@ -114,19 +109,15 @@ const Index = () => {
       profit_eur: profit,
       roi_pct: totalStake > 0 ? (profit / totalStake) * 100 : 0,
       avg_odds: avgOdds,
+      total_stake: totalStake,
     };
   }, [settledBetsRows]);
+  const realBankroll = START_BANKROLL_REAL + settledBetsSummary.profit_eur;
+  const settledWinRatePct =
+    settledBetsSummary.count > 0
+      ? (settledBetsSummary.wins / settledBetsSummary.count) * 100
+      : 0;
 
-  const strategySummary = summary?.strategy_summary ?? {
-    totalBets: 0,
-    totalProfitEur: 0,
-    roiPct: 0,
-    avgEvPer100: 0,
-    winRate: 0,
-    sharpeStyle: null,
-    profitMetricsAvailable: false,
-    asOfDate: "—",
-  };
   const strategyParams = summary?.strategy_params ?? {
     source: "missing",
     params: {},
@@ -188,17 +179,6 @@ const Index = () => {
   const strategySubsetWins = strategySubsetAvailable
     ? localMatchedGamesRows.filter((game) => game.win === 1).length
     : 0;
-  const strategyLatestRowDate = useMemo(() => {
-    if (localMatchedGamesRows.length === 0) {
-      return null;
-    }
-    const dates = localMatchedGamesRows.map((row) => row.date).filter(Boolean);
-    if (dates.length === 0) {
-      return null;
-    }
-    return [...dates].sort().at(-1) ?? null;
-  }, [localMatchedGamesRows]);
-
   const localParamsSummary = useMemo(() => {
     const count = settledSimulatedBetsCount;
     if (count === 0) {
@@ -230,12 +210,6 @@ const Index = () => {
     };
   }, [bankrollLast200.stake, localMatchedGamesRows, settledSimulatedBetsCount]);
 
-  const strategyAsOfDate =
-    strategyLatestRowDate ??
-    dashboardState?.strategy_as_of_date ??
-    strategySummary.asOfDate ??
-    "—";
-  const showRiskMetrics = shouldShowRiskMetrics(settledSimulatedBetsCount);
   const localMatchedGamesProfitSumDisplay = localParamsSummary.totalProfitEur;
 
   const formatSigned = (value: number | null | undefined) => {
@@ -248,43 +222,13 @@ const Index = () => {
 
   return (
     <>
-      {/* Top bar */}
-      <section className="container mx-auto px-4 py-6">
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <img
-                src={`${baseUrl}favicon.ico`}
-                alt="Hoops Insight"
-                className="h-8 w-8 rounded-md border border-border"
-              />
-              <span className="text-lg font-semibold tracking-tight">Hoops Insight</span>
-            </div>
-            <button className="rounded-full border border-border px-4 py-1 text-sm font-medium">
-              Dashboard
-            </button>
-          </div>
-          <div className="flex flex-wrap items-center justify-end gap-2 text-xs text-muted-foreground">
-            <span className="rounded-full border border-border px-3 py-1">
-              Historical only
-            </span>
-            <span className="rounded-full border border-border px-3 py-1">
-              Last update: {summaryAsOfDate}
-            </span>
-            <span className="rounded-full border border-border px-3 py-1">
-              Window: {windowSize} games
-            </span>
-          </div>
-          {loadError && (
-            <p className="text-sm text-red-400">Data unavailable: {loadError}</p>
-          )}
-        </div>
-      </section>
-
       {/* Context & Assumptions */}
       <section className="container mx-auto px-4 py-6">
         <div className="glass-card p-6">
           <h2 className="text-xl font-bold mb-3">Context &amp; Assumptions</h2>
+          {loadError && (
+            <p className="text-sm text-red-400 mb-3">Data unavailable: {loadError}</p>
+          )}
           <div className="text-sm text-muted-foreground space-y-3">
             <div>
               <span className="font-medium text-foreground">Active Filters (effective)</span>
@@ -374,6 +318,48 @@ const Index = () => {
         </div>
       </section>
 
+      {/* Placed bets overview */}
+      <section className="container mx-auto px-4 py-10">
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold">Placed Bets (Real) — Overview</h2>
+          <p className="text-sm text-muted-foreground">
+            Source: {betLogFlatSource} (settled only).
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard
+            title="Settled bets (2026)"
+            value={`${settledBetsSummary.count}`}
+            subtitle="Settled bets from the live log"
+            icon={<Target className="w-6 h-6" />}
+          />
+          <StatCard
+            title="Wins / Win rate"
+            value={`${settledBetsSummary.wins} / ${fmtPercent(settledWinRatePct, 2)}`}
+            subtitle={`${settledBetsSummary.wins} wins · ${
+              settledBetsSummary.count - settledBetsSummary.wins
+            } losses`}
+            icon={<TrendingUp className="w-6 h-6" />}
+          />
+          <StatCard
+            title="Bankroll (2026 YTD · Placed Bets)"
+            value={fmtCurrencyEUR(realBankroll, 2)}
+            subtitle={`Start ${fmtCurrencyEUR(START_BANKROLL_REAL, 0)} • Net P/L: ${fmtCurrencyEUR(
+              settledBetsSummary.profit_eur,
+              2,
+            )}`}
+            icon={<Activity className="w-6 h-6" />}
+          />
+          <StatCard
+            title="ROI / Avg Odds"
+            value={fmtPercent(settledBetsSummary.roi_pct, 2)}
+            subtitle={`Avg odds: ${fmtNumber(settledBetsSummary.avg_odds, 2)}`}
+            icon={<BarChart3 className="w-6 h-6" />}
+          />
+        </div>
+      </section>
+
       {/* Strategy (simulated) */}
       <section className="container mx-auto px-4 py-10">
         <div className="mb-6">
@@ -382,50 +368,7 @@ const Index = () => {
             Source: {localMatchedGamesSource} (window subset only).
           </p>
         </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <StatCard
-            title="Strategy matches in window"
-            value={`${settledSimulatedBetsCount}`}
-            subtitle={`Window games: ${windowGamesLabel}`}
-            icon={<Target className="w-6 h-6" />}
-          />
-          <StatCard
-            title="Wins / Win rate"
-            value={`${strategySubsetWins} / ${fmtPercent(
-              strategySubsetAvailable ? (strategySubsetWins / settledSimulatedBetsCount) * 100 : 0,
-              1,
-            )}`}
-            subtitle={`Strategy as of ${strategyAsOfDate}`}
-            icon={<TrendingUp className="w-6 h-6" />}
-          />
-          <StatCard
-            title="Bankroll (Last 200 Window)"
-            value={fmtCurrencyEUR(bankrollLast200.bankroll, 2)}
-            subtitle={`Net P/L: ${fmtCurrencyEUR(bankrollLast200.net_pl, 2)}`}
-            icon={<Activity className="w-6 h-6" />}
-          />
-          <StatCard
-            title="ROI / Sharpe / Max DD"
-            value={fmtPercent(localParamsSummary.roiPct, 2)}
-            subtitle={`Sharpe: ${
-              showRiskMetrics && typeof strategySummary.sharpeStyle === "number"
-                ? fmtNumber(strategySummary.sharpeStyle, 2)
-                : "—"
-            } • DD: ${
-              showRiskMetrics ? fmtCurrencyEUR(summary?.kpis?.max_drawdown_eur, 0) : "—"
-            }`}
-            icon={<BarChart3 className="w-6 h-6" />}
-          />
-        </div>
-      </section>
-
-      {/* Local matched games overview */}
-      <section className="container mx-auto px-4 py-10">
         <div className="glass-card p-6">
-          <h2 className="text-xl font-bold mb-2">
-            LOCAL MATCHED GAMES (Window)
-          </h2>
           <p className="text-sm text-muted-foreground mb-2">
             n={settledSimulatedBetsCount} • Wins={strategySubsetWins} • P/L{" "}
             {formatSigned(localMatchedGamesProfitSumDisplay)}
@@ -493,8 +436,11 @@ const Index = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             <StatCard
               title="Bankroll (2026 YTD · Placed Bets)"
-              value={fmtCurrencyEUR(bankrollYtd2026.bankroll, 2)}
-              subtitle={`Start ${fmtCurrencyEUR(bankrollYtd2026.start, 0)} • Net P/L: ${fmtCurrencyEUR(bankrollYtd2026.net_pl, 2)}`}
+              value={fmtCurrencyEUR(realBankroll, 2)}
+              subtitle={`Start ${fmtCurrencyEUR(START_BANKROLL_REAL, 0)} • Net P/L: ${fmtCurrencyEUR(
+                settledBetsSummary.profit_eur,
+                2,
+              )}`}
               icon={<Activity className="w-6 h-6" />}
             />
             <StatCard
