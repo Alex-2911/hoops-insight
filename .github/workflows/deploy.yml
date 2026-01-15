@@ -155,25 +155,51 @@ jobs:
           set -euo pipefail
           ROOT="$GITHUB_WORKSPACE/Basketball_prediction/2026/output/LightGBM"
           test -d "$ROOT"
-          COMBINED=$(find "$ROOT" -maxdepth 2 -name "combined_nba_predictions_*" -print -quit)
-          BET_LOG_FLAT=$(find "$ROOT" -maxdepth 2 -name "bet_log_flat_live*.csv" -print -quit)
+          COMBINED=$(find "$ROOT" -maxdepth 2 -name "combined_nba_predictions_iso*" -print -quit)
+          BET_LOG_FLAT=$(find "$ROOT" -maxdepth 2 -name "bet_log_flat_live*.csv" -print -quit || true)
           LOCAL_MATCHED=$(find "$ROOT" -maxdepth 1 -name "local_matched_games_*.csv" -print -quit)
-          if [[ -z "$COMBINED" || -z "$BET_LOG_FLAT" || -z "$LOCAL_MATCHED" ]]; then
+          METRICS="$ROOT/metrics_snapshot.json"
+          if [[ -z "$COMBINED" || -z "$LOCAL_MATCHED" || ! -f "$METRICS" ]]; then
             echo "ERROR: Missing required source files."
             echo "combined: $COMBINED"
             echo "bet_log_flat: $BET_LOG_FLAT"
             echo "local_matched_games: $LOCAL_MATCHED"
+            echo "metrics_snapshot: $METRICS"
             exit 1
           fi
           echo "✔ Found combined: $COMBINED"
-          echo "✔ Found bet_log_flat: $BET_LOG_FLAT"
+          echo "✔ Found bet_log_flat: ${BET_LOG_FLAT:-missing}"
           echo "✔ Found local_matched_games: $LOCAL_MATCHED"
+          echo "✔ Found metrics_snapshot: $METRICS"
 
-      - name: Generate dashboard data (repo-relative SOURCE_ROOT)
+      - name: Copy dashboard sources into public/data
         shell: bash
         run: |
           set -euo pipefail
-          python scripts/generate_dashboard_data.py --source-root "$GITHUB_WORKSPACE/Basketball_prediction/2026"
+          ROOT="$GITHUB_WORKSPACE/Basketball_prediction/2026/output/LightGBM"
+          OUT="$GITHUB_WORKSPACE/public/data"
+          mkdir -p "$OUT"
+          METRICS="$ROOT/metrics_snapshot.json"
+          COMBINED=$(find "$ROOT" -maxdepth 2 -name "combined_nba_predictions_iso*" -type f -printf "%T@ %p\n" | sort -nr | head -n1 | cut -d' ' -f2-)
+          LOCAL_MATCHED=$(find "$ROOT" -maxdepth 1 -name "local_matched_games_*.csv" -type f -printf "%T@ %p\n" | sort -nr | head -n1 | cut -d' ' -f2-)
+          BET_LOG_FLAT="$ROOT/bet_log_flat_live.csv"
+          STRATEGY_PARAMS="$ROOT/strategy_params.json"
+          cp "$METRICS" "$OUT/metrics_snapshot.json"
+          cp "$COMBINED" "$OUT/combined_latest.csv"
+          cp "$LOCAL_MATCHED" "$OUT/local_matched_games_latest.csv"
+          if [[ -f "$BET_LOG_FLAT" ]]; then
+            cp "$BET_LOG_FLAT" "$OUT/bet_log_flat_live.csv"
+          fi
+          if [[ -f "$STRATEGY_PARAMS" ]]; then
+            cp "$STRATEGY_PARAMS" "$OUT/strategy_params.json"
+          fi
+          echo "✔ Copied dashboard artifacts into $OUT"
+
+      - name: Generate dashboard data (public/data sources)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/generate_dashboard_data.py --data-dir "$GITHUB_WORKSPACE/public/data"
 
       - name: Validate dashboard payload parity
         shell: bash
@@ -182,6 +208,13 @@ jobs:
           test -f public/data/strategy_params.json
           test -f public/data/dashboard_payload.json
           python scripts/validate_dashboard_payload.py --path public/data/dashboard_payload.json
+
+      - name: Validate dashboard state parity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f public/data/dashboard_state.json
+          node scripts/validate_dashboard_state.mjs public/data
 
       - name: Setup Node 20
         uses: actions/setup-node@v4

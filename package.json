@@ -10,7 +10,8 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "node --test"
+    "test": "node --test",
+    "validate:parity": "node scripts/validate_dashboard_state.mjs public/data"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
