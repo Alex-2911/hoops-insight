@@ -770,6 +770,13 @@ def filter_local_matched_games_window(
     end_date = _safe_date(window_end)
     if not start_date or not end_date:
         return rows
+    row_dates = [_safe_date(row.get("date")) for row in rows]
+    row_dates = [dt for dt in row_dates if dt is not None]
+    if row_dates:
+        min_row_date = min(row_dates)
+        max_row_date = max(row_dates)
+        if end_date < min_row_date or start_date > max_row_date:
+            return rows
     filtered = []
     for row in rows:
         row_date = _safe_date(row.get("date"))
