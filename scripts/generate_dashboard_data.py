@@ -79,10 +79,35 @@ def _safe_date(val: str) -> Optional[datetime]:
     s = str(val).strip()
     if s == "":
         return None
+
+    # Fast path: YYYY-MM-DD...
+    if len(s) >= 10 and re.match(r"^\d{4}-\d{2}-\d{2}", s):
+        try:
+            return datetime.strptime(s[:10], DATE_FMT)
+        except ValueError:
+            pass
+
+    # Try common datetime formats
+    for fmt in (
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%dT%H:%M:%S",
+        "%Y-%m-%dT%H:%M:%S%z",
+        "%Y-%m-%d %H:%M:%S%z",
+    ):
+        try:
+            return datetime.strptime(s, fmt)
+        except ValueError:
+            continue
+
+    # ISO fallback
     try:
-        return datetime.strptime(s, DATE_FMT)
+        iso = s.replace("Z", "+00:00")
+        dt = datetime.fromisoformat(iso)
+        # normalize to naive date
+        return dt.replace(tzinfo=None)
     except ValueError:
         return None
+
 
 
 def _safe_team(val: object) -> Optional[str]:
@@ -605,39 +630,74 @@ def _compute_ece(y: List[int], p: List[float], bins: int = 10) -> Optional[float
 
 
 def load_played_games(path: Path) -> List[Dict[str, object]]:
-    rows = []
+    rows: List[Dict[str, object]] = []
+
     for row in _read_csv_normalized(path):
-        home_team = row.get("home_team")
-        away_team = row.get("away_team")
+        # played detection:
         result = row.get("result") or row.get("result_raw")
+
+        # if result missing, fall back to home_team_won (0/1)
+        home_team_won_raw = row.get("home_team_won")
+        if (result is None or str(result).strip() in {"", "0"}) and home_team_won_raw is not None:
+            try:
+                hw = float(str(home_team_won_raw).strip())
+                if hw in (0.0, 1.0):
+                    result = "__played__"  # sentinel
+            except ValueError:
+                pass
+
         if result is None or str(result).strip() in {"", "0"}:
             continue
+
         date_raw = row.get("game_date") or row.get("date")
         game_date = _safe_date(date_raw)
         if game_date is None:
             continue
-        home_team_won = 1 if str(result).strip() == str(home_team).strip() else 0
 
+        home_team = _safe_team(row.get("home_team"))
+        away_team = _safe_team(row.get("away_team"))
+        if not home_team or not away_team:
+            continue
+
+        # probs
         prob_raw = _safe_float(row.get("pred_home_win_proba") or row.get("home_team_prob"))
-        prob_iso = _safe_float(row.get("iso_proba_home_win"))
-        odds = _safe_float(row.get("closing_home_odds") or row.get("odds_1"))
-        home_win_rate = _safe_float(row.get("home_win_rate"))
+        prob_iso = _safe_float(row.get("iso_proba_home_win") or row.get("prob_iso"))
+
+        # odds (home)
+        odds_home = _safe_float(
+            row.get("closing_home_odds")
+            or row.get("odds_1")
+            or row.get("odds_home")
+            or row.get("home_odds")
+        )
+
+        # home win rate (optional)
+        home_win_rate = _safe_float(row.get("home_win_rate") or row.get("hw") or row.get("home_winrate"))
+
+        # if we used sentinel, infer home_team_won directly
+        if str(result).strip() == "__played__":
+            try:
+                home_team_won = int(float(str(home_team_won_raw).strip()))
+            except Exception:
+                continue
+        else:
+            home_team_won = 1 if str(result).strip().upper() == home_team else 0
 
         rows.append(
             {
                 "date": game_date,
                 "home_team": home_team,
                 "away_team": away_team,
-                "home_team_won": home_team_won,
+                "home_team_won": int(home_team_won),
                 "prob_raw": prob_raw,
                 "prob_iso": prob_iso,
-                "odds_home": odds,
+                "odds_home": odds_home,
                 "home_win_rate": home_win_rate,
             }
         )
+
     return rows
-
-
+        
 def build_historical_stats(rows: List[Dict[str, object]]) -> List[Dict[str, object]]:
     per_day = defaultdict(lambda: {"total": 0, "correct": 0})
     for r in rows:
@@ -1349,6 +1409,9 @@ def main() -> None:
         raise FileNotFoundError("No combined predictions file found in source output directories.")
 
     played_rows = load_played_games(combined_path)
+    print("[debug] played_rows:", len(played_rows))
+    print("[debug] played_max_date:", max(r["date"] for r in played_rows).strftime(DATE_FMT))
+
     if not played_rows:
         raise RuntimeError("No played games found in combined predictions file.")
 
