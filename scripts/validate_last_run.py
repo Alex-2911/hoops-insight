@@ -14,12 +14,10 @@ REQUIRED_KEYS = [
     "as_of_date",
     "source_root_used",
     "expected_lightgbm_dir",
-    "metrics_snapshot_source",
     "strategy_params_source",
     "local_matched_games_source",
     "local_matched_games_rows",
     "local_matched_games_profit_sum_table",
-    "matched_count_snapshot",
     "matched_count_table",
     "matched_count_used",
     "records",
@@ -27,7 +25,6 @@ REQUIRED_KEYS = [
 NUMERIC_KEYS = [
     "local_matched_games_rows",
     "local_matched_games_profit_sum_table",
-    "matched_count_snapshot",
     "matched_count_table",
     "matched_count_used",
 ]

@@ -101,7 +101,7 @@ def main() -> None:
     sources = payload.get("sources", {})
     if not isinstance(sources, dict):
         raise ValueError("sources must be an object.")
-    for key in ("metrics_snapshot", "local_matched_games", "bet_log_flat", "combined_file"):
+    for key in ("local_matched_games", "bet_log_flat", "combined_file"):
         value = sources.get(key)
         _assert(isinstance(value, str) and value and "missing" not in value.lower(),
                 f"sources.{key} must be present.")
