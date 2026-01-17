@@ -138,20 +138,6 @@ const Index = () => {
     params_used: {},
     active_filters: "No active filters.",
   };
-  const metricsSnapshotSummary = payload?.metrics_snapshot_summary ?? {
-    realized_count: null,
-    realized_profit_eur: null,
-    realized_roi: null,
-    realized_win_rate: null,
-    realized_sharpe: null,
-    ev_mean: null,
-    eval_base_date_max: null,
-  };
-  const metricsSnapshotSource =
-    dashboardState?.sources?.metrics_snapshot ??
-    payload?.sources?.metrics_snapshot ??
-    summary?.source?.metrics_snapshot_source ??
-    "metrics_snapshot.json";
   const betLogFlatSource = dashboardState?.sources?.bet_log ?? "bet_log_flat_live.csv";
   const combinedSource = dashboardState?.sources?.combined ?? "combined_latest.csv";
   const summaryAsOfDate =
@@ -186,14 +172,6 @@ const Index = () => {
       .sort((a, b) => b.homeWinRate - a.homeWinRate);
   }, [homeWinRatesLast20]);
 
-  const formatSigned = (value: number | null | undefined) => {
-    if (typeof value !== "number" || !Number.isFinite(value)) {
-      return "—";
-    }
-    const sign = value >= 0 ? "+" : "-";
-    return `${sign}€${fmtNumber(Math.abs(value), 2)}`;
-  };
-
   return (
     <>
       {/* Context & Assumptions */}
@@ -215,38 +193,6 @@ const Index = () => {
             <p>
               Historical results and statistical summaries only; no future predictions are shown.
             </p>
-            <details className="text-xs text-muted-foreground">
-              <summary className="cursor-pointer">metrics_snapshot</summary>
-              <div className="mt-2 flex flex-wrap gap-3">
-                <span>Source: {metricsSnapshotSource}</span>
-                <span>Realized count: {metricsSnapshotSummary.realized_count ?? "—"}</span>
-                <span>
-                  Realized profit:{" "}
-                  {metricsSnapshotSummary.realized_profit_eur !== null
-                    ? fmtCurrencyEUR(metricsSnapshotSummary.realized_profit_eur, 2)
-                    : "—"}
-                </span>
-                <span>
-                  Realized ROI:{" "}
-                  {metricsSnapshotSummary.realized_roi !== null
-                    ? fmtPercent(metricsSnapshotSummary.realized_roi * 100, 2)
-                    : "—"}
-                </span>
-                <span>
-                  Realized win rate:{" "}
-                  {metricsSnapshotSummary.realized_win_rate !== null
-                    ? fmtPercent(metricsSnapshotSummary.realized_win_rate * 100, 2)
-                    : "—"}
-                </span>
-                <span>
-                  Realized Sharpe:{" "}
-                  {metricsSnapshotSummary.realized_sharpe !== null
-                    ? fmtNumber(metricsSnapshotSummary.realized_sharpe, 3)
-                    : "—"}
-                </span>
-                <span>Snapshot as of: {metricsSnapshotSummary.eval_base_date_max ?? "—"}</span>
-              </div>
-            </details>
           </div>
         </div>
       </section>

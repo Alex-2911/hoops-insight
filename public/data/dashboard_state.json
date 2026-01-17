@@ -1,9 +1,9 @@
 {
   "as_of_date": "2026-01-07",
   "window_size": 200,
-  "window_start": "\u2014",
+  "window_start": "—",
   "window_end": "2026-01-07",
-  "active_filters_text": "HW \u2265 0.55 | odds 2.10\u20133.10 | p \u2265 0.40 | EV > \u22125 | window 200 (\u2014 \u2192 2026-01-07)",
+  "active_filters_text": "HW ≥ 0.55 | odds 2.10–3.10 | p ≥ 0.40 | EV > −5 | window 200 (— → 2026-01-07)",
   "params_used_label": "Historical",
   "params_source_label": "strategy_params.json",
   "strategy_as_of_date": "2026-01-05",
@@ -12,7 +12,6 @@
   "sources": {
     "combined": "combined_latest.csv",
     "local_matched": "local_matched_games_latest.csv",
-    "bet_log": "bet_log_flat_live.csv",
-    "metrics_snapshot": "metrics_snapshot.json"
+    "bet_log": "bet_log_flat_live.csv"
   }
 }

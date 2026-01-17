@@ -48,7 +48,6 @@ class SourcePaths:
     combined_acc: Optional[Path]
     bet_log: Optional[Path]
     bet_log_flat: Optional[Path]
-    metrics_snapshot: Optional[Path]
     local_matched_games: Optional[Path]
     strategy_params: Optional[Path]
 
@@ -176,57 +175,6 @@ def _parse_matchup(matchup: Optional[str]) -> Tuple[Optional[str], Optional[str]
     return None, None
 
 
-def _parse_snapshot_records(records: Iterable[object]) -> Dict[str, Dict[str, object]]:
-    parsed: Dict[str, Dict[str, object]] = {}
-    for row in records:
-        if not isinstance(row, dict):
-            continue
-        section = row.get("section")
-        metric = row.get("metric")
-        value = row.get("value")
-        if section and metric:
-            parsed.setdefault(str(section), {})[str(metric)] = _coerce_value(value)
-    return parsed
-
-
-def load_metrics_snapshot(path: Path) -> Dict[str, Dict[str, object]]:
-    if not path.exists():
-        return {}
-    if path.suffix.lower() == ".json":
-        with path.open("r", encoding="utf-8") as f:
-            data = json.load(f)
-        if isinstance(data, list):
-            return _parse_snapshot_records(data)
-        elif isinstance(data, dict):
-            parsed: Dict[str, Dict[str, object]] = {}
-            for key in ("records", "metrics", "rows"):
-                records = data.get(key)
-                if isinstance(records, list):
-                    parsed.update(_parse_snapshot_records(records))
-            for section, metrics in data.items():
-                if section in ("records", "metrics", "rows"):
-                    continue
-                if isinstance(metrics, dict):
-                    parsed.setdefault(str(section), {}).update(
-                        {str(metric): _coerce_value(value) for metric, value in metrics.items()}
-                    )
-                elif isinstance(metrics, list):
-                    parsed.update(_parse_snapshot_records(metrics))
-            return parsed
-        return {}
-
-    parsed: Dict[str, Dict[str, object]] = {}
-    with path.open("r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            section = row.get("section")
-            metric = row.get("metric")
-            value = row.get("value")
-            if section and metric:
-                parsed.setdefault(section, {})[metric] = _coerce_value(value)
-    return parsed
-
-
 def load_strategy_params(path: Path) -> Dict[str, object]:
     params: Dict[str, object] = {}
     if not path.exists():
@@ -249,16 +197,6 @@ def load_strategy_params(path: Path) -> Dict[str, object]:
             value = _coerce_value(match.group(2))
             params[key] = value
     return params
-
-
-def _extract_params_used(snapshot: Dict[str, Dict[str, object]]) -> Dict[str, object]:
-    for key in ("params_used", "filter_params", "params"):
-        params = snapshot.get(key)
-        if isinstance(params, dict):
-            normalized = _normalize_params(params)
-            if normalized:
-                return normalized
-    return {}
 
 
 def load_local_matched_games_csv(path: Path) -> Tuple[List[Dict[str, object]], Dict[str, object]]:
@@ -339,41 +277,6 @@ def _find_latest_by_mtime(path: Path, pattern: str) -> Optional[Path]:
     return max(candidates, key=lambda item: item.stat().st_mtime)
 
 
-def _find_metrics_snapshot(
-    lightgbm_dir: Path, as_of_date: Optional[str], root: Optional[Path]
-) -> Optional[Path]:
-    candidate_dirs = [lightgbm_dir, lightgbm_dir / "metrics_snapshot"]
-    if root:
-        candidate_dirs.extend(
-            [
-                root,
-                root / "output" / "LightGBM",
-                root / "output" / "LightGBM" / "metrics_snapshot",
-            ]
-        )
-    for candidate_dir in candidate_dirs:
-        if not candidate_dir.exists():
-            continue
-        if as_of_date:
-            dated = candidate_dir / f"metrics_snapshot_{as_of_date}.json"
-            if dated.exists():
-                return dated
-        preferred = candidate_dir / "metrics_snapshot.json"
-        if preferred.exists():
-            return preferred
-        latest_snapshot = _find_latest_by_mtime(candidate_dir, "metrics_snapshot*.json")
-        if latest_snapshot:
-            return latest_snapshot
-        latest_csv = _find_latest_by_mtime(candidate_dir, "betting_metrics_snapshot_*.csv")
-        if latest_csv:
-            return latest_csv
-        for name in ("metrics_snapshot.csv", "metrics_snapshot.json", "metrics_snapshot_latest.json"):
-            candidate = candidate_dir / name
-            if candidate.exists():
-                return candidate
-    return None
-
-
 def _find_local_matched_games(lightgbm_dir: Path, as_of_date: Optional[str]) -> Optional[Path]:
     if as_of_date:
         candidate = lightgbm_dir / f"local_matched_games_{as_of_date}.csv"
@@ -431,7 +334,6 @@ def _resolve_sources(root: Optional[Path], as_of_date: Optional[str]) -> SourceP
             combined_acc=None,
             bet_log=None,
             bet_log_flat=None,
-            metrics_snapshot=None,
             local_matched_games=None,
             strategy_params=None,
         )
@@ -445,7 +347,6 @@ def _resolve_sources(root: Optional[Path], as_of_date: Optional[str]) -> SourceP
     bet_log_flat = lightgbm_dir / "bet_log_flat_live.csv"
     if not bet_log_flat.exists():
         bet_log_flat = _find_latest_file(lightgbm_dir, "bet_log_flat_live")
-    metrics_snapshot = _find_metrics_snapshot(lightgbm_dir, as_of_date, root)
     strategy_params = _find_strategy_params(lightgbm_dir, as_of_date)
     local_matched_games = _find_local_matched_games(lightgbm_dir, as_of_date)
     return SourcePaths(
@@ -453,7 +354,6 @@ def _resolve_sources(root: Optional[Path], as_of_date: Optional[str]) -> SourceP
         combined_acc=combined_acc,
         bet_log=bet_log,
         bet_log_flat=bet_log_flat,
-        metrics_snapshot=metrics_snapshot,
         local_matched_games=local_matched_games,
         strategy_params=strategy_params,
     )
@@ -918,10 +818,6 @@ def build_local_equity_history(
     return history
 
 
-def _snapshot_value(snapshot: Dict[str, Dict[str, object]], section: str, metric: str) -> Optional[object]:
-    return snapshot.get(section, {}).get(metric)
-
-
 def _label_path(path: Optional[Path]) -> str:
     if not path:
         return "missing"
@@ -1309,7 +1205,6 @@ def main() -> None:
             combined_acc=None,
             bet_log=None,
             bet_log_flat=(data_dir / "bet_log_flat_live.csv") if (data_dir / "bet_log_flat_live.csv").exists() else None,
-            metrics_snapshot=data_dir / "metrics_snapshot.json",
             local_matched_games=data_dir / "local_matched_games_latest.csv",
             strategy_params=(data_dir / "strategy_params.json") if (data_dir / "strategy_params.json").exists() else None,
         )
@@ -1338,7 +1233,6 @@ def main() -> None:
     bet_log_summary = build_bet_log_summary(bet_log_rows)
     bankroll_history = build_bankroll_history(bet_log_rows)
 
-    snapshot_as_of_date = None
     window_rows, window_start_dt, window_end_dt = compute_window_bounds(
         played_rows, CALIBRATION_WINDOW
     )
@@ -1350,30 +1244,6 @@ def main() -> None:
     if expected_lightgbm_dir:
         sources = _resolve_sources(source_root, as_of_date)
 
-    metrics_snapshot_path = _require_existing(sources.metrics_snapshot, "metrics_snapshot")
-    metrics_snapshot = load_metrics_snapshot(metrics_snapshot_path)
-    metrics_snapshot_fallback_source = None
-    realized_count_raw = _snapshot_value(metrics_snapshot, "realized", "count")
-    realized_profit_raw = _snapshot_value(metrics_snapshot, "realized", "profit_sum")
-    realized_roi_raw = _snapshot_value(metrics_snapshot, "realized", "roi")
-    realized_win_rate_raw = _snapshot_value(metrics_snapshot, "realized", "win_rate")
-    realized_sharpe_raw = _snapshot_value(metrics_snapshot, "realized", "sharpe_style")
-    ev_mean_raw = _snapshot_value(metrics_snapshot, "ev_stats", "mean")
-    snapshot_as_of_raw = _snapshot_value(metrics_snapshot, "meta", "eval_base_date_max")
-
-    snapshot_as_of_date = _safe_date(str(snapshot_as_of_raw)) if snapshot_as_of_raw else None
-    if snapshot_as_of_date and expected_lightgbm_dir:
-        snapshot_label = snapshot_as_of_date.strftime(DATE_FMT)
-        sources = _resolve_sources(source_root, snapshot_label)
-        metrics_snapshot_path = _require_existing(sources.metrics_snapshot, "metrics_snapshot")
-        metrics_snapshot = load_metrics_snapshot(metrics_snapshot_path)
-        realized_count_raw = _snapshot_value(metrics_snapshot, "realized", "count")
-        realized_profit_raw = _snapshot_value(metrics_snapshot, "realized", "profit_sum")
-        realized_roi_raw = _snapshot_value(metrics_snapshot, "realized", "roi")
-        realized_win_rate_raw = _snapshot_value(metrics_snapshot, "realized", "win_rate")
-        realized_sharpe_raw = _snapshot_value(metrics_snapshot, "realized", "sharpe_style")
-        ev_mean_raw = _snapshot_value(metrics_snapshot, "ev_stats", "mean")
-
     local_matched_games_path = _require_existing(
         sources.local_matched_games, "local_matched_games"
     )
@@ -1384,10 +1254,7 @@ def main() -> None:
     local_matched_games_rows, _ = load_local_matched_games_csv(local_matched_games_path)
 
     strategy_params_path = output_dir / "strategy_params.json"
-    if metrics_snapshot_fallback_source and sources.strategy_params:
-        params = load_strategy_params(sources.strategy_params)
-        strategy_params_source = sources.strategy_params
-    elif strategy_params_path.exists():
+    if strategy_params_path.exists():
         params = load_strategy_params(strategy_params_path)
         strategy_params_source = strategy_params_path
     elif sources.strategy_params:
@@ -1407,15 +1274,6 @@ def main() -> None:
         params_used = _normalize_params(params)
     else:
         params_used = {}
-    if not params_used:
-        snapshot_params = _extract_params_used(metrics_snapshot)
-        if snapshot_params:
-            params_used = snapshot_params
-            params_used_source = (
-                _label_path(sources.metrics_snapshot) if sources.metrics_snapshot else "metrics_snapshot"
-            )
-            if not params:
-                params = {"params_used": params_used}
     raw_params_used_label = None
     if isinstance(params, dict):
         raw_params_used_label = (
@@ -1442,40 +1300,6 @@ def main() -> None:
     else:
         strategy_as_of_date = as_of_date
 
-    def _to_float(value: object) -> Optional[float]:
-        if value is None:
-            return None
-        if isinstance(value, (int, float)):
-            return float(value)
-        return _safe_float(str(value))
-
-    def _to_int(value: object) -> Optional[int]:
-        if value is None:
-            return None
-        if isinstance(value, int):
-            return value
-        if isinstance(value, float):
-            return int(value)
-        parsed = _safe_float(str(value))
-        return int(parsed) if parsed is not None else None
-
-    realized_count = _to_int(realized_count_raw)
-    realized_profit = _to_float(realized_profit_raw)
-    realized_roi = _to_float(realized_roi_raw)
-    realized_win_rate = _to_float(realized_win_rate_raw)
-    realized_sharpe = _to_float(realized_sharpe_raw)
-    ev_mean = _to_float(ev_mean_raw)
-    metrics_snapshot_summary = {
-        "realized_count": realized_count,
-        "realized_profit_eur": realized_profit,
-        "realized_roi": realized_roi,
-        "realized_win_rate": realized_win_rate,
-        "realized_sharpe": realized_sharpe,
-        "ev_mean": ev_mean,
-        "eval_base_date_max": snapshot_as_of_date.strftime(DATE_FMT)
-        if snapshot_as_of_date
-        else None,
-    }
     local_sharpe = (
         _compute_sharpe_style(local_matched_games_rows) if local_matched_games_rows else None
     )
@@ -1488,8 +1312,6 @@ def main() -> None:
         else 0.0
     )
 
-    profit_metrics_available = realized_profit is not None and realized_roi is not None
-    matched_count_snapshot = realized_count
     matched_count_used: Optional[int] = None
     strategy_summary = {
         "totalBets": 0,
@@ -1497,7 +1319,7 @@ def main() -> None:
         "roiPct": 0.0,
         "avgEvPer100": 0.0,
         "winRate": 0.0,
-        "sharpeStyle": local_sharpe if local_sharpe is not None else realized_sharpe,
+        "sharpeStyle": local_sharpe,
         "profitMetricsAvailable": False,
         "asOfDate": strategy_as_of_date,
     }
@@ -1520,47 +1342,17 @@ def main() -> None:
             "profitMetricsAvailable": True,
             "asOfDate": strategy_as_of_date,
         }
-    elif realized_count is not None:
-        roi_pct = 0.0
-        if realized_roi is not None:
-            roi_pct = realized_roi * 100.0 if realized_roi <= 1.5 else realized_roi
-        strategy_summary = {
-            "totalBets": realized_count,
-            "totalProfitEur": realized_profit or 0.0,
-            "roiPct": roi_pct,
-            "avgEvPer100": ev_mean or 0.0,
-            "winRate": realized_win_rate or 0.0,
-            "sharpeStyle": local_sharpe if local_sharpe is not None else realized_sharpe,
-            "profitMetricsAvailable": profit_metrics_available,
-            "asOfDate": strategy_as_of_date,
-        }
 
-    if matched_count_snapshot is not None:
-        matched_count_used = matched_count_snapshot
-    else:
-        matched_count_used = matched_count_table
+    matched_count_used = matched_count_table
 
     if not params:
-        if matched_count_snapshot is not None:
-            strategy_filter_stats["matched_games_count"] = matched_count_snapshot
-        elif matched_count_table is not None:
+        if matched_count_table is not None:
             strategy_filter_stats["matched_games_count"] = matched_count_table
         else:
             strategy_filter_stats["matched_games_count"] = 0
 
     local_matched_games_mismatch = False
     local_matched_games_note = ""
-    if realized_count is not None:
-        if local_matched_games_count != realized_count:
-            print(
-                "Warning: local matched games count differs from metrics snapshot "
-                f"({local_matched_games_count} vs {realized_count})."
-            )
-        if realized_profit is not None and abs(local_matched_games_profit_sum - realized_profit) > 1e-6:
-            print(
-                "Warning: local matched games profit sum differs from metrics snapshot "
-                f"({local_matched_games_profit_sum:.6f} vs {realized_profit:.6f})."
-            )
 
     bankroll_last_200 = _compute_local_bankroll(local_matched_games_rows, 1000.0, 100.0)
     ytd_rows = [
@@ -1587,8 +1379,6 @@ def main() -> None:
     if bet_log_flat_rows:
         assert_settled_bets_match_local(settled_bets_rows, local_matched_games_rows)
     settled_bets_summary = build_settled_bet_summary(settled_bets_rows)
-
-    metrics_snapshot_source = _label_path(metrics_snapshot_path)
 
     window_games_count = next(
         (
@@ -1641,8 +1431,6 @@ def main() -> None:
             "bet_log_flat_file": str(sources.bet_log_flat)
             if sources.bet_log_flat
             else "missing",
-            "metrics_snapshot_source": metrics_snapshot_source,
-            "metrics_snapshot_fallback_source": metrics_snapshot_fallback_source or "missing",
         },
     }
 
@@ -1672,14 +1460,11 @@ def main() -> None:
         "as_of_date": as_of_date,
         "source_root_used": str(source_root) if source_root else "missing",
         "expected_lightgbm_dir": str(expected_lightgbm_dir) if expected_lightgbm_dir else "missing",
-        "metrics_snapshot_source": metrics_snapshot_source,
-        "metrics_snapshot_fallback_source": metrics_snapshot_fallback_source or "missing",
         "strategy_params_source": _label_path(strategy_params_source),
         "local_matched_games_source": _label_path(local_matched_games_path),
         "bet_log_flat_source": _label_path(bet_log_flat_path),
         "local_matched_games_rows": local_matched_games_count,
         "local_matched_games_profit_sum_table": local_matched_games_profit_sum,
-        "matched_count_snapshot": matched_count_snapshot,
         "matched_count_table": matched_count_table,
         "matched_count_used": matched_count_used,
         "strategy_params": {
@@ -1699,7 +1484,6 @@ def main() -> None:
             "bet_log_flat_rows": len(bet_log_flat_rows),
             "strategy_matched_rows": strategy_summary["totalBets"],
             "local_matched_games_rows": local_matched_games_count,
-            "local_matched_games_rows_expected": realized_count or 0,
             "local_matched_games_profit_sum_table": local_matched_games_profit_sum,
             "settled_bets_rows": len(settled_bets_rows),
         },
@@ -1709,7 +1493,6 @@ def main() -> None:
         output_dir,
         {
             "combined_file": combined_path,
-            "metrics_snapshot": metrics_snapshot_path,
             "local_matched_games": local_matched_games_path,
             "bet_log_flat": bet_log_flat_path,
         },
@@ -1725,13 +1508,11 @@ def main() -> None:
         },
         "active_filters_effective": active_filters_label,
         "params_used_label": params_used_label,
-        "metrics_snapshot_summary": metrics_snapshot_summary,
         "summary": summary_payload,
         "tables": tables_payload,
         "last_run": last_run_payload,
         "sources": {
             "combined_file": _label_path(combined_path),
-            "metrics_snapshot": metrics_snapshot_source,
             "local_matched_games": _label_path(local_matched_games_path),
             "bet_log_flat": _label_path(bet_log_flat_path),
             "copied": copied_sources,
@@ -1762,7 +1543,6 @@ def main() -> None:
             "combined": _label_path(combined_path),
             "local_matched": _label_path(local_matched_games_path),
             "bet_log": _label_path(bet_log_flat_path),
-            "metrics_snapshot": _label_path(metrics_snapshot_path),
         },
     }
 

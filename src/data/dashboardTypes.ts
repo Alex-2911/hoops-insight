@@ -56,7 +56,6 @@ export interface SummaryPayload {
     combined_file: string;
     bet_log_file: string;
     bet_log_flat_file?: string;
-    metrics_snapshot_source: string;
   };
 }
 
@@ -70,21 +69,11 @@ export interface DashboardPayload {
   };
   active_filters_effective: string;
   params_used_label?: string;
-  metrics_snapshot_summary?: {
-    realized_count: number | null;
-    realized_profit_eur: number | null;
-    realized_roi: number | null;
-    realized_win_rate: number | null;
-    realized_sharpe: number | null;
-    ev_mean: number | null;
-    eval_base_date_max?: string | null;
-  };
   summary: SummaryPayload;
   tables: TablesPayload;
   last_run?: LastRunPayload | null;
   sources?: {
     combined_file: string;
-    metrics_snapshot: string;
     bet_log_flat: string;
     copied?: Record<string, string>;
   };
@@ -104,7 +93,6 @@ export interface DashboardState {
   sources: {
     combined: string;
     bet_log: string;
-    metrics_snapshot?: string;
   };
 }
 

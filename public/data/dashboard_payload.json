@@ -8,15 +8,6 @@
   },
   "active_filters_effective": "HW ≥ 0.55 | odds 2.10–3.10 | p ≥ 0.40 | EV > −5",
   "params_used_label": "Historical",
-  "metrics_snapshot_summary": {
-    "realized_count": null,
-    "realized_profit_eur": null,
-    "realized_roi": null,
-    "realized_win_rate": null,
-    "realized_sharpe": null,
-    "ev_mean": null,
-    "eval_base_date_max": null
-  },
   "summary": {
     "last_run": "2026-01-07T00:00:00+00:00",
     "as_of_date": "2026-01-07",
@@ -77,8 +68,7 @@
     },
     "source": {
       "combined_file": "/Users/alexanderrazmyslov/1. Python/Basketball_prediction/2026/output/LightGBM/Kelly/combined_nba_predictions_iso_2026-01-07.csv",
-      "bet_log_file": "/Users/alexanderrazmyslov/1. Python/Basketball_prediction/2026/output/LightGBM/bet_log_live.csv",
-      "metrics_snapshot_source": "/Users/alexanderrazmyslov/1. Python/Basketball_prediction/2026/output/LightGBM/strategy_params.txt"
+      "bet_log_file": "/Users/alexanderrazmyslov/1. Python/Basketball_prediction/2026/output/LightGBM/bet_log_live.csv"
     }
   },
   "tables": {
@@ -446,7 +436,6 @@
   },
   "sources": {
     "combined_file": "/Users/alexanderrazmyslov/1. Python/Basketball_prediction/2026/output/LightGBM/Kelly/combined_nba_predictions_iso_2026-01-07.csv",
-    "metrics_snapshot": "/Users/alexanderrazmyslov/1. Python/Basketball_prediction/2026/output/LightGBM/strategy_params.txt",
     "local_matched_games": "missing",
     "bet_log_flat": "missing",
     "copied": {}
