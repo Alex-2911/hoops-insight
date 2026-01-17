@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Hoops Insight favicon">
+  <title>Hoops Insight</title>
+  <circle cx="32" cy="32" r="30" fill="#f47a20" />
+  <g stroke="#141414" stroke-width="3" fill="none" stroke-linecap="round">
+    <path d="M32 4v56" />
+    <path d="M4 32h56" />
+    <path d="M10 16c8 6 8 26 0 32" />
+    <path d="M54 16c-8 6-8 26 0 32" />
+  </g>
+  <g fill="#ffffff">
+    <rect x="36" y="12" width="5" height="10" rx="1" />
+    <rect x="43" y="8" width="5" height="14" rx="1" />
+  </g>
+  <rect x="50" y="4" width="5" height="18" rx="1" fill="#ffc740" />
+</svg>
