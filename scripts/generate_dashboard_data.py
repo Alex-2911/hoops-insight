@@ -25,7 +25,7 @@ import re
 import shutil
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 
@@ -1292,6 +1292,10 @@ def main() -> None:
     window_rows, window_start_dt, window_end_dt = compute_window_bounds(
         played_rows, CALIBRATION_WINDOW
     )
+    if window_end_dt:
+        requested_end = date.today()
+        actual_max = window_end_dt.date()
+        window_end_dt = datetime.combine(min(actual_max, requested_end), datetime.min.time())
     as_of_date = window_end_dt.strftime(DATE_FMT) if window_end_dt else "—"
     window_start_label = window_start_dt.strftime(DATE_FMT) if window_start_dt else None
     window_end_label = window_end_dt.strftime(DATE_FMT) if window_end_dt else None
