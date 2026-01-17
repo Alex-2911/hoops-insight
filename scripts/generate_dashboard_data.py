@@ -507,6 +507,8 @@ def _resolve_sources(root: Optional[Path], as_of_date: Optional[str]) -> SourceP
     metrics_snapshot = _find_metrics_snapshot(lightgbm_dir, root)
     strategy_params = _find_strategy_params(lightgbm_dir, as_of_date)
     local_matched_games = _find_local_matched_games(lightgbm_dir, as_of_date)
+    print(f"[debug] resolved combined_iso={combined_iso}")
+    print(f"[debug] resolved combined_acc={combined_acc}")
     return SourcePaths(
         combined_iso=combined_iso,
         combined_acc=combined_acc,
@@ -1309,6 +1311,20 @@ def main() -> None:
     repo_root = Path(__file__).resolve().parents[1]
     data_dir = Path(args.data_dir) if args.data_dir else None
     source_root = None if data_dir else resolve_source_root(args.source_root, repo_root)
+    print(f"[debug] repo_root={repo_root}")
+    print(f"[debug] source_root={source_root}")
+    if source_root:
+        lightgbm_dir = source_root / "output" / "LightGBM"
+        kelly_dir = lightgbm_dir / "Kelly"
+        print(f"[debug] lightgbm_dir={lightgbm_dir} exists={lightgbm_dir.exists()}")
+        print(f"[debug] kelly_dir={kelly_dir} exists={kelly_dir.exists()}")
+
+        if lightgbm_dir.exists():
+            acc = sorted([p.name for p in lightgbm_dir.glob("combined_nba_predictions_acc*.csv")])
+            print(f"[debug] acc candidates ({len(acc)}): {acc[:10]}")
+        if kelly_dir.exists():
+            iso = sorted([p.name for p in kelly_dir.glob("combined_nba_predictions_iso*.csv")])
+            print(f"[debug] iso candidates ({len(iso)}): {iso[:10]}")
     expected_lightgbm_dir = source_root / "output" / "LightGBM" if source_root else None
 
     output_dir = Path(args.output_dir) if args.output_dir else repo_root / "public" / "data"
