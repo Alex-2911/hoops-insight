@@ -628,20 +628,27 @@ def build_accuracy_thresholds(rows: List[Dict[str, object]]) -> List[Dict[str, o
 def build_calibration_metrics(
     rows: List[Dict[str, object]], window_size: int = CALIBRATION_WINDOW
 ) -> Dict[str, object]:
+    """
+    Returns frontend-friendly calibration metrics.
+    IMPORTANT: brier/logloss fields are always numeric (not null) to match TS types.
+    Fallback logic:
+      - "Before" uses raw probs when available, else uses prob_used.
+      - "After" uses iso probs when available, else uses prob_used.
+    """
     if not rows:
         return {
             "asOfDate": "—",
-            "brierBefore": None,
-            "brierAfter": None,
-            "logLossBefore": None,
-            "logLossAfter": None,
+            "brierBefore": 0.0,
+            "brierAfter": 0.0,
+            "logLossBefore": 0.0,
+            "logLossAfter": 0.0,
             "fittedGames": 0,
-            "ece": None,
-            "calibrationSlope": None,
-            "calibrationIntercept": None,
-            "avgPredictedProb": None,
-            "baseRate": None,
-            "actualWinPct": None,
+            "ece": 0.0,
+            "calibrationSlope": 0.0,
+            "calibrationIntercept": 0.0,
+            "avgPredictedProb": 0.0,
+            "baseRate": 0.0,
+            "actualWinPct": 0.0,
             "windowSize": 0,
         }
 
@@ -649,41 +656,85 @@ def build_calibration_metrics(
     window_size_used = len(window_rows)
     as_of = window_end.strftime(DATE_FMT) if window_end else "—"
 
-    p_raw = [r["prob_raw"] for r in window_rows if r["prob_raw"] is not None]
-    y_raw = [int(r["home_team_won"]) for r in window_rows if r["prob_raw"] is not None]
-    p_iso = [r["prob_iso"] for r in window_rows if r["prob_iso"] is not None]
-    y_iso = [int(r["home_team_won"]) for r in window_rows if r["prob_iso"] is not None]
-
-    prob_used = []
-    y_used = []
+    # Build "used" series (iso if present else raw)
+    prob_used: List[float] = []
+    y_used: List[int] = []
     for r in window_rows:
-        prob = r["prob_iso"] if r["prob_iso"] is not None else r["prob_raw"]
+        prob = r["prob_iso"] if r.get("prob_iso") is not None else r.get("prob_raw")
         if prob is None:
             continue
-        prob_used.append(prob)
+        prob_used.append(float(prob))
         y_used.append(int(r["home_team_won"]))
 
-    if window_size_used:
-        base_rate = _safe_div(sum(int(r["home_team_won"]) for r in window_rows), window_size_used)
+    if not prob_used:
+        # No usable probabilities -> return numeric zeros to satisfy TS contract
+        base_rate = _safe_div(sum(int(r["home_team_won"]) for r in window_rows), window_size_used) if window_size_used else 0.0
+        return {
+            "asOfDate": as_of,
+            "brierBefore": 0.0,
+            "brierAfter": 0.0,
+            "logLossBefore": 0.0,
+            "logLossAfter": 0.0,
+            "fittedGames": 0,
+            "ece": 0.0,
+            "calibrationSlope": 0.0,
+            "calibrationIntercept": 0.0,
+            "avgPredictedProb": 0.0,
+            "baseRate": float(base_rate),
+            "actualWinPct": float(base_rate),
+            "windowSize": window_size_used,
+        }
+
+    # Raw series (for "Before")
+    p_raw: List[float] = []
+    y_raw: List[int] = []
+    for r in window_rows:
+        if r.get("prob_raw") is None:
+            continue
+        p_raw.append(float(r["prob_raw"]))
+        y_raw.append(int(r["home_team_won"]))
+
+    # ISO series (for "After")
+    p_iso: List[float] = []
+    y_iso: List[int] = []
+    for r in window_rows:
+        if r.get("prob_iso") is None:
+            continue
+        p_iso.append(float(r["prob_iso"]))
+        y_iso.append(int(r["home_team_won"]))
+
+    # Compute fallbacks (always numeric)
+    # "Before": prefer raw; fallback -> used
+    if p_raw:
+        brier_before = float(_compute_brier(y_raw, p_raw))
+        logloss_before = float(_compute_log_loss(y_raw, p_raw))
     else:
-        base_rate = None
+        brier_before = float(_compute_brier(y_used, prob_used))
+        logloss_before = float(_compute_log_loss(y_used, prob_used))
 
-    avg_pred_prob = _safe_div(sum(prob_used), len(prob_used)) if prob_used else None
-
-    brier_before = _compute_brier(y_raw, p_raw) if p_raw else None
-    logloss_before = _compute_log_loss(y_raw, p_raw) if p_raw else None
-    brier_after = _compute_brier(y_iso, p_iso) if p_iso else None
-    logloss_after = _compute_log_loss(y_iso, p_iso) if p_iso else None
-
+    # "After": prefer iso; fallback -> used
     if p_iso:
+        brier_after = float(_compute_brier(y_iso, p_iso))
+        logloss_after = float(_compute_log_loss(y_iso, p_iso))
         fitted_games = len(p_iso)
-    elif p_raw:
-        fitted_games = len(p_raw)
     else:
-        fitted_games = 0
+        brier_after = float(_compute_brier(y_used, prob_used))
+        logloss_after = float(_compute_log_loss(y_used, prob_used))
+        fitted_games = len(prob_used)
+
+    base_rate = _safe_div(sum(int(r["home_team_won"]) for r in window_rows), window_size_used) if window_size_used else 0.0
+    avg_pred_prob = _safe_div(sum(prob_used), len(prob_used)) if prob_used else 0.0
 
     calibration_intercept, calibration_slope = _fit_logistic_calibration(y_used, prob_used)
     ece = _compute_ece(y_used, prob_used, bins=10)
+
+    # TS expects numbers -> coerce missing calibration fit to numeric defaults
+    if calibration_slope is None:
+        calibration_slope = 0.0
+    if calibration_intercept is None:
+        calibration_intercept = 0.0
+    if ece is None:
+        ece = 0.0
 
     return {
         "asOfDate": as_of,
@@ -691,16 +742,15 @@ def build_calibration_metrics(
         "brierAfter": brier_after,
         "logLossBefore": logloss_before,
         "logLossAfter": logloss_after,
-        "fittedGames": fitted_games,
-        "ece": ece,
-        "calibrationSlope": calibration_slope,
-        "calibrationIntercept": calibration_intercept,
-        "avgPredictedProb": avg_pred_prob,
-        "baseRate": base_rate,
-        "actualWinPct": base_rate,
-        "windowSize": window_size_used,
+        "fittedGames": int(fitted_games),
+        "ece": float(ece),
+        "calibrationSlope": float(calibration_slope),
+        "calibrationIntercept": float(calibration_intercept),
+        "avgPredictedProb": float(avg_pred_prob),
+        "baseRate": float(base_rate),
+        "actualWinPct": float(base_rate),
+        "windowSize": int(window_size_used),
     }
-
 
 def build_home_win_rates_last20(rows: List[Dict[str, object]]) -> List[Dict[str, object]]:
     per_team = defaultdict(list)
