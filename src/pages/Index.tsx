@@ -230,8 +230,7 @@ const Index = () => {
       if (oddsMax !== null && row.odds_1 > oddsMax) {
         return false;
       }
-      const probValue = Number.isFinite(row.prob_iso) ? row.prob_iso : row.prob_used;
-      if (probMin !== null && probValue < probMin) {
+      if (probMin !== null && row.prob_used < probMin) {
         return false;
       }
       if (evMin !== null && row.ev_eur_per_100 < evMin) {
