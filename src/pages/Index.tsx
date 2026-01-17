@@ -193,68 +193,13 @@ const Index = () => {
     "Historical";
   const paramsSourceLabel = dashboardState?.params_source_label ?? "strategy_params.json";
 
-  const strategyFilterParams = strategyParams.params_used ?? strategyParams.params ?? {};
-  const localMatchedGamesRowsFiltered = useMemo(() => {
-    if (!localMatchedGamesRows.length) {
-      return localMatchedGamesRows;
-    }
-    const parseNumber = (value: unknown) => {
-      if (typeof value === "number") {
-        return Number.isFinite(value) ? value : null;
-      }
-      if (typeof value === "string" && value.trim() !== "") {
-        const parsed = Number(value);
-        return Number.isFinite(parsed) ? parsed : null;
-      }
-      return null;
-    };
-    const homeWinRateMin = parseNumber(
-      strategyFilterParams.home_win_rate_min ?? strategyFilterParams.home_win_rate_threshold,
-    );
-    const oddsMin = parseNumber(strategyFilterParams.odds_min);
-    const oddsMax = parseNumber(strategyFilterParams.odds_max);
-    const probMin = parseNumber(
-      strategyFilterParams.win_prob_min ?? strategyFilterParams.prob_threshold,
-    );
-    const evMin = parseNumber(
-      strategyFilterParams.ev_per_100_min ?? strategyFilterParams.min_ev_per_100,
-    );
-
-    return localMatchedGamesRows.filter((row) => {
-      if (homeWinRateMin !== null && row.home_win_rate < homeWinRateMin) {
-        return false;
-      }
-      if (oddsMin !== null && row.odds_1 < oddsMin) {
-        return false;
-      }
-      if (oddsMax !== null && row.odds_1 > oddsMax) {
-        return false;
-      }
-      if (probMin !== null && row.prob_used < probMin) {
-        return false;
-      }
-      if (evMin !== null && row.ev_eur_per_100 < evMin) {
-        return false;
-      }
-      return true;
-    });
-  }, [localMatchedGamesRows, strategyFilterParams]);
   const localMatchedGamesRowsSorted = useMemo(() => {
-    return [...localMatchedGamesRowsFiltered].sort((a, b) => b.date.localeCompare(a.date));
-  }, [localMatchedGamesRowsFiltered]);
-  const localMatchedCountFiltered = localMatchedGamesRowsFiltered.length;
-  const localMatchedWinsFiltered = localMatchedGamesRowsFiltered.filter((row) => row.win === 1)
-    .length;
-  const localMatchedProfitSumFiltered = localMatchedGamesRowsFiltered.reduce(
-    (acc, row) => acc + (row.pnl ?? 0),
-    0,
-  );
+    return [...localMatchedGamesRows].sort((a, b) => b.date.localeCompare(a.date));
+  }, [localMatchedGamesRows]);
   const localMatchedCountDisplay =
-    localMatchedGamesRows.length > 0 ? localMatchedCountFiltered : localMatchedCount;
-  const localMatchedWinsDisplay =
-    localMatchedGamesRows.length > 0 ? localMatchedWinsFiltered : localMatchedWins;
-  const localMatchedProfitSumDisplay =
-    localMatchedGamesRows.length > 0 ? localMatchedProfitSumFiltered : localMatchedProfitSum;
+    localMatchedGamesRows.length > 0 ? localMatchedGamesRows.length : localMatchedCount;
+  const localMatchedWinsDisplay = localMatchedWins;
+  const localMatchedProfitSumDisplay = localMatchedProfitSum;
   const localMatchedWinRateDisplay =
     localMatchedCountDisplay > 0 ? (localMatchedWinsDisplay / localMatchedCountDisplay) * 100 : 0;
   const simulatedBankroll = START_BANKROLL_SIM + localMatchedProfitSumDisplay;
