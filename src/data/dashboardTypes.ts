@@ -96,6 +96,11 @@ export interface DashboardState {
   };
 }
 
+export interface StrategyParamsFile {
+  params_used_label?: string;
+  params_used: Record<string, string | number | boolean | null>;
+}
+
 export interface LastRunPayload {
   last_run: string;
   as_of_date: string;
