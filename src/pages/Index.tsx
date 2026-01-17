@@ -10,6 +10,7 @@ const Index = () => {
   const [dashboardState, setDashboardState] = useState<DashboardState | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const baseUrl = import.meta.env.BASE_URL ?? "/";
+  const dataBaseUrl = import.meta.env.PROD ? `${baseUrl}data/published/` : `${baseUrl}data/`;
   const withCacheBuster = (url: string, v: string | number) => {
     const target = new URL(url, window.location.origin);
     target.searchParams.set("v", String(v));
@@ -23,7 +24,7 @@ const Index = () => {
         let cacheKey = Date.now();
         try {
           const lastRunRes = await fetch(
-            withCacheBuster(`${baseUrl}data/last_run.json`, Date.now()),
+            withCacheBuster(`${dataBaseUrl}last_run.json`, Date.now()),
           );
           if (lastRunRes.ok) {
             const lastRunJson = (await lastRunRes.json()) as {
@@ -48,8 +49,8 @@ const Index = () => {
         }
 
         const [payloadRes, stateRes] = await Promise.all([
-          fetch(withCacheBuster(`${baseUrl}data/dashboard_payload.json`, cacheKey)),
-          fetch(withCacheBuster(`${baseUrl}data/dashboard_state.json`, cacheKey)),
+          fetch(withCacheBuster(`${dataBaseUrl}dashboard_payload.json`, cacheKey)),
+          fetch(withCacheBuster(`${dataBaseUrl}dashboard_state.json`, cacheKey)),
         ]);
 
         if (!payloadRes.ok || !stateRes.ok) {
@@ -74,7 +75,7 @@ const Index = () => {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [dataBaseUrl]);
 
   const summary = payload?.summary ?? null;
   const tables = payload?.tables ?? null;
