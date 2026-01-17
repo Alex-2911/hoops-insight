@@ -18,10 +18,25 @@ export interface AccuracyThresholdStat {
 
 export interface HomeWinRate {
   team: string;           // e.g. "BOS"
-  totalLast20Games: number;
+  totalGames: number;
   totalHomeGames: number;
   homeWins: number;
   homeWinRate: number;    // 0..1
+}
+
+export interface StrategyFilterStats {
+  totalGames: number;
+  homeWinRateMin: number;
+  oddsMin: number;
+  oddsMax: number;
+  probMin: number;
+  minEv: number;
+  passedHomeWinRate: number;
+  passedOddsRange: number;
+  passedProbThreshold: number;
+  passedEvThreshold: number;
+  matchedGamesCount: number;
+  matchedGamesAccuracy: number;
 }
 
 export interface CalibrationMetrics {
@@ -33,15 +48,17 @@ export interface CalibrationMetrics {
   fittedGames: number;
 }
 
-export interface BetLogSummary {
+export interface StrategySummary {
   asOfDate: string;       // YYYY-MM-DD (last update)
   totalBets: number;
-  totalStakedEur: number;
-  totalProfitEur: number;
-  roiPct: number;         // ROI% on historical (settled) bets
-  avgStakeEur: number;
-  avgProfitPerBetEur: number;
+  totalStakedEur: number | null;
+  totalProfitEur: number | null;
+  roiPct: number | null;         // ROI% on historical (settled) bets
+  avgStakeEur: number | null;
+  avgProfitPerBetEur: number | null;
   winRate: number;        // 0..1 (historical)
+  avgEvPer100: number | null;
+  profitMetricsAvailable: boolean;
 }
 
 export interface BankrollEntry {
@@ -49,6 +66,19 @@ export interface BankrollEntry {
   balance: number;
   betsPlaced: number;
   profit: number;
+}
+
+export interface LocalMatchedGameRow {
+  date: string;
+  home_team: string;
+  away_team: string;
+  home_win_rate: number | null;
+  prob_iso: number | null;
+  prob_used: number | null;
+  odds_1: number | null;
+  ev_per_100: number | null;
+  win: number | null;
+  pnl: number | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -79,15 +109,15 @@ export const accuracyThresholdStats: AccuracyThresholdStat[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Home win rates (last 20 games window; only home games count for the rate)
+// Home win rates (last N games window; only home games count for the rate)
 // ---------------------------------------------------------------------------
 
-export const homeWinRatesLast20: HomeWinRate[] = [
-  { team: "DET", totalLast20Games: 20, totalHomeGames: 8, homeWins: 7, homeWinRate: 0.88 },
-  { team: "HOU", totalLast20Games: 20, totalHomeGames: 8, homeWins: 7, homeWinRate: 0.88 },
-  { team: "NYK", totalLast20Games: 20, totalHomeGames: 8, homeWins: 7, homeWinRate: 0.88 },
-  { team: "OKC", totalLast20Games: 20, totalHomeGames: 12, homeWins: 10, homeWinRate: 0.83 },
-  { team: "BOS", totalLast20Games: 20, totalHomeGames: 10, homeWins: 8, homeWinRate: 0.80 },
+export const homeWinRatesWindow: HomeWinRate[] = [
+  { team: "DET", totalGames: 20, totalHomeGames: 8, homeWins: 7, homeWinRate: 0.88 },
+  { team: "HOU", totalGames: 20, totalHomeGames: 8, homeWins: 7, homeWinRate: 0.88 },
+  { team: "NYK", totalGames: 20, totalHomeGames: 8, homeWins: 7, homeWinRate: 0.88 },
+  { team: "OKC", totalGames: 20, totalHomeGames: 12, homeWins: 10, homeWinRate: 0.83 },
+  { team: "BOS", totalGames: 20, totalHomeGames: 10, homeWins: 8, homeWinRate: 0.80 },
   // ...add more as needed
 ];
 
@@ -109,7 +139,7 @@ export const calibrationMetrics: CalibrationMetrics = {
 // NOTE: No future recommendations are shown.
 // ---------------------------------------------------------------------------
 
-export const betLogSummary: BetLogSummary = {
+export const strategySummary: StrategySummary = {
   asOfDate: "2025-12-30",
   totalBets: 23,
   totalStakedEur: 2300,
@@ -118,6 +148,8 @@ export const betLogSummary: BetLogSummary = {
   avgStakeEur: 100,
   avgProfitPerBetEur: 43.83,
   winRate: 0.0, // set real value when available
+  avgEvPer100: 24.01,
+  profitMetricsAvailable: true,
 };
 
 // Bankroll history (historical / settled)
@@ -137,6 +169,8 @@ export const bankrollHistory: BankrollEntry[] = [
   { date: "2026-01-13", balance: 1553.30, betsPlaced: 3, profit: 41.20 },
   { date: "2026-01-14", balance: 1609.10, betsPlaced: 3, profit: 55.80 },
 ];
+
+export const localMatchedGamesRows: LocalMatchedGameRow[] = [];
 
 // Summary statistics (historical only)
 export const summaryStats = {
