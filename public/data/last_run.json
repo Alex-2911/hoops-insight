@@ -1,8 +1,25 @@
 {
-  "last_run": "2026-01-03T15:26:14+00:00",
-  "as_of_date": "2025-12-29",
+  "last_run": "2026-01-17T13:41:12+00:00",
+  "as_of_date": "2026-01-16",
   "records": {
-    "played_games": 467,
-    "bet_log_rows": 47
+    "played_games_window": 200,
+    "window_start": "2025-12-22",
+    "window_end": "2026-01-16",
+    "local_matched_games_source": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/local_matched_games_2026-01-11.csv",
+    "local_matched_games_rows_window": 11,
+    "strategy_subset_wins": 7,
+    "params_source": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/metrics_snapshot.json",
+    "ytd_settled_bets_2026": 12,
+    "ytd_settled_wins_2026": 3,
+    "ytd_settled_profit_eur_2026": -430.0,
+    "ytd_settled_roi_pct_2026": -35.833333333333336,
+    "ytd_settled_avg_odds_2026": 2.4033333333333333,
+    "params_used": {
+      "home_win_rate_threshold": 0.5,
+      "odds_min": 2.3,
+      "odds_max": 3.2,
+      "prob_threshold": 0.45,
+      "min_ev": -5.0
+    }
   }
 }
