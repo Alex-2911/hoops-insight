@@ -142,28 +142,24 @@ jobs:
           echo "[debug] ROOT_OUT=$ROOT_OUT (exists=$(test -d "$ROOT_OUT" && echo yes || echo no))"
           echo "[debug] ROOT_FLAT=$ROOT_FLAT (exists=$(test -d "$ROOT_FLAT" && echo yes || echo no))"
 
-          # combined iso can be in output/LightGBM/Kelly/
           COMBINED=$(
             (find "$ROOT_OUT" -maxdepth 2 -name "combined_nba_predictions_iso*.csv" -type f -printf "%T@ %p\n" 2>/dev/null || true; \
              find "$ROOT_FLAT" -maxdepth 2 -name "combined_nba_predictions_iso*.csv" -type f -printf "%T@ %p\n" 2>/dev/null || true) \
             | sort -nr | head -n1 | cut -d' ' -f2-
           )
 
-          # local matched can be in output/LightGBM/ OR flat LightGBM/
           LOCAL_MATCHED=$(
             (find "$ROOT_OUT" -maxdepth 1 -name "local_matched_games_*.csv" -type f -printf "%T@ %p\n" 2>/dev/null || true; \
              find "$ROOT_FLAT" -maxdepth 1 -name "local_matched_games_*.csv" -type f -printf "%T@ %p\n" 2>/dev/null || true) \
             | sort -nr | head -n1 | cut -d' ' -f2-
           )
 
-          # metrics snapshot can be in output/LightGBM/ OR flat LightGBM/
           METRICS=$(
             (find "$ROOT_OUT" -maxdepth 2 -name "metrics_snapshot*.json" -type f -printf "%T@ %p\n" 2>/dev/null || true; \
              find "$ROOT_FLAT" -maxdepth 2 -name "metrics_snapshot*.json" -type f -printf "%T@ %p\n" 2>/dev/null || true) \
             | sort -nr | head -n1 | cut -d' ' -f2-
           )
 
-          # optional
           BET_LOG_FLAT=$(
             (find "$ROOT_OUT" -maxdepth 2 -name "bet_log_flat_live*.csv" -type f -printf "%T@ %p\n" 2>/dev/null || true; \
              find "$ROOT_FLAT" -maxdepth 2 -name "bet_log_flat_live*.csv" -type f -printf "%T@ %p\n" 2>/dev/null || true) \
@@ -171,8 +167,8 @@ jobs:
           )
 
           STRATEGY_PARAMS=$(
-            (find "$ROOT_OUT" -maxdepth 2 -name "strategy_params*.json" -o -name "strategy_params*.txt" -type f -printf "%T@ %p\n" 2>/dev/null || true; \
-             find "$ROOT_FLAT" -maxdepth 2 -name "strategy_params*.json" -o -name "strategy_params*.txt" -type f -printf "%T@ %p\n" 2>/dev/null || true) \
+            (find "$ROOT_OUT" -maxdepth 2 \( -name "strategy_params*.json" -o -name "strategy_params*.txt" \) -type f -printf "%T@ %p\n" 2>/dev/null || true; \
+             find "$ROOT_FLAT" -maxdepth 2 \( -name "strategy_params*.json" -o -name "strategy_params*.txt" \) -type f -printf "%T@ %p\n" 2>/dev/null || true) \
             | sort -nr | head -n1 | cut -d' ' -f2-
           )
 
@@ -198,8 +194,6 @@ jobs:
           mkdir -p "$OUT"
 
           pick_latest () {
-            # usage: pick_latest "<find args...>"
-            # prints chosen file path or empty
             local candidates
             candidates=$(eval "$1" 2>/dev/null || true)
             if [[ -z "$candidates" ]]; then
@@ -224,7 +218,6 @@ jobs:
           fi
 
           if [[ -n "${STRATEGY_PARAMS:-}" && -f "$STRATEGY_PARAMS" ]]; then
-            # normalize to json if needed? keep original name for now
             if [[ "$STRATEGY_PARAMS" == *.json ]]; then
               cp "$STRATEGY_PARAMS" "$OUT/strategy_params.json"
             else
@@ -234,7 +227,6 @@ jobs:
 
           echo "✔ Copied dashboard artifacts into $OUT"
           ls -la "$OUT"
-
 
       - name: Generate dashboard data (from public/data sources)
         shell: bash
@@ -270,6 +262,9 @@ jobs:
           cp public/data/last_run.json public/data/published/last_run.json
           if [[ -f public/data/strategy_params.json ]]; then
             cp public/data/strategy_params.json public/data/published/strategy_params.json
+          fi
+          if [[ -f public/data/strategy_params.txt ]]; then
+            cp public/data/strategy_params.txt public/data/published/strategy_params.txt
           fi
           echo "✔ Snapshot prepared in public/data/published/"
           ls -la public/data/published
