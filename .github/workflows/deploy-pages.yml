@@ -37,6 +37,13 @@ jobs:
           path: Basketball_prediction
           fetch-depth: 1
 
+      - name: Install system tools (jq)
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y jq
+
       # IMPORTANT: github.token won't trigger workflows in ANOTHER repo.
       # You need a PAT in secrets.BP_TOKEN with permissions on Basketball_prediction.
       - name: Trigger Basketball_prediction pipeline (Scraper)
@@ -61,7 +68,7 @@ jobs:
 
           echo "✔ Triggered."
 
-      - name: Wait for scraper workflow run to succeed (this workflow only)
+      - name: Wait for scraper workflow run to succeed (cross-repo)
         shell: bash
         env:
           BP_TOKEN: ${{ secrets.BP_TOKEN }}
@@ -75,17 +82,18 @@ jobs:
           echo "Waiting for workflow '$BP_WORKFLOW_FILE' on branch=$BP_BRANCH to complete successfully..."
           WF_ENC="${BP_WORKFLOW_FILE// /%20}"
 
+          # Wait up to ~10 minutes (60 * 10s)
           for i in {1..60}; do
             RUN=$(curl -fsS \
               -H "Authorization: Bearer $BP_TOKEN" \
               -H "Accept: application/vnd.github+json" \
               "https://api.github.com/repos/$BP_OWNER/$BP_REPO/actions/workflows/$WF_ENC/runs?branch=$BP_BRANCH&per_page=1")
 
-            ID=$(echo "$RUN" | jq -r '.workflow_runs[0].id')
-            STATUS=$(echo "$RUN" | jq -r '.workflow_runs[0].status')
-            CONCLUSION=$(echo "$RUN" | jq -r '.workflow_runs[0].conclusion')
+            ID=$(echo "$RUN" | jq -r '.workflow_runs[0].id // empty')
+            STATUS=$(echo "$RUN" | jq -r '.workflow_runs[0].status // empty')
+            CONCLUSION=$(echo "$RUN" | jq -r '.workflow_runs[0].conclusion // empty')
 
-            echo "Attempt $i → RunID=$ID | status=$STATUS | conclusion=$CONCLUSION"
+            echo "Attempt $i → RunID=${ID:-?} | status=${STATUS:-?} | conclusion=${CONCLUSION:-?}"
 
             if [[ "$STATUS" == "completed" && "$CONCLUSION" == "success" ]]; then
               echo "✔ Latest scraper run succeeded!"
@@ -103,17 +111,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git -C Basketball_prediction fetch origin 2026 --depth=1
-          git -C Basketball_prediction checkout 2026
-          git -C Basketball_prediction reset --hard origin/2026
-          echo "✔ Basketball_prediction refreshed to latest origin/2026"
-          echo "Basketball_prediction ref info:"
-          git -C Basketball_prediction branch --show-current
-          git -C Basketball_prediction rev-parse HEAD
+          git -C Basketball_prediction fetch origin "$BP_BRANCH" --depth=1
+          git -C Basketball_prediction checkout "$BP_BRANCH"
+          git -C Basketball_prediction reset --hard "origin/$BP_BRANCH"
+          echo "✔ Basketball_prediction refreshed to latest origin/$BP_BRANCH"
           git -C Basketball_prediction log -1 --oneline
-
-      - name: Install system dependencies (optional)
-        run: sudo apt-get update && sudo apt-get install -y libatlas-base-dev
 
       - name: Setup Python with pip cache
         uses: actions/setup-python@v5
@@ -123,79 +125,108 @@ jobs:
           cache-dependency-path: Basketball_prediction/requirements.txt
 
       - name: Install Python deps (from Basketball_prediction)
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r Basketball_prediction/requirements.txt
-
-      - name: Verify metrics_snapshot candidates exist
         shell: bash
         run: |
           set -euo pipefail
-          ROOT="$GITHUB_WORKSPACE/Basketball_prediction/2026"
-          for SNAP in \
-            "$ROOT/metrics_snapshot.json" \
-            "$ROOT/output/LightGBM/metrics_snapshot.json" \
-            "$ROOT/output/LightGBM/metrics_snapshot/metrics_snapshot.json" \
-            "$ROOT/output/LightGBM/metrics_snapshot_latest.json"; do
-            if [[ -f "$SNAP" ]]; then
-              echo "✔ Found metrics snapshot: $SNAP"
-              exit 0
-            fi
-          done
-          SNAP=$(find "$ROOT" -maxdepth 4 -name "metrics_snapshot*" -print -quit || true)
-          if [[ -z "$SNAP" ]]; then
-            echo "ERROR: Missing metrics_snapshot* under $ROOT."
-            exit 1
-          fi
-          echo "✔ Found metrics snapshot: $SNAP"
+          python -m pip install --upgrade pip
+          pip install -r Basketball_prediction/requirements.txt
 
-      - name: Verify required source files exist
+      - name: Verify required source files exist (robust)
         shell: bash
         run: |
           set -euo pipefail
           ROOT="$GITHUB_WORKSPACE/Basketball_prediction/2026/output/LightGBM"
           test -d "$ROOT"
-          COMBINED=$(find "$ROOT" -maxdepth 2 -name "combined_nba_predictions_iso*" -print -quit)
-          BET_LOG_FLAT=$(find "$ROOT" -maxdepth 2 -name "bet_log_flat_live*.csv" -print -quit || true)
-          LOCAL_MATCHED=$(find "$ROOT" -maxdepth 1 -name "local_matched_games_*.csv" -print -quit)
-          METRICS="$ROOT/metrics_snapshot.json"
-          if [[ -z "$COMBINED" || -z "$LOCAL_MATCHED" || ! -f "$METRICS" ]]; then
-            echo "ERROR: Missing required source files."
-            echo "combined: $COMBINED"
-            echo "bet_log_flat: $BET_LOG_FLAT"
-            echo "local_matched_games: $LOCAL_MATCHED"
-            echo "metrics_snapshot: $METRICS"
+
+          # combined: prefer ISO, else ACC
+          COMBINED_ISO=$(find "$ROOT" -maxdepth 3 -name "combined_nba_predictions_iso_*.csv" -type f -printf "%T@ %p\n" | sort -nr | head -n1 | cut -d' ' -f2- || true)
+          COMBINED_ACC=$(find "$ROOT" -maxdepth 2 -name "combined_nba_predictions_acc_*.csv" -type f -printf "%T@ %p\n" | sort -nr | head -n1 | cut -d' ' -f2- || true)
+          LOCAL_MATCHED=$(find "$ROOT" -maxdepth 1 -name "local_matched_games_*.csv" -type f -printf "%T@ %p\n" | sort -nr | head -n1 | cut -d' ' -f2- || true)
+
+          # metrics snapshot: try a few common locations
+          METRICS=""
+          for SNAP in \
+            "$ROOT/metrics_snapshot.json" \
+            "$ROOT/metrics_snapshot/metrics_snapshot.json" \
+            "$ROOT/metrics_snapshot_latest.json" \
+            "$GITHUB_WORKSPACE/Basketball_prediction/2026/metrics_snapshot.json"; do
+            if [[ -f "$SNAP" ]]; then
+              METRICS="$SNAP"
+              break
+            fi
+          done
+
+          BET_LOG_FLAT="$ROOT/bet_log_flat_live.csv"
+          STRATEGY_PARAMS="$ROOT/strategy_params.json"
+
+          echo "combined_iso: ${COMBINED_ISO:-missing}"
+          echo "combined_acc: ${COMBINED_ACC:-missing}"
+          echo "local_matched: ${LOCAL_MATCHED:-missing}"
+          echo "metrics: ${METRICS:-missing}"
+          echo "bet_log_flat: ${BET_LOG_FLAT:-missing}"
+          echo "strategy_params: ${STRATEGY_PARAMS:-missing}"
+
+          if [[ -z "${COMBINED_ISO:-}" && -z "${COMBINED_ACC:-}" ]]; then
+            echo "ERROR: Missing combined predictions (iso or acc)."
             exit 1
           fi
-          echo "✔ Found combined: $COMBINED"
-          echo "✔ Found bet_log_flat: ${BET_LOG_FLAT:-missing}"
-          echo "✔ Found local_matched_games: $LOCAL_MATCHED"
-          echo "✔ Found metrics_snapshot: $METRICS"
+          if [[ -z "${LOCAL_MATCHED:-}" ]]; then
+            echo "ERROR: Missing local_matched_games_*.csv."
+            exit 1
+          fi
+          if [[ -z "${METRICS:-}" ]]; then
+            echo "ERROR: Missing metrics_snapshot.json (or compatible)."
+            exit 1
+          fi
 
-      - name: Copy dashboard sources into public/data
+      - name: Copy dashboard sources into public/data (stable filenames)
         shell: bash
         run: |
           set -euo pipefail
           ROOT="$GITHUB_WORKSPACE/Basketball_prediction/2026/output/LightGBM"
           OUT="$GITHUB_WORKSPACE/public/data"
           mkdir -p "$OUT"
-          METRICS="$ROOT/metrics_snapshot.json"
-          COMBINED=$(find "$ROOT" -maxdepth 2 -name "combined_nba_predictions_iso*" -type f -printf "%T@ %p\n" | sort -nr | head -n1 | cut -d' ' -f2-)
-          LOCAL_MATCHED=$(find "$ROOT" -maxdepth 1 -name "local_matched_games_*.csv" -type f -printf "%T@ %p\n" | sort -nr | head -n1 | cut -d' ' -f2-)
+
+          COMBINED_ISO=$(find "$ROOT" -maxdepth 3 -name "combined_nba_predictions_iso_*.csv" -type f -printf "%T@ %p\n" | sort -nr | head -n1 | cut -d' ' -f2- || true)
+          COMBINED_ACC=$(find "$ROOT" -maxdepth 2 -name "combined_nba_predictions_acc_*.csv" -type f -printf "%T@ %p\n" | sort -nr | head -n1 | cut -d' ' -f2- || true)
+          LOCAL_MATCHED=$(find "$ROOT" -maxdepth 1 -name "local_matched_games_*.csv" -type f -printf "%T@ %p\n" | sort -nr | head -n1 | cut -d' ' -f2- || true)
+
+          METRICS=""
+          for SNAP in \
+            "$ROOT/metrics_snapshot.json" \
+            "$ROOT/metrics_snapshot/metrics_snapshot.json" \
+            "$ROOT/metrics_snapshot_latest.json" \
+            "$GITHUB_WORKSPACE/Basketball_prediction/2026/metrics_snapshot.json"; do
+            if [[ -f "$SNAP" ]]; then
+              METRICS="$SNAP"
+              break
+            fi
+          done
+
           BET_LOG_FLAT="$ROOT/bet_log_flat_live.csv"
           STRATEGY_PARAMS="$ROOT/strategy_params.json"
+
+          if [[ -n "${COMBINED_ISO:-}" ]]; then
+            cp "$COMBINED_ISO" "$OUT/combined_latest.csv"
+          else
+            cp "$COMBINED_ACC" "$OUT/combined_latest.csv"
+          fi
+
           cp "$METRICS" "$OUT/metrics_snapshot.json"
-          cp "$COMBINED" "$OUT/combined_latest.csv"
           cp "$LOCAL_MATCHED" "$OUT/local_matched_games_latest.csv"
+
           if [[ -f "$BET_LOG_FLAT" ]]; then
             cp "$BET_LOG_FLAT" "$OUT/bet_log_flat_live.csv"
           fi
+
           if [[ -f "$STRATEGY_PARAMS" ]]; then
             cp "$STRATEGY_PARAMS" "$OUT/strategy_params.json"
           fi
-          echo "✔ Copied dashboard artifacts into $OUT"
 
-      - name: Generate dashboard data (public/data sources)
+          echo "✔ Copied sources into $OUT"
+          ls -la "$OUT"
+
+      - name: Generate dashboard data (from public/data sources)
         shell: bash
         run: |
           set -euo pipefail
@@ -205,7 +236,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -f public/data/strategy_params.json
           test -f public/data/dashboard_payload.json
           python scripts/validate_dashboard_payload.py --path public/data/dashboard_payload.json
 
@@ -215,6 +245,24 @@ jobs:
           set -euo pipefail
           test -f public/data/dashboard_state.json
           node scripts/validate_dashboard_state.mjs public/data
+
+      # IMPORTANT for V1:
+      # Pages should load deterministic snapshot paths => copy generated JSONs into public/data/published/
+      - name: Publish snapshot into public/data/published (for PROD fetch)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p public/data/published
+          cp public/data/dashboard_payload.json public/data/published/dashboard_payload.json
+          cp public/data/dashboard_state.json public/data/published/dashboard_state.json
+          cp public/data/summary.json public/data/published/summary.json
+          cp public/data/tables.json public/data/published/tables.json
+          cp public/data/last_run.json public/data/published/last_run.json
+          if [[ -f public/data/strategy_params.json ]]; then
+            cp public/data/strategy_params.json public/data/published/strategy_params.json
+          fi
+          echo "✔ Snapshot prepared in public/data/published/"
+          ls -la public/data/published
 
       - name: Setup Node 20
         uses: actions/setup-node@v4
@@ -236,7 +284,7 @@ jobs:
         run: |
           set -euo pipefail
           [[ -d dist/assets ]] || (echo "Missing dist/assets output." && exit 1)
-          grep -n "/hoops-insight/" dist/index.html
+          grep -n "/hoops-insight/" dist/index.html >/dev/null
           echo "✔ Build output verified for GitHub Pages base path."
 
       - name: Upload dashboard to Pages
