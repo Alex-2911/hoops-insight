@@ -207,7 +207,6 @@ def load_local_matched_games_csv(path: Path) -> Tuple[List[Dict[str, object]], D
         "home_win_rate",
         "prob_iso",
         "prob_used",
-        "odds_1",
         "EV_€_per_100",
         "win",
         "pnl",
@@ -216,12 +215,19 @@ def load_local_matched_games_csv(path: Path) -> Tuple[List[Dict[str, object]], D
     missing = [col for col in required_columns if col not in df.columns]
     if missing:
         return [], {"rows_count": 0, "profit_sum_table": 0.0}
+    odds_col = next(
+        (col for col in ("closing_home_odds", "odds", "odds_1") if col in df.columns), None
+    )
+    if odds_col is None:
+        return [], {"rows_count": 0, "profit_sum_table": 0.0}
 
     df = df.copy()
     df["date"] = pd.to_datetime(df["date"], errors="coerce").dt.strftime(DATE_FMT)
     df["home_team"] = df["home_team"].astype(str).str.strip().str.upper()
     df["away_team"] = df["away_team"].astype(str).str.strip().str.upper()
 
+    if odds_col != "odds_1":
+        df["odds_1"] = df[odds_col]
     numeric_cols = ["home_win_rate", "prob_iso", "prob_used", "odds_1", "EV_€_per_100"]
     for col in numeric_cols:
         df[col] = pd.to_numeric(df[col], errors="coerce")
