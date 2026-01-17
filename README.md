@@ -87,6 +87,9 @@ N_WINDOW=200
 STRATEGY_PARAMS_FILE=output/LightGBM/strategy_params.txt
 ```
 
+Note: `master_run.sh` can auto-open the dashboard preview after a successful run when `OPEN_DASHBOARD=1` is set.
+Note: Beim Auto-Open wird ein Cache-Buster angehaengt (`?ts=<timestamp>`), damit der Browser immer die frisch gebaute Version laedt.
+
 ## KPI Definitions & Data Sources
 
 ### KPI -> Source mapping
