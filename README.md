@@ -85,3 +85,10 @@ Environment variables:
 Use the sun/moon toggle in the header to switch between light and dark themes.
 The UI stores your choice in `localStorage` under the `theme` key (`light` or `dark`).
 You can also force a mode by setting that key manually and refreshing the page.
+
+## Favicon replacement
+
+The favicon asset lives in `public/favicon.svg` and is referenced from `index.html`.
+To replace it, export a new SVG (keep the viewBox square) and overwrite the file.
+
+After updating the file, rebuild with `npm run build` to publish to GitHub Pages.
