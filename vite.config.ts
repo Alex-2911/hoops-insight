@@ -4,7 +4,7 @@ import path from "path";
 import { componentTagger } from "lovable-tagger";
 
 export default defineConfig(({ mode }) => ({
-  base: "/hoops-insight/",
+  base: mode === "production" ? "/hoops-insight/" : "/",
   server: {
     host: "::",
     port: 8080,
