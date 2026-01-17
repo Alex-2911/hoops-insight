@@ -1309,6 +1309,7 @@ def main() -> None:
     repo_root = Path(__file__).resolve().parents[1]
     data_dir = Path(args.data_dir) if args.data_dir else None
     source_root = None if data_dir else resolve_source_root(args.source_root, repo_root)
+    expected_lightgbm_dir = source_root / "output" / "LightGBM" if source_root else None
 
     output_dir = Path(args.output_dir) if args.output_dir else repo_root / "public" / "data"
 
