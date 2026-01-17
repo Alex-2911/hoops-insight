@@ -76,6 +76,9 @@ const Index = () => {
   };
   const homeWinRatesLast20 = tables?.home_win_rates_last20 ?? [];
   const localMatchedGamesRows = tables?.local_matched_games_rows ?? [];
+  const localMatchedGamesRowsSorted = useMemo(() => {
+    return [...localMatchedGamesRows].sort((a, b) => b.date.localeCompare(a.date));
+  }, [localMatchedGamesRows]);
   const settledBetsRows = tables?.settled_bets_rows ?? [];
   const START_BANKROLL_REAL = 1000;
   const START_BANKROLL_SIM = 1000;
@@ -390,7 +393,7 @@ const Index = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {localMatchedGamesRows.map((row) => (
+                  {localMatchedGamesRowsSorted.map((row) => (
                     <tr
                       key={`${row.date}-${row.home_team}-${row.away_team}`}
                       className="border-b border-border/50"
