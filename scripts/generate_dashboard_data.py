@@ -1752,9 +1752,9 @@ def main() -> None:
     window_size_label = strategy_filter_stats.get("window_size") or CALIBRATION_WINDOW
     window_start_display = window_start_label or "—"
     window_end_display = window_end_label or "—"
-    active_filters_text = (
-        f"{active_filters_label} | window {window_size_label} ({window_start_display} → {window_end_display})"
-    )
+    active_filters_text = active_filters_label
+
+
 
     dashboard_state = {
         "as_of_date": as_of_date,
