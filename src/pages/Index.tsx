@@ -31,9 +31,16 @@ const Index = () => {
               ts?: string | number;
             };
             const lastRunRaw = lastRunJson?.ts ?? lastRunJson?.last_run;
-            const parsed = lastRunRaw ? Date.parse(String(lastRunRaw)) : Number.NaN;
-            if (!Number.isNaN(parsed)) {
-              cacheKey = parsed;
+            if (lastRunRaw != null) {
+              const numeric = Number(lastRunRaw);
+              if (!Number.isNaN(numeric)) {
+                cacheKey = numeric < 10_000_000_000 ? numeric * 1000 : numeric;
+              } else {
+                const parsed = Date.parse(String(lastRunRaw));
+                if (!Number.isNaN(parsed)) {
+                  cacheKey = parsed;
+                }
+              }
             }
           }
         } catch (err) {
