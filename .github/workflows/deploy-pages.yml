@@ -131,100 +131,110 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r Basketball_prediction/requirements.txt
 
-      - name: Verify required source files exist (robust)
+            - name: Verify required source files exist (tolerate both output layouts)
         shell: bash
         run: |
           set -euo pipefail
-          ROOT="$GITHUB_WORKSPACE/Basketball_prediction/2026/output/LightGBM"
-          test -d "$ROOT"
 
-          # combined: prefer ISO, else ACC
-          COMBINED_ISO=$(find "$ROOT" -maxdepth 3 -name "combined_nba_predictions_iso_*.csv" -type f -printf "%T@ %p\n" | sort -nr | head -n1 | cut -d' ' -f2- || true)
-          COMBINED_ACC=$(find "$ROOT" -maxdepth 2 -name "combined_nba_predictions_acc_*.csv" -type f -printf "%T@ %p\n" | sort -nr | head -n1 | cut -d' ' -f2- || true)
-          LOCAL_MATCHED=$(find "$ROOT" -maxdepth 1 -name "local_matched_games_*.csv" -type f -printf "%T@ %p\n" | sort -nr | head -n1 | cut -d' ' -f2- || true)
+          ROOT_OUT="$GITHUB_WORKSPACE/Basketball_prediction/2026/output/LightGBM"
+          ROOT_FLAT="$GITHUB_WORKSPACE/Basketball_prediction/2026/LightGBM"
 
-          # metrics snapshot: try a few common locations
-          METRICS=""
-          for SNAP in \
-            "$ROOT/metrics_snapshot.json" \
-            "$ROOT/metrics_snapshot/metrics_snapshot.json" \
-            "$ROOT/metrics_snapshot_latest.json" \
-            "$GITHUB_WORKSPACE/Basketball_prediction/2026/metrics_snapshot.json"; do
-            if [[ -f "$SNAP" ]]; then
-              METRICS="$SNAP"
-              break
-            fi
-          done
+          echo "[debug] ROOT_OUT=$ROOT_OUT (exists=$(test -d "$ROOT_OUT" && echo yes || echo no))"
+          echo "[debug] ROOT_FLAT=$ROOT_FLAT (exists=$(test -d "$ROOT_FLAT" && echo yes || echo no))"
 
-          BET_LOG_FLAT="$ROOT/bet_log_flat_live.csv"
-          STRATEGY_PARAMS="$ROOT/strategy_params.json"
+          # combined iso can be in output/LightGBM/Kelly/
+          COMBINED=$(
+            (find "$ROOT_OUT" -maxdepth 2 -name "combined_nba_predictions_iso*.csv" -type f -printf "%T@ %p\n" 2>/dev/null || true; \
+             find "$ROOT_FLAT" -maxdepth 2 -name "combined_nba_predictions_iso*.csv" -type f -printf "%T@ %p\n" 2>/dev/null || true) \
+            | sort -nr | head -n1 | cut -d' ' -f2-
+          )
 
-          echo "combined_iso: ${COMBINED_ISO:-missing}"
-          echo "combined_acc: ${COMBINED_ACC:-missing}"
-          echo "local_matched: ${LOCAL_MATCHED:-missing}"
-          echo "metrics: ${METRICS:-missing}"
-          echo "bet_log_flat: ${BET_LOG_FLAT:-missing}"
-          echo "strategy_params: ${STRATEGY_PARAMS:-missing}"
+          # local matched can be in output/LightGBM/ OR flat LightGBM/
+          LOCAL_MATCHED=$(
+            (find "$ROOT_OUT" -maxdepth 1 -name "local_matched_games_*.csv" -type f -printf "%T@ %p\n" 2>/dev/null || true; \
+             find "$ROOT_FLAT" -maxdepth 1 -name "local_matched_games_*.csv" -type f -printf "%T@ %p\n" 2>/dev/null || true) \
+            | sort -nr | head -n1 | cut -d' ' -f2-
+          )
 
-          if [[ -z "${COMBINED_ISO:-}" && -z "${COMBINED_ACC:-}" ]]; then
-            echo "ERROR: Missing combined predictions (iso or acc)."
+          # metrics snapshot can be in output/LightGBM/ OR flat LightGBM/
+          METRICS=$(
+            (find "$ROOT_OUT" -maxdepth 2 -name "metrics_snapshot*.json" -type f -printf "%T@ %p\n" 2>/dev/null || true; \
+             find "$ROOT_FLAT" -maxdepth 2 -name "metrics_snapshot*.json" -type f -printf "%T@ %p\n" 2>/dev/null || true) \
+            | sort -nr | head -n1 | cut -d' ' -f2-
+          )
+
+          # optional
+          BET_LOG_FLAT=$(
+            (find "$ROOT_OUT" -maxdepth 2 -name "bet_log_flat_live*.csv" -type f -printf "%T@ %p\n" 2>/dev/null || true; \
+             find "$ROOT_FLAT" -maxdepth 2 -name "bet_log_flat_live*.csv" -type f -printf "%T@ %p\n" 2>/dev/null || true) \
+            | sort -nr | head -n1 | cut -d' ' -f2-
+          )
+
+          STRATEGY_PARAMS=$(
+            (find "$ROOT_OUT" -maxdepth 2 -name "strategy_params*.json" -o -name "strategy_params*.txt" -type f -printf "%T@ %p\n" 2>/dev/null || true; \
+             find "$ROOT_FLAT" -maxdepth 2 -name "strategy_params*.json" -o -name "strategy_params*.txt" -type f -printf "%T@ %p\n" 2>/dev/null || true) \
+            | sort -nr | head -n1 | cut -d' ' -f2-
+          )
+
+          echo "✔ Found combined: ${COMBINED:-missing}"
+          echo "✔ Found local_matched_games: ${LOCAL_MATCHED:-missing}"
+          echo "✔ Found metrics_snapshot: ${METRICS:-missing}"
+          echo "✔ Found bet_log_flat: ${BET_LOG_FLAT:-missing}"
+          echo "✔ Found strategy_params: ${STRATEGY_PARAMS:-missing}"
+
+          if [[ -z "${COMBINED:-}" || -z "${LOCAL_MATCHED:-}" || -z "${METRICS:-}" ]]; then
+            echo "ERROR: Missing required source files (combined/local_matched/metrics)." >&2
             exit 1
           fi
-          if [[ -z "${LOCAL_MATCHED:-}" ]]; then
-            echo "ERROR: Missing local_matched_games_*.csv."
-            exit 1
-          fi
-          if [[ -z "${METRICS:-}" ]]; then
-            echo "ERROR: Missing metrics_snapshot.json (or compatible)."
-            exit 1
-          fi
 
-      - name: Copy dashboard sources into public/data (stable filenames)
+      - name: Copy dashboard sources into public/data (pick newest across both layouts)
         shell: bash
         run: |
           set -euo pipefail
-          ROOT="$GITHUB_WORKSPACE/Basketball_prediction/2026/output/LightGBM"
+
+          ROOT_OUT="$GITHUB_WORKSPACE/Basketball_prediction/2026/output/LightGBM"
+          ROOT_FLAT="$GITHUB_WORKSPACE/Basketball_prediction/2026/LightGBM"
           OUT="$GITHUB_WORKSPACE/public/data"
           mkdir -p "$OUT"
 
-          COMBINED_ISO=$(find "$ROOT" -maxdepth 3 -name "combined_nba_predictions_iso_*.csv" -type f -printf "%T@ %p\n" | sort -nr | head -n1 | cut -d' ' -f2- || true)
-          COMBINED_ACC=$(find "$ROOT" -maxdepth 2 -name "combined_nba_predictions_acc_*.csv" -type f -printf "%T@ %p\n" | sort -nr | head -n1 | cut -d' ' -f2- || true)
-          LOCAL_MATCHED=$(find "$ROOT" -maxdepth 1 -name "local_matched_games_*.csv" -type f -printf "%T@ %p\n" | sort -nr | head -n1 | cut -d' ' -f2- || true)
-
-          METRICS=""
-          for SNAP in \
-            "$ROOT/metrics_snapshot.json" \
-            "$ROOT/metrics_snapshot/metrics_snapshot.json" \
-            "$ROOT/metrics_snapshot_latest.json" \
-            "$GITHUB_WORKSPACE/Basketball_prediction/2026/metrics_snapshot.json"; do
-            if [[ -f "$SNAP" ]]; then
-              METRICS="$SNAP"
-              break
+          pick_latest () {
+            # usage: pick_latest "<find args...>"
+            # prints chosen file path or empty
+            local candidates
+            candidates=$(eval "$1" 2>/dev/null || true)
+            if [[ -z "$candidates" ]]; then
+              echo ""
+              return 0
             fi
-          done
+            echo "$candidates" | sort -nr | head -n1 | cut -d' ' -f2-
+          }
 
-          BET_LOG_FLAT="$ROOT/bet_log_flat_live.csv"
-          STRATEGY_PARAMS="$ROOT/strategy_params.json"
-
-          if [[ -n "${COMBINED_ISO:-}" ]]; then
-            cp "$COMBINED_ISO" "$OUT/combined_latest.csv"
-          else
-            cp "$COMBINED_ACC" "$OUT/combined_latest.csv"
-          fi
+          COMBINED=$(pick_latest "(find \"$ROOT_OUT\" -maxdepth 2 -name \"combined_nba_predictions_iso*.csv\" -type f -printf \"%T@ %p\n\"; find \"$ROOT_FLAT\" -maxdepth 2 -name \"combined_nba_predictions_iso*.csv\" -type f -printf \"%T@ %p\n\")")
+          LOCAL_MATCHED=$(pick_latest "(find \"$ROOT_OUT\" -maxdepth 1 -name \"local_matched_games_*.csv\" -type f -printf \"%T@ %p\n\"; find \"$ROOT_FLAT\" -maxdepth 1 -name \"local_matched_games_*.csv\" -type f -printf \"%T@ %p\n\")")
+          METRICS=$(pick_latest "(find \"$ROOT_OUT\" -maxdepth 2 -name \"metrics_snapshot*.json\" -type f -printf \"%T@ %p\n\"; find \"$ROOT_FLAT\" -maxdepth 2 -name \"metrics_snapshot*.json\" -type f -printf \"%T@ %p\n\")")
+          BET_LOG_FLAT=$(pick_latest "(find \"$ROOT_OUT\" -maxdepth 2 -name \"bet_log_flat_live*.csv\" -type f -printf \"%T@ %p\n\"; find \"$ROOT_FLAT\" -maxdepth 2 -name \"bet_log_flat_live*.csv\" -type f -printf \"%T@ %p\n\")")
+          STRATEGY_PARAMS=$(pick_latest "(find \"$ROOT_OUT\" -maxdepth 2 \\( -name \"strategy_params*.json\" -o -name \"strategy_params*.txt\" \\) -type f -printf \"%T@ %p\n\"; find \"$ROOT_FLAT\" -maxdepth 2 \\( -name \"strategy_params*.json\" -o -name \"strategy_params*.txt\" \\) -type f -printf \"%T@ %p\n\")")
 
           cp "$METRICS" "$OUT/metrics_snapshot.json"
+          cp "$COMBINED" "$OUT/combined_latest.csv"
           cp "$LOCAL_MATCHED" "$OUT/local_matched_games_latest.csv"
 
-          if [[ -f "$BET_LOG_FLAT" ]]; then
+          if [[ -n "${BET_LOG_FLAT:-}" && -f "$BET_LOG_FLAT" ]]; then
             cp "$BET_LOG_FLAT" "$OUT/bet_log_flat_live.csv"
           fi
 
-          if [[ -f "$STRATEGY_PARAMS" ]]; then
-            cp "$STRATEGY_PARAMS" "$OUT/strategy_params.json"
+          if [[ -n "${STRATEGY_PARAMS:-}" && -f "$STRATEGY_PARAMS" ]]; then
+            # normalize to json if needed? keep original name for now
+            if [[ "$STRATEGY_PARAMS" == *.json ]]; then
+              cp "$STRATEGY_PARAMS" "$OUT/strategy_params.json"
+            else
+              cp "$STRATEGY_PARAMS" "$OUT/strategy_params.txt"
+            fi
           fi
 
-          echo "✔ Copied sources into $OUT"
+          echo "✔ Copied dashboard artifacts into $OUT"
           ls -la "$OUT"
+
 
       - name: Generate dashboard data (from public/data sources)
         shell: bash
