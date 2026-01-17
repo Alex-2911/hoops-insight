@@ -482,16 +482,22 @@ def _resolve_sources(root: Optional[Path], as_of_date: Optional[str]) -> SourceP
     def _combined_tiebreaker(match: re.Match) -> int:
         return 1 if match.group(1) == "iso" else 0
 
+    combined_iso = _find_latest_file(kelly_dir, "combined_nba_predictions_iso")
+    combined_acc = _find_latest_file(lightgbm_dir, "combined_nba_predictions_acc")
+
     latest_combined = _find_latest_dated_file(
         [kelly_dir, lightgbm_dir], combined_pattern, date_group=2, tiebreaker=_combined_tiebreaker
     )
-    combined_iso = None
-    combined_acc = None
     if latest_combined:
         if "combined_nba_predictions_iso_" in latest_combined.name:
             combined_iso = latest_combined
         else:
             combined_acc = latest_combined
+
+    if combined_iso is None:
+        combined_iso = _find_latest_by_mtime(kelly_dir, "combined_nba_predictions_iso*.csv")
+    if combined_acc is None:
+        combined_acc = _find_latest_by_mtime(lightgbm_dir, "combined_nba_predictions_acc*.csv")
     bet_log = lightgbm_dir / "bet_log_live.csv"
     if not bet_log.exists():
         bet_log = _find_latest_file(lightgbm_dir, "bet_log_live")
