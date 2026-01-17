@@ -10,14 +10,39 @@ const Index = () => {
   const [dashboardState, setDashboardState] = useState<DashboardState | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const baseUrl = import.meta.env.BASE_URL ?? "/";
+  const withCacheBuster = (url: string, v: string | number) => {
+    const target = new URL(url, window.location.origin);
+    target.searchParams.set("v", String(v));
+    return target.toString();
+  };
 
   useEffect(() => {
     let alive = true;
     const load = async () => {
       try {
+        let cacheKey = Date.now();
+        try {
+          const lastRunRes = await fetch(
+            withCacheBuster(`${baseUrl}data/last_run.json`, Date.now()),
+          );
+          if (lastRunRes.ok) {
+            const lastRunJson = (await lastRunRes.json()) as {
+              last_run?: string;
+              ts?: string | number;
+            };
+            const lastRunRaw = lastRunJson?.ts ?? lastRunJson?.last_run;
+            const parsed = lastRunRaw ? Date.parse(String(lastRunRaw)) : Number.NaN;
+            if (!Number.isNaN(parsed)) {
+              cacheKey = parsed;
+            }
+          }
+        } catch (err) {
+          console.warn("Failed to load last_run.json for cache busting.", err);
+        }
+
         const [payloadRes, stateRes] = await Promise.all([
-          fetch(`${baseUrl}data/dashboard_payload.json`),
-          fetch(`${baseUrl}data/dashboard_state.json`),
+          fetch(withCacheBuster(`${baseUrl}data/dashboard_payload.json`, cacheKey)),
+          fetch(withCacheBuster(`${baseUrl}data/dashboard_state.json`, cacheKey)),
         ]);
 
         if (!payloadRes.ok || !stateRes.ok) {
