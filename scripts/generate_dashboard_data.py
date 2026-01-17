@@ -485,8 +485,8 @@ def _resolve_sources(root: Optional[Path], as_of_date: Optional[str]) -> SourceP
     latest_combined = _find_latest_dated_file(
         [kelly_dir, lightgbm_dir], combined_pattern, date_group=2, tiebreaker=_combined_tiebreaker
     )
-    combined_iso = None
-    combined_acc = None
+    combined_iso = _find_latest_file(kelly_dir, "combined_nba_predictions_iso")
+    combined_acc = _find_latest_file(lightgbm_dir, "combined_nba_predictions_acc")
     if latest_combined:
         if "combined_nba_predictions_iso_" in latest_combined.name:
             combined_iso = latest_combined
