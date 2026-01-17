@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { StatCard } from "@/components/cards/StatCard";
-import type { DashboardPayload, DashboardState } from "@/data/dashboardTypes";
+import type { DashboardPayload, DashboardState, StrategyParamsFile } from "@/data/dashboardTypes";
 import { Target, TrendingUp, Activity, BarChart3, Info } from "lucide-react";
 import { fmtCurrencyEUR, fmtNumber, fmtPercent, formatSigned } from "@/lib/format";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -8,6 +8,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 const Index = () => {
   const [payload, setPayload] = useState<DashboardPayload | null>(null);
   const [dashboardState, setDashboardState] = useState<DashboardState | null>(null);
+  const [strategyParamsFile, setStrategyParamsFile] = useState<StrategyParamsFile | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const baseUrl = import.meta.env.BASE_URL ?? "/";
 
@@ -30,6 +31,12 @@ const Index = () => {
         if (alive) {
           setPayload(payloadJson);
           setDashboardState(stateJson);
+        }
+
+        const paramsRes = await fetch(`${baseUrl}data/strategy_params.json`);
+        if (alive && paramsRes.ok) {
+          const paramsJson = (await paramsRes.json()) as StrategyParamsFile;
+          setStrategyParamsFile(paramsJson);
         }
       } catch (err) {
         if (alive) {
@@ -192,6 +199,37 @@ const Index = () => {
     strategyParams.params_used_label ??
     "Historical";
   const paramsSourceLabel = dashboardState?.params_source_label ?? "strategy_params.json";
+  const strategyParamsValues =
+    strategyParamsFile?.params_used ??
+    summary?.strategy_params?.params_used ??
+    summary?.strategy_params?.params ??
+    {};
+
+  const readNumberParam = (keys: string[]) => {
+    for (const key of keys) {
+      const value = strategyParamsValues[key];
+      if (typeof value === "number") {
+        return value;
+      }
+      if (typeof value === "string") {
+        const parsed = Number.parseFloat(value);
+        if (!Number.isNaN(parsed)) {
+          return parsed;
+        }
+      }
+    }
+    return null;
+  };
+
+  const oddsMin = readNumberParam(["odds_min"]);
+  const oddsMax = readNumberParam(["odds_max"]);
+  const oddsRangeLabel =
+    oddsMin !== null && oddsMax !== null
+      ? `${fmtNumber(oddsMin, 2)}–${fmtNumber(oddsMax, 2)}`
+      : null;
+  const activeFiltersDisplay = /window\s+\d+/i.test(activeFiltersEffective)
+    ? activeFiltersEffective
+    : `${activeFiltersEffective} | window ${windowSize} (${windowStartLabel} → ${windowEndLabel})`;
 
   const localMatchedGamesRowsSorted = useMemo(() => {
     return [...localMatchedGamesRows].sort((a, b) => b.date.localeCompare(a.date));
@@ -223,7 +261,7 @@ const Index = () => {
             <div>
               <span className="font-medium text-foreground">Active Filters (effective)</span>
               <div className="text-foreground">
-                {`${activeFiltersEffective} | window ${windowSize} (${windowStartLabel} → ${windowEndLabel})`}
+                {activeFiltersDisplay}
               </div>
             </div>
             <div className="text-foreground">Params used: {paramsUsedLabel}</div>
@@ -391,28 +429,46 @@ const Index = () => {
                     <th className="py-2 pr-4">Prob Used</th>
                     <th className="py-2 pr-4">Odds</th>
                     <th className="py-2 pr-4">EV €/100</th>
+                    <th className="py-2 pr-4">Odds filter</th>
                     <th className="py-2 pr-4">Win</th>
                     <th className="py-2 pr-4">P/L</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {localMatchedGamesRowsSorted.map((row) => (
-                    <tr
-                      key={`${row.date}-${row.home_team}-${row.away_team}`}
-                      className="border-b border-border/50"
-                    >
-                      <td className="py-2 pr-4">{row.date}</td>
-                      <td className="py-2 pr-4 font-medium">{row.home_team}</td>
-                      <td className="py-2 pr-4">{row.away_team}</td>
-                      <td className="py-2 pr-4">{fmtNumber(row.home_win_rate, 2)}</td>
-                      <td className="py-2 pr-4">{fmtNumber(row.prob_iso, 2)}</td>
-                      <td className="py-2 pr-4">{fmtNumber(row.prob_used, 2)}</td>
-                      <td className="py-2 pr-4">{fmtNumber(row.odds_1, 2)}</td>
-                      <td className="py-2 pr-4">{fmtNumber(row.ev_eur_per_100, 2)}</td>
-                      <td className="py-2 pr-4">{row.win === 1 ? "✅" : "❌"}</td>
-                      <td className="py-2 pr-4">{formatSigned(row.pnl)}</td>
-                    </tr>
-                  ))}
+                  {localMatchedGamesRowsSorted.map((row) => {
+                    const oddsInRange =
+                      oddsMin !== null && oddsMax !== null
+                        ? row.odds_1 >= oddsMin && row.odds_1 <= oddsMax
+                        : null;
+                    return (
+                      <tr
+                        key={`${row.date}-${row.home_team}-${row.away_team}`}
+                        className="border-b border-border/50"
+                      >
+                        <td className="py-2 pr-4">{row.date}</td>
+                        <td className="py-2 pr-4 font-medium">{row.home_team}</td>
+                        <td className="py-2 pr-4">{row.away_team}</td>
+                        <td className="py-2 pr-4">{fmtNumber(row.home_win_rate, 2)}</td>
+                        <td className="py-2 pr-4">{fmtNumber(row.prob_iso, 2)}</td>
+                        <td className="py-2 pr-4">{fmtNumber(row.prob_used, 2)}</td>
+                        <td className="py-2 pr-4">{fmtNumber(row.odds_1, 2)}</td>
+                        <td className="py-2 pr-4">{fmtNumber(row.ev_eur_per_100, 2)}</td>
+                        <td className="py-2 pr-4">
+                          {oddsRangeLabel ? (
+                            <span
+                              className={oddsInRange ? "text-emerald-400" : "text-red-400"}
+                            >
+                              {oddsInRange ? "✓" : "✕"} {oddsRangeLabel}
+                            </span>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
+                        <td className="py-2 pr-4">{row.win === 1 ? "✅" : "❌"}</td>
+                        <td className="py-2 pr-4">{formatSigned(row.pnl)}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             )}
