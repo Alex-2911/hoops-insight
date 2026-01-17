@@ -131,7 +131,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r Basketball_prediction/requirements.txt
 
-            - name: Verify required source files exist (tolerate both output layouts)
+      - name: Verify required source files exist (tolerate both output layouts)
         shell: bash
         run: |
           set -euo pipefail
