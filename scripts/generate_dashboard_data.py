@@ -25,9 +25,9 @@ import re
 import shutil
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable, Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
 import pandas as pd
 
@@ -79,35 +79,10 @@ def _safe_date(val: str) -> Optional[datetime]:
     s = str(val).strip()
     if s == "":
         return None
-
-    # Fast path: YYYY-MM-DD...
-    if len(s) >= 10 and re.match(r"^\d{4}-\d{2}-\d{2}", s):
-        try:
-            return datetime.strptime(s[:10], DATE_FMT)
-        except ValueError:
-            pass
-
-    # Try common datetime formats
-    for fmt in (
-        "%Y-%m-%d %H:%M:%S",
-        "%Y-%m-%dT%H:%M:%S",
-        "%Y-%m-%dT%H:%M:%S%z",
-        "%Y-%m-%d %H:%M:%S%z",
-    ):
-        try:
-            return datetime.strptime(s, fmt)
-        except ValueError:
-            continue
-
-    # ISO fallback
     try:
-        iso = s.replace("Z", "+00:00")
-        dt = datetime.fromisoformat(iso)
-        # normalize to naive date
-        return dt.replace(tzinfo=None)
+        return datetime.strptime(s, DATE_FMT)
     except ValueError:
         return None
-
 
 
 def _safe_team(val: object) -> Optional[str]:
@@ -355,32 +330,6 @@ def _find_latest_file(path: Path, prefix: str) -> Optional[Path]:
     return sorted(candidates, key=lambda x: x[0])[-1][1]
 
 
-def _find_latest_dated_file(
-    roots: Iterable[Path],
-    pattern: re.Pattern,
-    date_group: int = 1,
-    tiebreaker: Optional[Callable[[re.Match], int]] = None,
-) -> Optional[Path]:
-    candidates: List[Tuple[datetime, int, Path]] = []
-    for root in roots:
-        if not root.exists():
-            continue
-        for item in root.iterdir():
-            if not item.is_file():
-                continue
-            match = pattern.match(item.name)
-            if not match:
-                continue
-            dt = _safe_date(match.group(date_group))
-            if not dt:
-                continue
-            tie = tiebreaker(match) if tiebreaker else 0
-            candidates.append((dt, tie, item))
-    if not candidates:
-        return None
-    return max(candidates, key=lambda entry: (entry[0], entry[1]))[2]
-
-
 def _find_latest_by_mtime(path: Path, pattern: str) -> Optional[Path]:
     if not path.exists():
         return None
@@ -390,7 +339,9 @@ def _find_latest_by_mtime(path: Path, pattern: str) -> Optional[Path]:
     return max(candidates, key=lambda item: item.stat().st_mtime)
 
 
-def _find_metrics_snapshot(lightgbm_dir: Path, root: Optional[Path]) -> Optional[Path]:
+def _find_metrics_snapshot(
+    lightgbm_dir: Path, as_of_date: Optional[str], root: Optional[Path]
+) -> Optional[Path]:
     candidate_dirs = [lightgbm_dir, lightgbm_dir / "metrics_snapshot"]
     if root:
         candidate_dirs.extend(
@@ -400,27 +351,13 @@ def _find_metrics_snapshot(lightgbm_dir: Path, root: Optional[Path]) -> Optional
                 root / "output" / "LightGBM" / "metrics_snapshot",
             ]
         )
-    dated_snapshot_pattern = re.compile(r"metrics_snapshot_(\d{4}-\d{2}-\d{2})\.(json|csv)$")
-    dated_betting_pattern = re.compile(
-        r"betting_metrics_snapshot_(\d{4}-\d{2}-\d{2})\.csv$"
-    )
-
-    def _snapshot_tiebreaker(match: re.Match) -> int:
-        return 1 if match.group(2) == "json" else 0
-
-    dated_snapshot = _find_latest_dated_file(
-        candidate_dirs, dated_snapshot_pattern, tiebreaker=_snapshot_tiebreaker
-    )
-    if dated_snapshot:
-        return dated_snapshot
-
-    dated_betting_snapshot = _find_latest_dated_file(candidate_dirs, dated_betting_pattern)
-    if dated_betting_snapshot:
-        return dated_betting_snapshot
-
     for candidate_dir in candidate_dirs:
         if not candidate_dir.exists():
             continue
+        if as_of_date:
+            dated = candidate_dir / f"metrics_snapshot_{as_of_date}.json"
+            if dated.exists():
+                return dated
         preferred = candidate_dir / "metrics_snapshot.json"
         if preferred.exists():
             return preferred
@@ -500,40 +437,17 @@ def _resolve_sources(root: Optional[Path], as_of_date: Optional[str]) -> SourceP
         )
     lightgbm_dir = root / "output" / "LightGBM"
     kelly_dir = lightgbm_dir / "Kelly"
-    combined_pattern = re.compile(
-        r"combined_nba_predictions_(iso|acc)_(\d{4}-\d{2}-\d{2})\.csv$"
-    )
-
-    def _combined_tiebreaker(match: re.Match) -> int:
-        return 1 if match.group(1) == "iso" else 0
-
     combined_iso = _find_latest_file(kelly_dir, "combined_nba_predictions_iso")
     combined_acc = _find_latest_file(lightgbm_dir, "combined_nba_predictions_acc")
-
-    latest_combined = _find_latest_dated_file(
-        [kelly_dir, lightgbm_dir], combined_pattern, date_group=2, tiebreaker=_combined_tiebreaker
-    )
-    if latest_combined:
-        if "combined_nba_predictions_iso_" in latest_combined.name:
-            combined_iso = latest_combined
-        else:
-            combined_acc = latest_combined
-
-    if combined_iso is None:
-        combined_iso = _find_latest_by_mtime(kelly_dir, "combined_nba_predictions_iso*.csv")
-    if combined_acc is None:
-        combined_acc = _find_latest_by_mtime(lightgbm_dir, "combined_nba_predictions_acc*.csv")
     bet_log = lightgbm_dir / "bet_log_live.csv"
     if not bet_log.exists():
         bet_log = _find_latest_file(lightgbm_dir, "bet_log_live")
     bet_log_flat = lightgbm_dir / "bet_log_flat_live.csv"
     if not bet_log_flat.exists():
         bet_log_flat = _find_latest_file(lightgbm_dir, "bet_log_flat_live")
-    metrics_snapshot = _find_metrics_snapshot(lightgbm_dir, root)
+    metrics_snapshot = _find_metrics_snapshot(lightgbm_dir, as_of_date, root)
     strategy_params = _find_strategy_params(lightgbm_dir, as_of_date)
     local_matched_games = _find_local_matched_games(lightgbm_dir, as_of_date)
-    print(f"[debug] resolved combined_iso={combined_iso}")
-    print(f"[debug] resolved combined_acc={combined_acc}")
     return SourcePaths(
         combined_iso=combined_iso,
         combined_acc=combined_acc,
@@ -630,74 +544,39 @@ def _compute_ece(y: List[int], p: List[float], bins: int = 10) -> Optional[float
 
 
 def load_played_games(path: Path) -> List[Dict[str, object]]:
-    rows: List[Dict[str, object]] = []
-
+    rows = []
     for row in _read_csv_normalized(path):
-        # played detection:
+        home_team = row.get("home_team")
+        away_team = row.get("away_team")
         result = row.get("result") or row.get("result_raw")
-
-        # if result missing, fall back to home_team_won (0/1)
-        home_team_won_raw = row.get("home_team_won")
-        if (result is None or str(result).strip() in {"", "0"}) and home_team_won_raw is not None:
-            try:
-                hw = float(str(home_team_won_raw).strip())
-                if hw in (0.0, 1.0):
-                    result = "__played__"  # sentinel
-            except ValueError:
-                pass
-
         if result is None or str(result).strip() in {"", "0"}:
             continue
-
         date_raw = row.get("game_date") or row.get("date")
         game_date = _safe_date(date_raw)
         if game_date is None:
             continue
+        home_team_won = 1 if str(result).strip() == str(home_team).strip() else 0
 
-        home_team = _safe_team(row.get("home_team"))
-        away_team = _safe_team(row.get("away_team"))
-        if not home_team or not away_team:
-            continue
-
-        # probs
         prob_raw = _safe_float(row.get("pred_home_win_proba") or row.get("home_team_prob"))
-        prob_iso = _safe_float(row.get("iso_proba_home_win") or row.get("prob_iso"))
-
-        # odds (home)
-        odds_home = _safe_float(
-            row.get("closing_home_odds")
-            or row.get("odds_1")
-            or row.get("odds_home")
-            or row.get("home_odds")
-        )
-
-        # home win rate (optional)
-        home_win_rate = _safe_float(row.get("home_win_rate") or row.get("hw") or row.get("home_winrate"))
-
-        # if we used sentinel, infer home_team_won directly
-        if str(result).strip() == "__played__":
-            try:
-                home_team_won = int(float(str(home_team_won_raw).strip()))
-            except Exception:
-                continue
-        else:
-            home_team_won = 1 if str(result).strip().upper() == home_team else 0
+        prob_iso = _safe_float(row.get("iso_proba_home_win"))
+        odds = _safe_float(row.get("closing_home_odds") or row.get("odds_1"))
+        home_win_rate = _safe_float(row.get("home_win_rate"))
 
         rows.append(
             {
                 "date": game_date,
                 "home_team": home_team,
                 "away_team": away_team,
-                "home_team_won": int(home_team_won),
+                "home_team_won": home_team_won,
                 "prob_raw": prob_raw,
                 "prob_iso": prob_iso,
-                "odds_home": odds_home,
+                "odds_home": odds,
                 "home_win_rate": home_win_rate,
             }
         )
-
     return rows
-        
+
+
 def build_historical_stats(rows: List[Dict[str, object]]) -> List[Dict[str, object]]:
     per_day = defaultdict(lambda: {"total": 0, "correct": 0})
     for r in rows:
@@ -1371,21 +1250,6 @@ def main() -> None:
     repo_root = Path(__file__).resolve().parents[1]
     data_dir = Path(args.data_dir) if args.data_dir else None
     source_root = None if data_dir else resolve_source_root(args.source_root, repo_root)
-    print(f"[debug] repo_root={repo_root}")
-    print(f"[debug] source_root={source_root}")
-    if source_root:
-        lightgbm_dir = source_root / "output" / "LightGBM"
-        kelly_dir = lightgbm_dir / "Kelly"
-        print(f"[debug] lightgbm_dir={lightgbm_dir} exists={lightgbm_dir.exists()}")
-        print(f"[debug] kelly_dir={kelly_dir} exists={kelly_dir.exists()}")
-
-        if lightgbm_dir.exists():
-            acc = sorted([p.name for p in lightgbm_dir.glob("combined_nba_predictions_acc*.csv")])
-            print(f"[debug] acc candidates ({len(acc)}): {acc[:10]}")
-        if kelly_dir.exists():
-            iso = sorted([p.name for p in kelly_dir.glob("combined_nba_predictions_iso*.csv")])
-            print(f"[debug] iso candidates ({len(iso)}): {iso[:10]}")
-    expected_lightgbm_dir = source_root / "output" / "LightGBM" if source_root else None
 
     output_dir = Path(args.output_dir) if args.output_dir else repo_root / "public" / "data"
 
@@ -1409,9 +1273,6 @@ def main() -> None:
         raise FileNotFoundError("No combined predictions file found in source output directories.")
 
     played_rows = load_played_games(combined_path)
-    print("[debug] played_rows:", len(played_rows))
-    print("[debug] played_max_date:", max(r["date"] for r in played_rows).strftime(DATE_FMT))
-
     if not played_rows:
         raise RuntimeError("No played games found in combined predictions file.")
 
@@ -1435,6 +1296,10 @@ def main() -> None:
     window_start_label = window_start_dt.strftime(DATE_FMT) if window_start_dt else None
     window_end_label = window_end_dt.strftime(DATE_FMT) if window_end_dt else None
 
+    expected_lightgbm_dir = source_root / "output" / "LightGBM" if source_root else None
+    if expected_lightgbm_dir:
+        sources = _resolve_sources(source_root, as_of_date)
+
     metrics_snapshot_path = _require_existing(sources.metrics_snapshot, "metrics_snapshot")
     metrics_snapshot = load_metrics_snapshot(metrics_snapshot_path)
     metrics_snapshot_fallback_source = None
@@ -1447,6 +1312,17 @@ def main() -> None:
     snapshot_as_of_raw = _snapshot_value(metrics_snapshot, "meta", "eval_base_date_max")
 
     snapshot_as_of_date = _safe_date(str(snapshot_as_of_raw)) if snapshot_as_of_raw else None
+    if snapshot_as_of_date and expected_lightgbm_dir:
+        snapshot_label = snapshot_as_of_date.strftime(DATE_FMT)
+        sources = _resolve_sources(source_root, snapshot_label)
+        metrics_snapshot_path = _require_existing(sources.metrics_snapshot, "metrics_snapshot")
+        metrics_snapshot = load_metrics_snapshot(metrics_snapshot_path)
+        realized_count_raw = _snapshot_value(metrics_snapshot, "realized", "count")
+        realized_profit_raw = _snapshot_value(metrics_snapshot, "realized", "profit_sum")
+        realized_roi_raw = _snapshot_value(metrics_snapshot, "realized", "roi")
+        realized_win_rate_raw = _snapshot_value(metrics_snapshot, "realized", "win_rate")
+        realized_sharpe_raw = _snapshot_value(metrics_snapshot, "realized", "sharpe_style")
+        ev_mean_raw = _snapshot_value(metrics_snapshot, "ev_stats", "mean")
 
     local_matched_games_path = _require_existing(
         sources.local_matched_games, "local_matched_games"
@@ -1815,9 +1691,9 @@ def main() -> None:
     window_size_label = strategy_filter_stats.get("window_size") or CALIBRATION_WINDOW
     window_start_display = window_start_label or "—"
     window_end_display = window_end_label or "—"
-    active_filters_text = active_filters_label
-
-
+    active_filters_text = (
+        f"{active_filters_label} | window {window_size_label} ({window_start_display} → {window_end_display})"
+    )
 
     dashboard_state = {
         "as_of_date": as_of_date,

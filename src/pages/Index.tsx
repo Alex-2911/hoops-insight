@@ -1,75 +1,23 @@
-// src/pages/Index.tsx (DROP-IN: replace your current Index.tsx with this)
-
 import { useEffect, useMemo, useState } from "react";
 import { StatCard } from "@/components/cards/StatCard";
 import type { DashboardPayload, DashboardState } from "@/data/dashboardTypes";
 import { Target, TrendingUp, Activity, BarChart3, Info } from "lucide-react";
 import { fmtCurrencyEUR, fmtNumber, fmtPercent } from "@/lib/format";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-
-const joinUrl = (a: string, b: string) =>
-  `${a.replace(/\/+$/, "")}/${b.replace(/^\/+/, "")}`;
-
-const withCacheBuster = (url: string, v: string | number) =>
-  `${url}${url.includes("?") ? "&" : "?"}v=${encodeURIComponent(String(v))}`;
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const Index = () => {
   const [payload, setPayload] = useState<DashboardPayload | null>(null);
   const [dashboardState, setDashboardState] = useState<DashboardState | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-
   const baseUrl = import.meta.env.BASE_URL ?? "/";
-  const dataBaseUrl = import.meta.env.PROD
-    ? joinUrl(baseUrl, "data/published/")
-    : joinUrl(baseUrl, "data/");
 
   useEffect(() => {
     let alive = true;
-
     const load = async () => {
       try {
-        let cacheKey = Date.now();
-
-        // last_run.json for cacheKey (best-effort)
-        try {
-          const lastRunRes = await fetch(
-            withCacheBuster(joinUrl(dataBaseUrl, "last_run.json"), Date.now()),
-          );
-
-          if (lastRunRes.ok) {
-            const lastRunJson = (await lastRunRes.json()) as {
-              last_run?: string;
-              ts?: string | number;
-            };
-
-            const lastRunRaw = lastRunJson?.ts ?? lastRunJson?.last_run;
-
-            if (lastRunRaw != null) {
-              const numeric = Number(lastRunRaw);
-
-              if (!Number.isNaN(numeric)) {
-                // seconds -> ms (otherwise already ms)
-                cacheKey = numeric < 10_000_000_000 ? numeric * 1000 : numeric;
-              } else {
-                const parsed = Date.parse(String(lastRunRaw));
-                if (!Number.isNaN(parsed)) {
-                  cacheKey = parsed;
-                }
-              }
-            }
-          }
-        } catch (err) {
-          console.warn("Failed to load last_run.json for cache busting.", err);
-        }
-
         const [payloadRes, stateRes] = await Promise.all([
-          fetch(withCacheBuster(joinUrl(dataBaseUrl, "dashboard_payload.json"), cacheKey)),
-          fetch(withCacheBuster(joinUrl(dataBaseUrl, "dashboard_state.json"), cacheKey)),
+          fetch(`${baseUrl}data/dashboard_payload.json`),
+          fetch(`${baseUrl}data/dashboard_state.json`),
         ]);
 
         if (!payloadRes.ok || !stateRes.ok) {
@@ -82,7 +30,6 @@ const Index = () => {
         if (alive) {
           setPayload(payloadJson);
           setDashboardState(stateJson);
-          setLoadError(null); // ✅ clear on success
         }
       } catch (err) {
         if (alive) {
@@ -92,11 +39,10 @@ const Index = () => {
     };
 
     load();
-
     return () => {
       alive = false;
     };
-  }, [dataBaseUrl]);
+  }, []);
 
   const summary = payload?.summary ?? null;
   const tables = payload?.tables ?? null;
@@ -113,9 +59,6 @@ const Index = () => {
     as_of_date: "—",
   };
 
-  const summaryAsOfDate =
-    dashboardState?.as_of_date ?? payload?.as_of_date ?? summary?.as_of_date ?? "—";
-
   const calibrationMetrics = tables?.calibration_metrics ?? {
     asOfDate: "—",
     brierBefore: 0,
@@ -131,31 +74,9 @@ const Index = () => {
     actualWinPct: 0,
     windowSize: 0,
   };
-
-  const windowSize =
-    dashboardState?.window_size ||
-    windowInfo.size ||
-    calibrationMetrics.windowSize ||
-    summaryStats.total_games ||
-    200;
-
-  const windowStartLabel =
-    dashboardState?.window_start ?? windowInfo.start ?? summary?.window_start ?? "—";
-
-  const windowEndLabel =
-    dashboardState?.window_end ??
-    windowInfo.end ??
-    summary?.window_end ??
-    summaryAsOfDate ??
-    "—";
-
-  const windowGamesLabel = windowInfo.games_count ?? windowSize;
-
   const homeWinRatesLast20 = tables?.home_win_rates_last20 ?? [];
   const settledBetsRows = tables?.settled_bets_rows ?? [];
-
   const START_BANKROLL_REAL = 1000;
-
   const settledBetsSummary = useMemo(() => {
     if (!settledBetsRows.length) {
       return {
@@ -167,13 +88,12 @@ const Index = () => {
         total_stake: 0,
       };
     }
-
     const wins = settledBetsRows.filter((row) => row.win === 1).length;
     const profit = settledBetsRows.reduce((acc, row) => acc + (row.pnl ?? 0), 0);
     const totalStake = settledBetsRows.reduce((acc, row) => acc + (row.stake ?? 0), 0);
     const avgOdds =
-      settledBetsRows.reduce((acc, row) => acc + (row.odds ?? 0), 0) / settledBetsRows.length;
-
+      settledBetsRows.reduce((acc, row) => acc + (row.odds ?? 0), 0) /
+      settledBetsRows.length;
     return {
       count: settledBetsRows.length,
       wins,
@@ -183,14 +103,11 @@ const Index = () => {
       total_stake: totalStake,
     };
   }, [settledBetsRows]);
-
   const realBankroll = START_BANKROLL_REAL + settledBetsSummary.profit_eur;
-
   const settledWinRatePct =
     settledBetsSummary.count > 0
       ? (settledBetsSummary.wins / settledBetsSummary.count) * 100
       : 0;
-
   const strategySummary = summary?.strategy_summary ?? {
     totalBets: 0,
     totalProfitEur: 0,
@@ -201,7 +118,6 @@ const Index = () => {
     profitMetricsAvailable: false,
     asOfDate: "—",
   };
-
   const strategyFilterStats = summary?.strategy_filter_stats ?? {
     window_size: windowSize,
     filters: [],
@@ -209,10 +125,8 @@ const Index = () => {
     window_start: windowStartLabel,
     window_end: windowEndLabel,
   };
-
   const localMatchedGamesRows = tables?.local_matched_games_rows ?? [];
   const STAKE_FLAT_DEFAULT = 100;
-
   const localMatchedGamesSummary = useMemo(() => {
     if (!localMatchedGamesRows.length) {
       return {
@@ -233,19 +147,16 @@ const Index = () => {
     const roiPct = (profit / (count * STAKE_FLAT_DEFAULT)) * 100;
     const bankroll = 1000 + profit;
     const winRatePct = count > 0 ? (wins / count) * 100 : 0;
-
     const pnlValues = localMatchedGamesRows.map((row) => row.pnl ?? 0);
     const meanPnl = pnlValues.reduce((acc, value) => acc + value, 0) / count;
-
-    const variance = pnlValues.reduce((acc, value) => acc + (value - meanPnl) ** 2, 0) / count;
+    const variance =
+      pnlValues.reduce((acc, value) => acc + (value - meanPnl) ** 2, 0) / count;
     const stdDev = Math.sqrt(variance);
-
-    const sharpeStyle = stdDev > 0 ? (meanPnl / stdDev) * Math.sqrt(count) : null;
-
+    const sharpeStyle =
+      stdDev > 0 ? (meanPnl / stdDev) * Math.sqrt(count) : null;
     let runningTotal = 0;
     let peak = 0;
     let maxDrawdown = 0;
-
     pnlValues.forEach((value) => {
       runningTotal += value;
       if (runningTotal > peak) {
@@ -256,7 +167,6 @@ const Index = () => {
         maxDrawdown = drawdown;
       }
     });
-
     return {
       count,
       wins,
@@ -268,42 +178,38 @@ const Index = () => {
       maxDrawdown,
     };
   }, [localMatchedGamesRows]);
-
   const localSharpeValue =
     typeof strategySummary.sharpeStyle === "number"
       ? strategySummary.sharpeStyle
       : localMatchedGamesSummary.sharpeStyle;
-
   const localMatchedGamesCount =
     tables?.local_matched_games_count ??
     strategyFilterStats.matched_games_count ??
     localMatchedGamesSummary.count;
 
-  function renderMetricTitle(label: string, tooltipContent: React.ReactNode) {
-    return (
-      <span className="inline-flex items-center gap-2">
-        <span>{label}</span>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              aria-label={`${label} info`}
-              className="text-muted-foreground transition-colors hover:text-foreground"
-            >
-              <Info className="h-4 w-4" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent
-            side="top"
-            align="start"
-            className="max-w-[300px] whitespace-pre-line border-slate-800 bg-slate-900 text-slate-100"
+  const renderMetricTitle = (label: string, tooltipContent: React.ReactNode) => (
+    <span className="inline-flex items-center gap-2">
+      <span>{label}</span>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            aria-label={`${label} info`}
+            className="text-muted-foreground transition-colors hover:text-foreground"
           >
-            <div className="space-y-2 text-sm leading-snug">{tooltipContent}</div>
-          </TooltipContent>
-        </Tooltip>
-      </span>
-    );
-  }
+            <Info className="h-4 w-4" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent
+          side="top"
+          align="start"
+          className="max-w-[300px] whitespace-pre-line border-slate-800 bg-slate-900 text-slate-100"
+        >
+          <div className="space-y-2 text-sm leading-snug">{tooltipContent}</div>
+        </TooltipContent>
+      </Tooltip>
+    </span>
+  );
 
   const strategyParams = summary?.strategy_params ?? {
     source: "missing",
@@ -311,7 +217,6 @@ const Index = () => {
     params_used: {},
     active_filters: "No active filters.",
   };
-
   const metricsSnapshotSummary = payload?.metrics_snapshot_summary ?? {
     realized_count: null,
     realized_profit_eur: null,
@@ -321,30 +226,37 @@ const Index = () => {
     ev_mean: null,
     eval_base_date_max: null,
   };
-
   const metricsSnapshotSource =
     dashboardState?.sources?.metrics_snapshot ??
     payload?.sources?.metrics_snapshot ??
     summary?.source?.metrics_snapshot_source ??
     "metrics_snapshot.json";
-
   const betLogFlatSource = dashboardState?.sources?.bet_log ?? "bet_log_flat_live.csv";
   const combinedSource = dashboardState?.sources?.combined ?? "combined_latest.csv";
-
+  const summaryAsOfDate =
+    dashboardState?.as_of_date ?? payload?.as_of_date ?? summary?.as_of_date ?? "—";
   const overallAccuracyPct = fmtPercent(summaryStats.overall_accuracy * 100, 2);
-
+  const windowSize =
+    dashboardState?.window_size ||
+    windowInfo.size ||
+    calibrationMetrics.windowSize ||
+    summaryStats.total_games ||
+    200;
+  const windowStartLabel =
+    dashboardState?.window_start ?? windowInfo.start ?? summary?.window_start ?? "—";
+  const windowEndLabel =
+    dashboardState?.window_end ?? windowInfo.end ?? summary?.window_end ?? summaryAsOfDate ?? "—";
+  const windowGamesLabel = windowInfo.games_count ?? windowSize;
   const activeFiltersEffective =
     dashboardState?.active_filters_text ??
     payload?.active_filters_effective ??
     strategyParams.active_filters ??
     "No active filters.";
-
   const paramsUsedLabel =
     dashboardState?.params_used_label ??
     payload?.params_used_label ??
     strategyParams.params_used_label ??
     "Historical";
-
   const paramsSourceLabel = dashboardState?.params_source_label ?? "strategy_params.json";
 
   const topHomeTeams = useMemo(() => {
@@ -353,13 +265,13 @@ const Index = () => {
       .sort((a, b) => b.homeWinRate - a.homeWinRate);
   }, [homeWinRatesLast20]);
 
-  function formatSigned(value: number | null | undefined) {
+  const formatSigned = (value: number | null | undefined) => {
     if (typeof value !== "number" || !Number.isFinite(value)) {
       return "—";
     }
     const sign = value >= 0 ? "+" : "-";
     return `${sign}€${fmtNumber(Math.abs(value), 2)}`;
-  }
+  };
 
   return (
     <>
@@ -367,7 +279,9 @@ const Index = () => {
       <section className="container mx-auto px-4 py-6">
         <div className="glass-card p-6">
           <h2 className="text-xl font-bold mb-3">Context &amp; Assumptions</h2>
-          {loadError && <p className="text-sm text-red-400 mb-3">Data unavailable: {loadError}</p>}
+          {loadError && (
+            <p className="text-sm text-red-400 mb-3">Data unavailable: {loadError}</p>
+          )}
           <div className="text-sm text-muted-foreground space-y-3">
             <div>
               <span className="font-medium text-foreground">Active Filters (effective)</span>
@@ -377,8 +291,9 @@ const Index = () => {
             </div>
             <div className="text-foreground">Params used: {paramsUsedLabel}</div>
             <div className="text-foreground">Params source: {paramsSourceLabel}</div>
-            <p>Historical results and statistical summaries only; no future predictions are shown.</p>
-
+            <p>
+              Historical results and statistical summaries only; no future predictions are shown.
+            </p>
             <details className="text-xs text-muted-foreground">
               <summary className="cursor-pointer">metrics_snapshot</summary>
               <div className="mt-2 flex flex-wrap gap-3">
@@ -423,7 +338,6 @@ const Index = () => {
             Source: {combinedSource} (played games only, windowed).
           </p>
         </div>
-
         <TooltipProvider delayDuration={100}>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <StatCard
@@ -435,10 +349,12 @@ const Index = () => {
                     Computed on played games only.
                   </p>
                   <p>Accuracy = correct predictions / total games in window.</p>
-                </>,
+                </>
               )}
               value={overallAccuracyPct}
-              subtitle={<div>Window games: {windowGamesLabel}</div>}
+              subtitle={
+                <div>Window games: {windowGamesLabel}</div>
+              }
               icon={<Target className="w-6 h-6" />}
             />
 
@@ -447,12 +363,10 @@ const Index = () => {
                 "Calibration (Brier)",
                 <>
                   <p>Brier Score measures how well predicted probabilities match actual outcomes.</p>
-                  <p>
-                    It is the mean squared error between predicted probabilities and actual results (0 or 1).
-                  </p>
+                  <p>It is the mean squared error between predicted probabilities and actual results (0 or 1).</p>
                   <p>Lower values indicate better calibrated probabilities.</p>
                   <p>Computed on the last 200 played games only.</p>
-                </>,
+                </>
               )}
               value={fmtNumber(calibrationMetrics.brierAfter, 3)}
               subtitle={`Before: ${fmtNumber(calibrationMetrics.brierBefore, 3)}`}
@@ -469,7 +383,7 @@ const Index = () => {
                   </p>
                   <p>Lower values indicate better probability estimates.</p>
                   <p>Unlike accuracy, LogLoss accounts for confidence, not just correctness.</p>
-                </>,
+                </>
               )}
               value={fmtNumber(calibrationMetrics.logLossAfter, 3)}
               subtitle={`Before: ${fmtNumber(calibrationMetrics.logLossBefore, 3)}`}
@@ -486,11 +400,10 @@ const Index = () => {
                   </p>
                   <p>Lower values indicate better calibration.</p>
                   <p>An ECE of 0 means perfect calibration.</p>
-                  <p>Note: currently computed once on the chosen probability (iso if present else raw).</p>
-                </>,
+                </>
               )}
               value={fmtNumber(calibrationMetrics.ece, 3)}
-              subtitle="Before: —"
+              subtitle={`Before: ${fmtNumber(calibrationMetrics.ece, 3)}`}
               icon={<Activity className="w-6 h-6" />}
             />
           </div>
@@ -508,8 +421,8 @@ const Index = () => {
               </span>
             </div>
             <p className="text-sm text-muted-foreground">
-              Simulated performance on local_matched_games restricted to the window subset only (not actual placed
-              bets).
+              Simulated performance on local_matched_games restricted to the window subset only
+              (not actual placed bets).
             </p>
           </div>
           <div className="text-xs text-muted-foreground">Matched games: {localMatchedGamesCount}</div>
@@ -524,7 +437,10 @@ const Index = () => {
           />
           <StatCard
             title="Wins / Win rate"
-            value={`${localMatchedGamesSummary.wins} / ${fmtPercent(localMatchedGamesSummary.winRatePct, 1)}`}
+            value={`${localMatchedGamesSummary.wins} / ${fmtPercent(
+              localMatchedGamesSummary.winRatePct,
+              1,
+            )}`}
             icon={<TrendingUp className="w-6 h-6" />}
           />
           <StatCard
@@ -539,10 +455,9 @@ const Index = () => {
             subtitle={
               localMatchedGamesSummary.count < 5
                 ? "Sharpe: — • DD: —"
-                : `Sharpe: ${localSharpeValue !== null ? fmtNumber(localSharpeValue, 2) : "—"} • DD: ${fmtCurrencyEUR(
-                    localMatchedGamesSummary.maxDrawdown,
-                    0,
-                  )}`
+                : `Sharpe: ${
+                    localSharpeValue !== null ? fmtNumber(localSharpeValue, 2) : "—"
+                  } • DD: ${fmtCurrencyEUR(localMatchedGamesSummary.maxDrawdown, 0)}`
             }
             icon={<BarChart3 className="w-6 h-6" />}
           />
@@ -561,7 +476,6 @@ const Index = () => {
               {formatSigned(localMatchedGamesSummary.profit)}
             </div>
           </div>
-
           <div className="overflow-x-auto">
             {localMatchedGamesRows.length === 0 ? (
               <div className="rounded-lg border border-border p-4 text-sm text-muted-foreground">
@@ -612,7 +526,9 @@ const Index = () => {
       <section className="container mx-auto px-4 py-10">
         <div className="mb-6">
           <h2 className="text-2xl font-bold">Placed Bets (Real) — Overview</h2>
-          <p className="text-sm text-muted-foreground">Source: {betLogFlatSource} (settled only).</p>
+          <p className="text-sm text-muted-foreground">
+            Source: {betLogFlatSource} (settled only).
+          </p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -625,7 +541,9 @@ const Index = () => {
           <StatCard
             title="Wins / Win rate"
             value={`${settledBetsSummary.wins} / ${fmtPercent(settledWinRatePct, 2)}`}
-            subtitle={`${settledBetsSummary.wins} wins · ${settledBetsSummary.count - settledBetsSummary.wins} losses`}
+            subtitle={`${settledBetsSummary.wins} wins · ${
+              settledBetsSummary.count - settledBetsSummary.wins
+            } losses`}
             icon={<TrendingUp className="w-6 h-6" />}
           />
           <StatCard
@@ -654,7 +572,6 @@ const Index = () => {
             Source: {betLogFlatSource}, settled against {combinedSource} outcomes.
           </p>
         </div>
-
         <div className="glass-card p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             <StatCard
@@ -726,7 +643,9 @@ const Index = () => {
       {/* Home win rates */}
       <section className="container mx-auto px-4 py-10">
         <div className="glass-card p-6">
-          <h2 className="text-xl font-bold mb-2">Home Win Rates (Window)</h2>
+          <h2 className="text-xl font-bold mb-2">
+            Home Win Rates (Window)
+          </h2>
           <p className="text-sm text-muted-foreground mb-6">
             Windowed home win rate per team; computed only on home games inside the last {windowSize} games.
           </p>
@@ -746,7 +665,9 @@ const Index = () => {
                 {topHomeTeams.map((t) => (
                   <tr key={t.team} className="border-b border-border/50">
                     <td className="py-2 pr-4 font-medium">{t.team}</td>
-                    <td className="py-2 pr-4">{fmtPercent(t.homeWinRate * 100, 0)}</td>
+                    <td className="py-2 pr-4">
+                      {fmtPercent(t.homeWinRate * 100, 0)}
+                    </td>
                     <td className="py-2 pr-4">{t.homeWins}</td>
                     <td className="py-2 pr-4">{t.totalHomeGames}</td>
                     <td className="py-2 pr-4">{t.totalLast20Games}</td>
