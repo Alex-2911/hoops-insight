@@ -183,6 +183,19 @@ export interface SettledBet {
   pnl: number;
 }
 
+export interface LocalMatchedGameRow {
+  date: string;
+  home_team: string;
+  away_team: string;
+  home_win_rate: number;
+  prob_iso: number;
+  prob_used: number;
+  odds_1: number;
+  ev_eur_per_100: number;
+  win: number;
+  pnl: number;
+}
+
 export interface BankrollSummary {
   start: number;
   stake: number;
@@ -206,4 +219,9 @@ export interface TablesPayload {
     roi_pct: number;
     avg_odds: number;
   };
+  local_matched_games_rows?: LocalMatchedGameRow[];
+  local_matched_games_count?: number;
+  local_matched_games_profit_sum_table?: number;
+  local_matched_games_note?: string;
+  local_matched_games_mismatch?: boolean;
 }
