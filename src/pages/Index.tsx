@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { StatCard } from "@/components/cards/StatCard";
 import type { DashboardPayload, DashboardState } from "@/data/dashboardTypes";
 import { Target, TrendingUp, Activity, BarChart3, Info } from "lucide-react";
-import { fmtCurrencyEUR, fmtNumber, fmtPercent } from "@/lib/format";
+import { fmtCurrencyEUR, fmtNumber, fmtPercent, formatSigned } from "@/lib/format";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const Index = () => {
@@ -75,8 +75,10 @@ const Index = () => {
     windowSize: 0,
   };
   const homeWinRatesLast20 = tables?.home_win_rates_last20 ?? [];
+  const localMatchedGamesRows = tables?.local_matched_games_rows ?? [];
   const settledBetsRows = tables?.settled_bets_rows ?? [];
   const START_BANKROLL_REAL = 1000;
+  const START_BANKROLL_SIM = 1000;
   const settledBetsSummary = useMemo(() => {
     if (!settledBetsRows.length) {
       return {
@@ -108,6 +110,36 @@ const Index = () => {
     settledBetsSummary.count > 0
       ? (settledBetsSummary.wins / settledBetsSummary.count) * 100
       : 0;
+  const localMatchedProfitSum =
+    tables?.local_matched_games_profit_sum_table ??
+    localMatchedGamesRows.reduce((acc, row) => acc + (row.pnl ?? 0), 0);
+  const localMatchedCount =
+    tables?.local_matched_games_count ?? localMatchedGamesRows.length;
+  const localMatchedWins = localMatchedGamesRows.filter((row) => row.win === 1).length;
+  const localMatchedWinRate =
+    localMatchedGamesRows.length > 0
+      ? (localMatchedWins / localMatchedGamesRows.length) * 100
+      : 0;
+  const simulatedBankroll = START_BANKROLL_SIM + localMatchedProfitSum;
+  const kpis = summary?.kpis ?? {
+    total_bets: 0,
+    win_rate: 0,
+    roi_pct: 0,
+    avg_ev_per_100: 0,
+    avg_profit_per_bet_eur: 0,
+    max_drawdown_eur: null,
+    max_drawdown_pct: null,
+  };
+  const strategySummary = summary?.strategy_summary ?? {
+    totalBets: 0,
+    totalProfitEur: 0,
+    roiPct: 0,
+    avgEvPer100: 0,
+    winRate: 0,
+    sharpeStyle: null,
+    profitMetricsAvailable: false,
+    asOfDate: "—",
+  };
   const renderMetricTitle = (label: string, tooltipContent: React.ReactNode) => (
     <span className="inline-flex items-center gap-2">
       <span>{label}</span>
@@ -275,6 +307,111 @@ const Index = () => {
             />
           </div>
         </TooltipProvider>
+      </section>
+
+      {/* Strategy (simulated window subset) */}
+      <section className="container mx-auto px-4 py-10">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-2xl font-bold">Strategy (Simulated on Window Subset)</h2>
+            <p className="text-sm text-muted-foreground">
+              Simulated performance on local_matched_games restricted to the window (not actual placed bets).
+            </p>
+          </div>
+          <span className="rounded-full border border-border bg-muted/30 px-3 py-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            local_matched_games
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <StatCard
+            title="Strategy matches in window"
+            value={`${localMatchedCount}`}
+            subtitle="Games that matched the filter stack"
+            icon={<Target className="w-6 h-6" />}
+          />
+          <StatCard
+            title="Wins / Win rate"
+            value={`${localMatchedWins} / ${fmtPercent(localMatchedWinRate, 1)}`}
+            subtitle={`n=${localMatchedGamesRows.length} • window ${windowStartLabel} → ${windowEndLabel}`}
+            icon={<TrendingUp className="w-6 h-6" />}
+          />
+          <StatCard
+            title="Bankroll (Last 200 Window)"
+            value={fmtCurrencyEUR(simulatedBankroll, 2)}
+            subtitle={`Net P/L: ${formatSigned(localMatchedProfitSum)} • start ${fmtCurrencyEUR(
+              START_BANKROLL_SIM,
+              0,
+            )}`}
+            icon={<Activity className="w-6 h-6" />}
+          />
+          <StatCard
+            title="ROI / Sharpe / Max DD"
+            value={fmtPercent(kpis.roi_pct, 2)}
+            subtitle={`Sharpe: ${fmtNumber(strategySummary.sharpeStyle, 2)} • DD: ${fmtCurrencyEUR(
+              kpis.max_drawdown_eur,
+              0,
+            )}`}
+            icon={<BarChart3 className="w-6 h-6" />}
+          />
+        </div>
+
+        <div className="glass-card p-6">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+            <h3 className="text-lg font-semibold">LOCAL MATCHED GAMES (Window)</h3>
+            <div className="text-xs text-muted-foreground">
+              {localMatchedGamesRows.length > 0
+                ? `n=${localMatchedGamesRows.length} • Wins=${localMatchedWins} • P/L ${formatSigned(
+                    localMatchedProfitSum,
+                  )}`
+                : "No local matched games in the window."}
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            {localMatchedGamesRows.length === 0 ? (
+              <div className="rounded-lg border border-border p-4 text-sm text-muted-foreground">
+                No local matched games available for this window.
+              </div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left border-b border-border">
+                    <th className="py-2 pr-4">Date</th>
+                    <th className="py-2 pr-4">Home</th>
+                    <th className="py-2 pr-4">Away</th>
+                    <th className="py-2 pr-4">Home Win Rate</th>
+                    <th className="py-2 pr-4">Prob ISO</th>
+                    <th className="py-2 pr-4">Prob Used</th>
+                    <th className="py-2 pr-4">Odds</th>
+                    <th className="py-2 pr-4">EV €/100</th>
+                    <th className="py-2 pr-4">Win</th>
+                    <th className="py-2 pr-4">P/L</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {localMatchedGamesRows.map((row) => (
+                    <tr
+                      key={`${row.date}-${row.home_team}-${row.away_team}`}
+                      className="border-b border-border/50"
+                    >
+                      <td className="py-2 pr-4">{row.date}</td>
+                      <td className="py-2 pr-4 font-medium">{row.home_team}</td>
+                      <td className="py-2 pr-4">{row.away_team}</td>
+                      <td className="py-2 pr-4">{fmtNumber(row.home_win_rate, 2)}</td>
+                      <td className="py-2 pr-4">{fmtNumber(row.prob_iso, 2)}</td>
+                      <td className="py-2 pr-4">{fmtNumber(row.prob_used, 2)}</td>
+                      <td className="py-2 pr-4">{fmtNumber(row.odds_1, 2)}</td>
+                      <td className="py-2 pr-4">{fmtNumber(row.ev_eur_per_100, 2)}</td>
+                      <td className="py-2 pr-4">{row.win === 1 ? "✅" : "❌"}</td>
+                      <td className="py-2 pr-4">{formatSigned(row.pnl)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
       </section>
 
       {/* Placed bets overview */}
