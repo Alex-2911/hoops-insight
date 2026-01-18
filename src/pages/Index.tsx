@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { StatCard } from "@/components/cards/StatCard";
-import type { DashboardPayload, DashboardState, StrategyParamsFile } from "@/data/dashboardTypes";
+import type {
+  DashboardPayload,
+  DashboardState,
+  StrategyParamsFile,
+  TablesPayload,
+} from "@/data/dashboardTypes";
 import { Target, TrendingUp, Activity, BarChart3, Info } from "lucide-react";
 import { fmtCurrencyEUR, fmtNumber, fmtPercent, formatSigned } from "@/lib/format";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -9,6 +14,7 @@ const Index = () => {
   const [payload, setPayload] = useState<DashboardPayload | null>(null);
   const [dashboardState, setDashboardState] = useState<DashboardState | null>(null);
   const [strategyParamsFile, setStrategyParamsFile] = useState<StrategyParamsFile | null>(null);
+  const [tablesFallback, setTablesFallback] = useState<TablesPayload | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const baseUrl = import.meta.env.BASE_URL ?? "/";
 
@@ -16,9 +22,10 @@ const Index = () => {
     let alive = true;
     const load = async () => {
       try {
-        const [payloadRes, stateRes] = await Promise.all([
+        const [payloadRes, stateRes, tablesRes] = await Promise.all([
           fetch(`${baseUrl}data/dashboard_payload.json`),
           fetch(`${baseUrl}data/dashboard_state.json`),
+          fetch(`${baseUrl}data/tables.json`),
         ]);
 
         if (!payloadRes.ok || !stateRes.ok) {
@@ -27,10 +34,16 @@ const Index = () => {
 
         const payloadJson = (await payloadRes.json()) as DashboardPayload;
         const stateJson = (await stateRes.json()) as DashboardState;
+        const tablesJson = tablesRes.ok
+          ? ((await tablesRes.json()) as TablesPayload)
+          : null;
 
         if (alive) {
           setPayload(payloadJson);
           setDashboardState(stateJson);
+          if (tablesJson) {
+            setTablesFallback(tablesJson);
+          }
         }
 
         const paramsRes = await fetch(`${baseUrl}data/strategy_params.json`);
@@ -82,7 +95,11 @@ const Index = () => {
     windowSize: 0,
   };
   const homeWinRatesLast20 = tables?.home_win_rates_last20 ?? [];
-  const localMatchedGamesRows = tables?.local_matched_games_rows ?? [];
+  const localMatchedGamesRows = useMemo(() => {
+    const primaryRows = tables?.local_matched_games_rows ?? [];
+    const fallbackRows = tablesFallback?.local_matched_games_rows ?? [];
+    return fallbackRows.length > primaryRows.length ? fallbackRows : primaryRows;
+  }, [tables?.local_matched_games_rows, tablesFallback?.local_matched_games_rows]);
   const settledBetsRows = tables?.settled_bets_rows ?? [];
   const START_BANKROLL_REAL = 1000;
   const START_BANKROLL_SIM = 1000;
@@ -120,8 +137,10 @@ const Index = () => {
   const localMatchedProfitSum =
     tables?.local_matched_games_profit_sum_table ??
     localMatchedGamesRows.reduce((acc, row) => acc + (row.pnl ?? 0), 0);
-  const localMatchedCount =
-    tables?.local_matched_games_count ?? localMatchedGamesRows.length;
+  const localMatchedCount = Math.max(
+    tables?.local_matched_games_count ?? 0,
+    localMatchedGamesRows.length,
+  );
   const localMatchedWins = localMatchedGamesRows.filter((row) => row.win === 1).length;
   const kpis = summary?.kpis ?? {
     total_bets: 0,
