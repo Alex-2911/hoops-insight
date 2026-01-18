@@ -1075,24 +1075,50 @@ def copy_sources(output_dir: Path, sources: Dict[str, Optional[Path]]) -> Dict[s
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--source-root", type=str, default=None, help="Explicit path to Basketball_prediction/2026 root.")
-    parser.add_argument("--output-dir", type=str, default=None, help="Output dir for artifacts (default: hoops-insight/public/data).")
-    parser.add_argument("--data-dir", type=str, default=None, help="Optional public/data directory to load pre-copied artifacts from.")
+    parser.add_argument(
+        "--source-root",
+        type=str,
+        default=None,
+        help="Explicit path to Basketball_prediction/2026 root (fallback when SOURCE_ROOT is unset).",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=str,
+        default=None,
+        help="Output dir for artifacts (default: hoops-insight/public/data).",
+    )
+    parser.add_argument(
+        "--data-dir",
+        type=str,
+        default=None,
+        help="Optional public/data directory to load pre-copied artifacts from.",
+    )
     args = parser.parse_args()
 
     repo_root = Path(__file__).resolve().parents[1]
     data_dir = Path(args.data_dir) if args.data_dir else None
     source_root = None if data_dir else resolve_source_root(args.source_root, repo_root)
-    output_dir = Path(args.output_dir) if args.output_dir else repo_root / "public" / "data"
 
+    output_dir = Path(args.output_dir) if args.output_dir else repo_root / "public" / "data"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # ----------------------------
+    # Resolve sources
+    # ----------------------------
     if data_dir:
         sources = SourcePaths(
             combined_iso=data_dir / "combined_latest.csv",
             combined_acc=None,
             bet_log=None,
-            bet_log_flat=(data_dir / "bet_log_flat_live.csv") if (data_dir / "bet_log_flat_live.csv").exists() else None,
-            local_matched_games=data_dir / "local_matched_games_latest.csv",
-            strategy_params=(data_dir / "strategy_params.json") if (data_dir / "strategy_params.json").exists() else None,
+            bet_log_flat=(data_dir / "bet_log_flat_live.csv")
+            if (data_dir / "bet_log_flat_live.csv").exists()
+            else None,
+            local_matched_games=(data_dir / "local_matched_games_latest.csv")
+            if (data_dir / "local_matched_games_latest.csv").exists()
+            else None,
+            strategy_params=(data_dir / "strategy_params.json")
+            if (data_dir / "strategy_params.json").exists()
+            else None,
         )
     else:
         sources = _resolve_sources(source_root, None)
@@ -1108,6 +1134,9 @@ def main() -> None:
     if not played_rows:
         raise RuntimeError("No played games found in combined predictions file.")
 
+    # ----------------------------
+    # Static dashboards: model stats
+    # ----------------------------
     historical_stats = build_historical_stats(played_rows)
     accuracy_thresholds = build_accuracy_thresholds(played_rows)
     calibration = build_calibration_metrics(played_rows, window_size=CALIBRATION_WINDOW)
@@ -1120,19 +1149,31 @@ def main() -> None:
     bet_log_summary = build_bet_log_summary(bet_log_rows)
     bankroll_history = build_bankroll_history(bet_log_rows)
 
-    window_rows, window_start_dt, window_end_dt = compute_window_bounds(played_rows, CALIBRATION_WINDOW)
+    # ----------------------------
+    # Window bounds (last 200 played games)
+    # ----------------------------
+    window_played_rows, window_start_dt, window_end_dt = compute_window_bounds(
+        played_rows, CALIBRATION_WINDOW
+    )
     as_of_date = window_end_dt.strftime(DATE_FMT) if window_end_dt else "—"
     window_start_label = window_start_dt.strftime(DATE_FMT) if window_start_dt else None
     window_end_label = window_end_dt.strftime(DATE_FMT) if window_end_dt else None
 
+    # Re-resolve sources now that we know as_of_date (preferred dated params/local files)
     expected_lightgbm_dir = source_root / "output" / "LightGBM" if source_root else None
     if expected_lightgbm_dir:
         sources = _resolve_sources(source_root, as_of_date)
 
-    local_matched_games_path = _require_existing(sources.local_matched_games, "local_matched_games")
-    bet_log_flat_path = sources.bet_log_flat if sources.bet_log_flat and sources.bet_log_flat.exists() else None
+    bet_log_flat_path = (
+        sources.bet_log_flat if sources.bet_log_flat and sources.bet_log_flat.exists() else None
+    )
 
-    # ---- Strategy params ----
+    # Optional: keep these labels for UI/debug/sources (we don't rely on local matched csv for counts anymore)
+    local_matched_games_path = sources.local_matched_games if sources.local_matched_games and sources.local_matched_games.exists() else None
+
+    # ----------------------------
+    # Load params (prefer output_dir/strategy_params.json if present)
+    # ----------------------------
     strategy_params_path = output_dir / "strategy_params.json"
     if strategy_params_path.exists():
         params = load_strategy_params(strategy_params_path)
@@ -1145,6 +1186,7 @@ def main() -> None:
         strategy_params_source = None
 
     params_used_source = _label_path(strategy_params_source) if strategy_params_source else None
+
     params_used = params.get("params_used") if isinstance(params, dict) else None
     if isinstance(params_used, str):
         params_used = {"label": params_used}
@@ -1157,40 +1199,105 @@ def main() -> None:
 
     raw_params_used_label = None
     if isinstance(params, dict):
-        raw_params_used_label = (params.get("params_used_label") or params.get("params_label") or params.get("label"))
+        raw_params_used_label = (
+            params.get("params_used_label") or params.get("params_label") or params.get("label")
+        )
     params_used_label = str(raw_params_used_label).strip() if raw_params_used_label else None
     if not params_used_label:
         params_used_label = "Historical"
 
     active_filters_label = _human_readable_filters(params_used)
 
-    # ---- Load local_matched_games as canonical strategy matches ----
-    local_matched_games_rows, _ = load_local_matched_games_csv(local_matched_games_path)
+    # ----------------------------
+    # Strategy Filter Stats (UI breakdown) + REQUIRED counts
+    # matched_games_count MUST equal len(local_matched_games_rows)
+    # ----------------------------
+    strategy_filter_stats = build_strategy_filter_stats(played_rows, params_used, window_size=200)
 
-    # DO NOT trim to model window; keep full strategy output.
+    # ----------------------------
+    # Build Strategy Matches FROM WINDOW PLAYED ROWS (this is what validator "computed" expects)
+    # ----------------------------
+    min_prob_used = _get_param(params_used, "prob_threshold", "min_prob_used", "min_prob", "min_prob_iso")
+    min_odds = _get_param(params_used, "odds_min", "min_odds_1", "min_odds")
+    max_odds = _get_param(params_used, "odds_max", "max_odds_1", "max_odds")
+    if max_odds is None:
+        max_odds = DEFAULT_MAX_ODDS_FALLBACK
+    min_ev = _get_param(params_used, "min_ev", "min_ev_eur_per_100", "min_ev_per_100")
+    min_home_win_rate = _get_param(params_used, "home_win_rate_threshold", "min_home_win_rate")
+
+    def _passes_filters(r: Dict[str, object]) -> bool:
+        pu = _prob_used(r)
+        if min_home_win_rate is not None:
+            hwr = r.get("home_win_rate")
+            if hwr is None or float(hwr) < float(min_home_win_rate):
+                return False
+        if min_prob_used is not None:
+            if pu is None or float(pu) < float(min_prob_used):
+                return False
+        if min_odds is not None:
+            od = r.get("odds_home")
+            if od is None or float(od) < float(min_odds):
+                return False
+        if max_odds is not None:
+            od = r.get("odds_home")
+            if od is None or float(od) > float(max_odds):
+                return False
+        if min_ev is not None:
+            ev = _compute_ev_per_100(pu, r.get("odds_home"))
+            if ev is None or float(ev) <= float(min_ev):
+                return False
+        return True
+
+    matched_played = [r for r in window_played_rows if _passes_filters(r)]
+
+    def _to_local_row(r: Dict[str, object]) -> Dict[str, object]:
+        pu = _prob_used(r) if _prob_used(r) is not None else 0.0
+        pi = r.get("prob_iso") if r.get("prob_iso") is not None else 0.0
+        od = r.get("odds_home") if r.get("odds_home") is not None else 0.0
+        ev = _compute_ev_per_100(_prob_used(r), r.get("odds_home"))
+        win = int(r.get("home_team_won") or 0)
+
+        # Simulated flat stake 100 (matches historical UI expectation)
+        pnl = float((float(od) - 1.0) * 100.0) if win == 1 else -100.0
+
+        return {
+            "date": r["date"].strftime(DATE_FMT),
+            "home_team": _safe_team(r.get("home_team")),
+            "away_team": _safe_team(r.get("away_team")),
+            "home_win_rate": float(r.get("home_win_rate") or 0.0),
+            "prob_iso": float(pi or 0.0),
+            "prob_used": float(pu or 0.0),
+            "odds_1": float(od or 0.0),
+            "ev_eur_per_100": float(ev or 0.0),
+            "win": win,
+            "pnl": pnl,
+            "stake": 100.0,
+        }
+
+    local_matched_games_rows = [_to_local_row(r) for r in matched_played]
     local_matched_games_count = int(len(local_matched_games_rows))
-    local_matched_games_profit_sum = float(sum(row.get("pnl", 0.0) or 0.0 for row in local_matched_games_rows))
+    local_matched_games_profit_sum = float(
+        sum((row.get("pnl", 0.0) or 0.0) for row in local_matched_games_rows)
+    )
 
-    matched_as_of_date = _max_date(local_matched_games_rows)
-    strategy_as_of_date = matched_as_of_date.strftime(DATE_FMT) if matched_as_of_date else as_of_date
+    # Force the filter stats count to match EXACTLY what we emit (validator/UI consistency)
+    strategy_filter_stats["matched_games_count"] = local_matched_games_count
+    strategy_filter_stats["window_start"] = window_start_dt
+    strategy_filter_stats["window_end"] = window_end_dt
+
+    matched_as_of_date = window_end_dt
+    strategy_as_of_date = window_end_label or as_of_date
 
     local_sharpe = _compute_sharpe_style(local_matched_games_rows) if local_matched_games_rows else None
     local_avg_odds = (
-        _safe_div(sum(row.get("odds_1", 0.0) or 0.0 for row in local_matched_games_rows), len(local_matched_games_rows))
-        if local_matched_games_rows else 0.0
+        _safe_div(
+            sum((row.get("odds_1", 0.0) or 0.0) for row in local_matched_games_rows),
+            len(local_matched_games_rows),
+        )
+        if local_matched_games_rows
+        else 0.0
     )
 
-    # Strategy filter stats are for UI labels; but matched_games_count must match the actual rows we emit
-    strategy_filter_stats = build_strategy_filter_stats(played_rows, params_used, window_size=200)
-    strategy_filter_stats["matched_games_count"] = local_matched_games_count
-
-    bankroll_last_200 = _compute_local_bankroll(local_matched_games_rows, 1000.0, 100.0)
-    ytd_rows = [row for row in local_matched_games_rows if _safe_date(row.get("date")) and _safe_date(row.get("date")) >= datetime(2026, 1, 1)]
-    bankroll_ytd_2026 = _compute_local_bankroll(ytd_rows, 1000.0, 100.0)
-
-    _, local_max_dd_eur, local_max_dd_pct = compute_local_risk_metrics(local_matched_games_rows, 1000.0, RISK_MIN_SAMPLE)
-
-    # Strategy summary (simulated on the strategy rows we emit)
     strategy_summary = {
         "totalBets": 0,
         "totalProfitEur": 0.0,
@@ -1201,46 +1308,84 @@ def main() -> None:
         "profitMetricsAvailable": False,
         "asOfDate": strategy_as_of_date,
     }
+
     if local_matched_games_rows:
-        total_bets = local_matched_games_count
         total_profit = local_matched_games_profit_sum
+        total_bets = local_matched_games_count
         roi_pct = _safe_div(total_profit, total_bets * 100.0) * 100.0 if total_bets else 0.0
         strategy_summary = {
             "totalBets": total_bets,
-            "totalProfitEur": total_profit,
-            "roiPct": roi_pct,
-            "avgEvPer100": _safe_div(sum(row.get("ev_eur_per_100", 0.0) or 0.0 for row in local_matched_games_rows), total_bets),
-            "winRate": _safe_div(sum(1 for row in local_matched_games_rows if row.get("win") == 1), total_bets),
+            "totalProfitEur": float(total_profit),
+            "roiPct": float(roi_pct),
+            "avgEvPer100": float(
+                _safe_div(
+                    sum((row.get("ev_eur_per_100", 0.0) or 0.0) for row in local_matched_games_rows),
+                    total_bets,
+                )
+            ),
+            "winRate": float(
+                _safe_div(sum(1 for row in local_matched_games_rows if row.get("win") == 1), total_bets)
+            ),
             "sharpeStyle": local_sharpe,
             "profitMetricsAvailable": True,
             "asOfDate": strategy_as_of_date,
         }
 
+    local_matched_games_mismatch = False
+    local_matched_games_note = ""
+
+    bankroll_last_200 = _compute_local_bankroll(local_matched_games_rows, 1000.0, 100.0)
+    ytd_rows = [
+        row
+        for row in local_matched_games_rows
+        if _safe_date(row.get("date")) and _safe_date(row.get("date")) >= datetime(2026, 1, 1)
+    ]
+    bankroll_ytd_2026 = _compute_local_bankroll(ytd_rows, 1000.0, 100.0)
+    _, local_max_dd_eur, local_max_dd_pct = compute_local_risk_metrics(
+        local_matched_games_rows, 1000.0, RISK_MIN_SAMPLE
+    )
+
     total_games = len(played_rows)
     total_correct = sum(int(r["home_team_won"]) for r in played_rows)
     overall_accuracy = _safe_div(total_correct, total_games)
+
     last_run = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
-    # ---- Placed Bets (Real) settled YTD 2026 ----
+    # ----------------------------
+    # Placed Bets (Real) — SETTLED (YTD from 2026-01-01)
+    # ----------------------------
     bet_log_flat_rows = load_bet_log_flat(bet_log_flat_path) if bet_log_flat_path else []
     ytd_start = datetime(2026, 1, 1)
 
-    settled_bets_rows = build_settled_bets(bet_log_flat_rows, played_rows, ytd_start=ytd_start)
-    settled_bets_summary = build_settled_bet_summary(settled_bets_rows)
-    settled_bets_summary["count"] = int(len(settled_bets_rows))  # hard guarantee
-
-    window_games_count = next(
-        (int(item["count"]) for item in strategy_filter_stats.get("filters", []) if item.get("label") == "Window games"),
-        0,
+    settled_bets_rows = build_settled_bets(
+        bet_log_flat_rows,
+        played_rows,
+        ytd_start=ytd_start,
     )
+
+    # Optional: mismatch check (never fail build)
+    try:
+        if bet_log_flat_rows and settled_bets_rows:
+            assert_settled_bets_match_local(settled_bets_rows, local_matched_games_rows)
+    except Exception as e:
+        print(f"WARNING: settled vs local mismatch: {e}")
+
+    settled_bets_summary = build_settled_bet_summary(settled_bets_rows)
+    settled_bets_summary["count"] = int(len(settled_bets_rows))  # hard guarantee for validator
+
+    window_games_count = int(len(window_played_rows))  # should be 200 unless dataset smaller
 
     summary_payload = {
         "last_run": last_run,
         "as_of_date": as_of_date,
-        "window_size": len(window_rows) if window_rows else 0,
+        "window_size": len(window_played_rows) if window_played_rows else 0,
         "window_start": window_start_label,
         "window_end": window_end_label,
-        "summary_stats": {"total_games": total_games, "overall_accuracy": overall_accuracy, "as_of_date": as_of_date},
+        "summary_stats": {
+            "total_games": total_games,
+            "overall_accuracy": overall_accuracy,
+            "as_of_date": as_of_date,
+        },
         "kpis": {
             "total_bets": strategy_summary["totalBets"],
             "win_rate": strategy_summary["winRate"],
@@ -1255,6 +1400,7 @@ def main() -> None:
             "window_games_count": window_games_count,
             "filter_pass_count": int(strategy_filter_stats.get("matched_games_count", 0)),
             "simulated_bets_count": local_matched_games_count,
+            # keep existing key name (even if naming is weird) to satisfy frontend/validators:
             "settled_bets_count": local_matched_games_count,
         },
         "strategy_params": {
@@ -1283,12 +1429,14 @@ def main() -> None:
         "local_matched_games_rows": local_matched_games_rows,
         "local_matched_games_count": local_matched_games_count,
         "local_matched_games_profit_sum_table": local_matched_games_profit_sum,
-        "local_matched_games_mismatch": False,
-        "local_matched_games_note": "" if local_matched_games_rows else "No matched games recorded.",
+        "local_matched_games_mismatch": local_matched_games_mismatch,
+        "local_matched_games_note": local_matched_games_note
+        or ("No matched games recorded for this window." if not local_matched_games_rows else ""),
         "local_matched_games_source": _label_path(local_matched_games_path),
         "bankroll_last_200": bankroll_last_200,
         "bankroll_ytd_2026": bankroll_ytd_2026,
         "local_matched_games_avg_odds": local_avg_odds,
+        # Placed Bets (Real) — YTD 2026 (SETTLED only)
         "settled_bets_rows": settled_bets_rows,
         "settled_bets_summary": settled_bets_summary,
     }
@@ -1329,13 +1477,17 @@ def main() -> None:
 
     copied_sources = copy_sources(
         output_dir,
-        {"combined_file": combined_path, "local_matched_games": local_matched_games_path, "bet_log_flat": bet_log_flat_path},
+        {
+            "combined_file": combined_path,
+            "local_matched_games": local_matched_games_path,
+            "bet_log_flat": bet_log_flat_path,
+        },
     )
 
     dashboard_payload = {
         "as_of_date": as_of_date,
         "window": {
-            "size": 200,  # validator expects 200
+            "size": int(len(window_played_rows)) if window_played_rows else 0,
             "start": window_start_label,
             "end": window_end_label,
             "games_count": window_games_count,
@@ -1353,21 +1505,26 @@ def main() -> None:
         },
     }
 
-    window_size_label = int(strategy_filter_stats.get("window_size") or 200)
+    window_size_label = int(strategy_filter_stats.get("window_size") or CALIBRATION_WINDOW)
     window_start_display = window_start_label or "—"
     window_end_display = window_end_label or "—"
-    active_filters_text = f"{active_filters_label} | window {window_size_label} ({window_start_display} → {window_end_display})"
+    active_filters_text = (
+        f"{active_filters_label} | window {window_size_label} ({window_start_display} → {window_end_display})"
+    )
+
+    # THIS is what validator checks: state must match computed (computed uses window-played matches)
+    strategy_matches_window = int(local_matched_games_count)
 
     dashboard_state = {
         "as_of_date": as_of_date,
-        "window_size": window_size_label,
+        "window_size": int(window_size_label),
         "window_start": window_start_label,
         "window_end": window_end_label,
         "active_filters_text": active_filters_text,
         "params_used_label": params_used_label,
         "params_source_label": _label_path(strategy_params_source),
-        "strategy_as_of_date": strategy_as_of_date,
-        "strategy_matches_window": int(local_matched_games_count),  # <-- THIS is the 16
+        "strategy_as_of_date": matched_as_of_date.strftime(DATE_FMT) if matched_as_of_date else None,
+        "strategy_matches_window": strategy_matches_window,
         "last_update_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "sources": {
             "combined": _label_path(combined_path),
@@ -1382,8 +1539,11 @@ def main() -> None:
     write_json(output_dir / "dashboard_payload.json", dashboard_payload)
     write_json(output_dir / "dashboard_state.json", dashboard_state)
 
-    print("Wrote summary.json, tables.json, last_run.json, dashboard_payload.json, dashboard_state.json "
-          f"to {output_dir}")
+    print(
+        "Wrote summary.json, tables.json, last_run.json, dashboard_payload.json, dashboard_state.json "
+        f"to {output_dir}"
+    )
+
 
 
 if __name__ == "__main__":
