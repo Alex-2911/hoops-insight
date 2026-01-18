@@ -475,28 +475,72 @@ def _compute_ece(y: List[int], p: List[float], bins: int = 10) -> Optional[float
 def load_played_games(path: Path) -> List[Dict[str, object]]:
     rows: List[Dict[str, object]] = []
     for row in _read_csv_normalized(path):
-        home_team = _safe_team(row.get("home_team"))
-        away_team = _safe_team(row.get("away_team"))
-
-        result_raw = row.get("result") or row.get("result_raw")
-        result_team = _safe_team(result_raw)
-
-        # played games only
-        if result_team is None or result_team in {"0"}:
-            continue
-
+        # date (MUST exist)
         date_raw = row.get("game_date") or row.get("date")
         game_date = _safe_date(date_raw)
         if game_date is None:
             continue
 
-        # label: 1 if home team won, else 0
-        home_team_won = 1 if (home_team is not None and result_team == home_team) else 0
+        # teams (fallback to matchup if needed)
+        home_team = _safe_team(row.get("home_team"))
+        away_team = _safe_team(row.get("away_team"))
+        if (home_team is None or away_team is None) and row.get("matchup"):
+            h2, a2 = _parse_matchup(row.get("matchup"))
+            home_team = home_team or h2
+            away_team = away_team or a2
 
-        prob_raw = _safe_float(row.get("pred_home_win_proba") or row.get("home_team_prob"))
-        prob_iso = _safe_float(row.get("iso_proba_home_win"))
-        odds = _safe_float(row.get("closing_home_odds") or row.get("odds_1"))
-        home_win_rate = _safe_float(row.get("home_win_rate"))
+        # winner / result (robust)
+        result_raw = (
+            row.get("result")
+            or row.get("result_raw")
+            or row.get("winner")
+            or row.get("winning_team")
+            or row.get("team_won")
+            or row.get("home_team_won")
+            or row.get("home_win")
+        )
+
+        if result_raw is None:
+            continue
+        raw_s = str(result_raw).strip().upper()
+        if raw_s in {"", "NA", "NAN", "NONE"}:
+            continue
+
+        # Determine label: 1 if home won else 0
+        if raw_s in {"1", "HOME", "H", "TRUE"}:
+            home_team_won = 1
+        elif raw_s in {"0", "AWAY", "A", "FALSE"}:
+            home_team_won = 0
+        else:
+            result_team = _safe_team(result_raw)
+            if result_team is None or home_team is None:
+                continue
+            home_team_won = 1 if result_team == home_team else 0
+
+        prob_raw = _safe_float(
+            row.get("pred_home_win_proba")
+            or row.get("home_team_prob")
+            or row.get("prob_raw")
+            or row.get("prob")
+        )
+        prob_iso = _safe_float(
+            row.get("iso_proba_home_win")
+            or row.get("prob_iso")
+            or row.get("probability_iso")
+            or row.get("iso_prob")
+        )
+        odds = _safe_float(
+            row.get("closing_home_odds")
+            or row.get("odds_1")
+            or row.get("odds")
+            or row.get("home_odds")
+        )
+        home_win_rate = _safe_float(
+            row.get("home_win_rate")
+            or row.get("home_win_pct")
+            or row.get("hw")
+            or row.get("home_wr")
+        )
 
         rows.append(
             {
@@ -510,7 +554,10 @@ def load_played_games(path: Path) -> List[Dict[str, object]]:
                 "home_win_rate": home_win_rate,
             }
         )
+
     return rows
+
+
 
 
 
@@ -980,28 +1027,32 @@ def main() -> None:
     # ----------------------------
     # Resolve sources
     # ----------------------------
-if data_dir:
-    combined_latest = data_dir / "combined_latest.csv"
+    if data_dir:
+        combined_latest = data_dir / "combined_latest.csv"
 
-    strategy_json = data_dir / "strategy_params.json"
-    strategy_txt = data_dir / "strategy_params.txt"
+        strategy_json = data_dir / "strategy_params.json"
+        strategy_txt = data_dir / "strategy_params.txt"
 
-    sources = SourcePaths(
-        combined_iso=combined_latest if combined_latest.exists() else None,
-        combined_acc=None,
-        bet_log=None,
-        bet_log_flat=(data_dir / "bet_log_flat_live.csv") if (data_dir / "bet_log_flat_live.csv").exists() else None,
-        local_matched_games=(data_dir / "local_matched_games_latest.csv") if (data_dir / "local_matched_games_latest.csv").exists() else None,
-        strategy_params=(
-            strategy_json if strategy_json.exists()
-            else strategy_txt if strategy_txt.exists()
-            else None
-        ),
-    )
-else:
-    sources = _resolve_sources(source_root, None)
-
-
+        sources = SourcePaths(
+            combined_iso=combined_latest if combined_latest.exists() else None,
+            combined_acc=None,
+            bet_log=None,
+            bet_log_flat=(data_dir / "bet_log_flat_live.csv")
+            if (data_dir / "bet_log_flat_live.csv").exists()
+            else None,
+            local_matched_games=(data_dir / "local_matched_games_latest.csv")
+            if (data_dir / "local_matched_games_latest.csv").exists()
+            else None,
+            strategy_params=(
+                strategy_json
+                if strategy_json.exists()
+                else strategy_txt
+                if strategy_txt.exists()
+                else None
+            ),
+        )
+    else:
+        sources = _resolve_sources(source_root, None)
 
 
     if sources.combined_iso:
@@ -1027,8 +1078,16 @@ else:
     # Bet log (optional)
     # ----------------------------
     bet_log_rows: List[Dict[str, object]] = []
-    if sources.bet_log and sources.bet_log.exists():
-        bet_log_rows = load_bet_log(sources.bet_log)
+    bet_log_path = None
+    
+    if sources.bet_log_flat and sources.bet_log_flat.exists():
+        bet_log_path = sources.bet_log_flat
+    elif sources.bet_log and sources.bet_log.exists():
+        bet_log_path = sources.bet_log
+    
+    if bet_log_path:
+        bet_log_rows = load_bet_log(bet_log_path)
+
 
     bet_log_summary = build_bet_log_summary(bet_log_rows)
     bankroll_history = build_bankroll_history(bet_log_rows)
@@ -1042,7 +1101,7 @@ else:
     window_end_label = window_end_dt.strftime(DATE_FMT) if window_end_dt else None
 
     # Re-resolve sources now that we know as_of_date (prefer dated params/local files)
-    if source_root and (source_root / "output" / "LightGBM").exists():
+    if (not data_dir) and source_root and (source_root / "output" / "LightGBM").exists():
         sources = _resolve_sources(source_root, as_of_date)
 
     # ----------------------------
