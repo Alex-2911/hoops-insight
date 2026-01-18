@@ -259,7 +259,8 @@ const Index = () => {
     dashboardState?.window_start ?? windowInfo.start ?? summary?.window_start ?? "—";
   const windowEndLabel =
     dashboardState?.window_end ?? windowInfo.end ?? summary?.window_end ?? summaryAsOfDate ?? "—";
-  const windowGamesLabel = windowInfo.games_count ?? windowSize;
+  const windowGamesLabel =
+    windowInfo.games_count && windowInfo.games_count > 0 ? windowInfo.games_count : windowSize;
   const activeFiltersEffective =
     dashboardState?.active_filters_text ??
     payload?.active_filters_effective ??
