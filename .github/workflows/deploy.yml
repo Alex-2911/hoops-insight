@@ -39,9 +39,6 @@ jobs:
       - name: Install jq (needed for workflow status polling)
         run: sudo apt-get update && sudo apt-get install -y jq
 
-      # IMPORTANT:
-      # - github.token cannot trigger workflows in another repo.
-      # - Use a PAT in secrets.BP_TOKEN with at least: repo + workflow scopes.
       - name: Trigger Basketball_prediction pipeline
         shell: bash
         env:
@@ -135,10 +132,10 @@ jobs:
           [[ -f "$METRICS" ]] || (echo "ERROR: missing $METRICS" && exit 1)
           [[ -f "$STRATEGY_TXT" ]] || (echo "ERROR: missing $STRATEGY_TXT" && exit 1)
 
-          COMBINED_ACC="$(find "$ROOT" -maxdepth 1 -name "combined_nba_predictions_acc_*.csv" -type f -printf "%T@ %p\n" | sort -nr | head -n1 | cut -d' ' -f2- || true)"
+          COMBINED_ACC="$(find "$ROOT" -maxdepth 1 -name "combined_nba_predictions_acc_*.csv" -type f -printf "%T@ %p\n" | sort -n | tail -n1 | cut -d' ' -f2- || true)"
           [[ -n "${COMBINED_ACC:-}" ]] || (echo "ERROR: no combined_nba_predictions_acc_*.csv under $ROOT" && exit 1)
 
-          LOCAL_MATCHED="$(find "$ROOT" -maxdepth 1 -name "local_matched_games_*.csv" -type f -printf "%T@ %p\n" | sort -nr | head -n1 | cut -d' ' -f2- || true)"
+          LOCAL_MATCHED="$(find "$ROOT" -maxdepth 1 -name "local_matched_games_*.csv" -type f -printf "%T@ %p\n" | sort -n | tail -n1 | cut -d' ' -f2- || true)"
           [[ -n "${LOCAL_MATCHED:-}" ]] || (echo "ERROR: no local_matched_games_*.csv under $ROOT" && exit 1)
 
           echo "✔ Found metrics_snapshot: $METRICS"
@@ -157,8 +154,9 @@ jobs:
 
           METRICS="$ROOT/metrics_snapshot.json"
           STRATEGY_TXT="$ROOT/strategy_params.txt"
-          COMBINED_ACC="$(find "$ROOT" -maxdepth 1 -name "combined_nba_predictions_acc_*.csv" -type f -printf "%T@ %p\n" | sort -nr | head -n1 | cut -d' ' -f2-)"
-          LOCAL_MATCHED="$(find "$ROOT" -maxdepth 1 -name "local_matched_games_*.csv" -type f -printf "%T@ %p\n" | sort -nr | head -n1 | cut -d' ' -f2-)"
+
+          COMBINED_ACC="$(find "$ROOT" -maxdepth 1 -name "combined_nba_predictions_acc_*.csv" -type f -printf "%T@ %p\n" | sort -n | tail -n1 | cut -d' ' -f2-)"
+          LOCAL_MATCHED="$(find "$ROOT" -maxdepth 1 -name "local_matched_games_*.csv" -type f -printf "%T@ %p\n" | sort -n | tail -n1 | cut -d' ' -f2-)"
 
           BET_LOG_FLAT="$ROOT/bet_log_flat_live.csv"
           STRATEGY_PARAMS_JSON="$ROOT/strategy_params.json"
@@ -191,43 +189,42 @@ jobs:
           echo "✔ public/data contents:"
           ls -la "$OUT"
 
-            - name: Ensure strategy_params.json exists (convert from txt if needed)
-              shell: bash
-              run: |
-                set -euo pipefail
-                OUT="$GITHUB_WORKSPACE/public/data"
-      
-                if [[ ! -f "$OUT/strategy_params.json" && -f "$OUT/strategy_params.txt" ]]; then
-                  python - <<'PY'
-                  import json, re
-                  from pathlib import Path
-                  
-                  p = Path("public/data/strategy_params.txt")
-                  params = {}
-                  for line in p.read_text(encoding="utf-8").splitlines():
-                      s = line.strip()
-                      if not s or s.startswith("#"):
-                          continue
-                      m = re.match(r"^([^:=#]+)[:=]\s*(.+)$", s)
-                      if not m:
-                          continue
-                      k = m.group(1).strip()
-                      v = m.group(2).strip()
-                      try:
-                          fv = float(v)
-                          v = int(fv) if fv.is_integer() else fv
-                      except Exception:
-                          pass
-                      params[k] = v
-                  
-                  Path("public/data/strategy_params.json").write_text(
-                      json.dumps({"params_used": params, "params_used_label": "Historical"}, indent=2, ensure_ascii=False),
-                      encoding="utf-8"
-                  )
-                  print("Wrote public/data/strategy_params.json from strategy_params.txt")
-                  PY
-                fi
-          
+      - name: Ensure strategy_params.json exists (convert from txt if needed)
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$GITHUB_WORKSPACE/public/data"
+
+          if [[ ! -f "$OUT/strategy_params.json" && -f "$OUT/strategy_params.txt" ]]; then
+            python - <<'PY'
+import json, re
+from pathlib import Path
+
+p = Path("public/data/strategy_params.txt")
+params = {}
+for line in p.read_text(encoding="utf-8").splitlines():
+    s = line.strip()
+    if not s or s.startswith("#"):
+        continue
+    m = re.match(r"^([^:=#]+)[:=]\s*(.+)$", s)
+    if not m:
+        continue
+    k = m.group(1).strip()
+    v = m.group(2).strip()
+    try:
+        fv = float(v)
+        v = int(fv) if fv.is_integer() else fv
+    except Exception:
+        pass
+    params[k] = v
+
+Path("public/data/strategy_params.json").write_text(
+    json.dumps({"params_used": params, "params_used_label": "Historical"}, indent=2, ensure_ascii=False),
+    encoding="utf-8",
+)
+print("Wrote public/data/strategy_params.json from strategy_params.txt")
+PY
+          fi
 
       - name: Setup Python 3.11 with pip cache
         uses: actions/setup-python@v5
