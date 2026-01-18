@@ -1414,14 +1414,19 @@ def main() -> None:
     active_filters_label = _human_readable_filters(params_used)
 
     strategy_filter_stats = build_strategy_filter_stats(played_rows, params_used, window_size=200)
+    
+    # Only restrict local_matched_games to the same WINDOW as the model window.
+    # Do NOT re-apply the param stack here, because local_matched_games is already
+    # the output of the strategy filter pipeline (and the UI expects full rows).
     local_matched_games_rows = filter_local_matched_games_window(
         local_matched_games_rows,
         strategy_filter_stats.get("window_start"),
         strategy_filter_stats.get("window_end"),
     )
-    local_matched_games_rows = filter_local_matched_games_params(
-        local_matched_games_rows, params_used
-    )
+
+# IMPORTANT: keep the full windowed rows (no param trimming)
+# local_matched_games_rows = filter_local_matched_games_params(local_matched_games_rows, params_used)
+
     local_matched_games_count = len(local_matched_games_rows)
     local_matched_games_profit_sum = sum(row.get("pnl", 0.0) for row in local_matched_games_rows)
     matched_count_table = local_matched_games_count
