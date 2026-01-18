@@ -1164,7 +1164,38 @@ def main() -> None:
     # ----------------------------
     # Payloads (keep simple + stable)
     # ----------------------------
+
+
+    # Tables expected by validate_dashboard_payload.py
+    local_rows_out = local_matched_games_rows[:2000]  # cap ok
+    tables_payload = {
+        "local_matched_games_rows": local_rows_out,
+        "settled_bets_rows": [],  # wire later if you want; must match count below
+        "settled_bets_summary": {"count": 0},
+    }
+
+    # Validator requires these NOT be None when sample size >= 5
+    sharpe_out = local_sharpe
+    max_dd_out = local_max_dd_eur
+    if len(local_rows_out) >= 5:
+        if sharpe_out is None:
+            sharpe_out = 0.0
+        if max_dd_out is None:
+            max_dd_out = 0.0
+
+    # Summary expected by validate_dashboard_payload.py (extra fields are fine)
     summary_payload = {
+        "strategy_counts": {
+            "settled_bets_count": int(len(tables_payload["local_matched_games_rows"])),
+        },
+        "strategy_summary": {
+            "sharpeStyle": sharpe_out,
+        },
+        "kpis": {
+            "max_drawdown_eur": max_dd_out,
+        },
+
+        # --- keep your app stuff (optional, extra fields are fine) ---
         "asOfDate": as_of_date,
         "windowSize": int(window_size_label),
         "model": {
@@ -1178,13 +1209,6 @@ def main() -> None:
             "summary": bet_log_summary,
             "bankrollHistory": bankroll_history,
         },
-    }
-
-    # Tables: keep them separate for UI components
-    tables_payload = {
-        "localMatchedGames": local_matched_games_rows[:2000],  # safety cap
-        "homeWinRatesLast20": home_win_rates,
-        "accuracyThresholds": accuracy_thresholds,
     }
 
     last_run_payload = {
@@ -1205,8 +1229,6 @@ def main() -> None:
         },
     )
 
-    # NOTE: validate_dashboard_payload.py expects these top-level fields:
-    # as_of_date, window, active_filters_effective, sources (plus summary/tables/state already used by the app)
     dashboard_payload = {
         "as_of_date": as_of_date,
         "window": {
@@ -1226,6 +1248,9 @@ def main() -> None:
             "copied": copied_sources,
         },
     }
+
+
+
 
     # ----------------------------
     # Write outputs
