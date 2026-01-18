@@ -197,33 +197,33 @@ jobs:
 
           if [[ ! -f "$OUT/strategy_params.json" && -f "$OUT/strategy_params.txt" ]]; then
             python - <<'PY'
-import json, re
-from pathlib import Path
-
-p = Path("public/data/strategy_params.txt")
-params = {}
-for line in p.read_text(encoding="utf-8").splitlines():
-    s = line.strip()
-    if not s or s.startswith("#"):
-        continue
-    m = re.match(r"^([^:=#]+)[:=]\s*(.+)$", s)
-    if not m:
-        continue
-    k = m.group(1).strip()
-    v = m.group(2).strip()
-    try:
-        fv = float(v)
-        v = int(fv) if fv.is_integer() else fv
-    except Exception:
-        pass
-    params[k] = v
-
-Path("public/data/strategy_params.json").write_text(
-    json.dumps({"params_used": params, "params_used_label": "Historical"}, indent=2, ensure_ascii=False),
-    encoding="utf-8",
-)
-print("Wrote public/data/strategy_params.json from strategy_params.txt")
-PY
+            import json, re
+            from pathlib import Path
+            
+            p = Path("public/data/strategy_params.txt")
+            params = {}
+            for line in p.read_text(encoding="utf-8").splitlines():
+                s = line.strip()
+                if not s or s.startswith("#"):
+                    continue
+                m = re.match(r"^([^:=#]+)[:=]\s*(.+)$", s)
+                if not m:
+                    continue
+                k = m.group(1).strip()
+                v = m.group(2).strip()
+                try:
+                    fv = float(v)
+                    v = int(fv) if fv.is_integer() else fv
+                except Exception:
+                    pass
+                params[k] = v
+            
+            Path("public/data/strategy_params.json").write_text(
+                json.dumps({"params_used": params, "params_used_label": "Historical"}, indent=2, ensure_ascii=False),
+                encoding="utf-8",
+            )
+            print("Wrote public/data/strategy_params.json from strategy_params.txt")
+            PY
           fi
 
       - name: Setup Python 3.11 with pip cache
