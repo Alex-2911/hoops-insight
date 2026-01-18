@@ -73,7 +73,7 @@ const Index = () => {
       return payload.tables;
     }
     const pickArray = <T,>(primary?: T[], fallback?: T[]) =>
-      fallback && fallback.length > 0 ? fallback : primary ?? [];
+      primary && primary.length > 0 ? primary : fallback ?? [];
     return {
       ...payload.tables,
       ...tablesFallback,
