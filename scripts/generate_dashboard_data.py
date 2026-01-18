@@ -1696,6 +1696,7 @@ def main() -> None:
         f"{active_filters_label} | window {window_size_label} ({window_start_display} → {window_end_display})"
     )
 
+    strategy_matches_window = int(len(local_matched_games_rows))
     dashboard_state = {
         "as_of_date": as_of_date,
         "window_size": window_size_label,
@@ -1707,7 +1708,7 @@ def main() -> None:
         "strategy_as_of_date": matched_as_of_date.strftime(DATE_FMT)
         if matched_as_of_date
         else None,
-        "strategy_matches_window": local_matched_games_count,
+        "strategy_matches_window": strategy_matches_window,
         "last_update_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "sources": {
             "combined": _label_path(combined_path),
