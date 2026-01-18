@@ -65,7 +65,57 @@ const Index = () => {
   }, []);
 
   const summary = payload?.summary ?? null;
-  const tables = payload?.tables ?? null;
+  const tables = useMemo(() => {
+    if (!payload?.tables) {
+      return tablesFallback ?? null;
+    }
+    if (!tablesFallback) {
+      return payload.tables;
+    }
+    const pickArray = <T,>(primary?: T[], fallback?: T[]) =>
+      fallback && fallback.length > 0 ? fallback : primary ?? [];
+    return {
+      ...payload.tables,
+      ...tablesFallback,
+      historical_stats: pickArray(
+        payload.tables.historical_stats,
+        tablesFallback.historical_stats,
+      ),
+      accuracy_threshold_stats: pickArray(
+        payload.tables.accuracy_threshold_stats,
+        tablesFallback.accuracy_threshold_stats,
+      ),
+      home_win_rates_last20: pickArray(
+        payload.tables.home_win_rates_last20,
+        tablesFallback.home_win_rates_last20,
+      ),
+      bankroll_history: pickArray(
+        payload.tables.bankroll_history,
+        tablesFallback.bankroll_history,
+      ),
+      settled_bets_rows: pickArray(
+        payload.tables.settled_bets_rows,
+        tablesFallback.settled_bets_rows,
+      ),
+      local_matched_games_rows: pickArray(
+        payload.tables.local_matched_games_rows,
+        tablesFallback.local_matched_games_rows,
+      ),
+      calibration_metrics: tablesFallback.calibration_metrics ?? payload.tables.calibration_metrics,
+      bet_log_summary: tablesFallback.bet_log_summary ?? payload.tables.bet_log_summary,
+      bankroll_ytd_2026: tablesFallback.bankroll_ytd_2026 ?? payload.tables.bankroll_ytd_2026,
+      settled_bets_summary: tablesFallback.settled_bets_summary ?? payload.tables.settled_bets_summary,
+      local_matched_games_count:
+        tablesFallback.local_matched_games_count ?? payload.tables.local_matched_games_count,
+      local_matched_games_profit_sum_table:
+        tablesFallback.local_matched_games_profit_sum_table ??
+        payload.tables.local_matched_games_profit_sum_table,
+      local_matched_games_note:
+        tablesFallback.local_matched_games_note ?? payload.tables.local_matched_games_note,
+      local_matched_games_mismatch:
+        tablesFallback.local_matched_games_mismatch ?? payload.tables.local_matched_games_mismatch,
+    };
+  }, [payload?.tables, tablesFallback]);
   const windowInfo = payload?.window ?? {
     size: 0,
     start: "—",
@@ -95,11 +145,7 @@ const Index = () => {
     windowSize: 0,
   };
   const homeWinRatesLast20 = tables?.home_win_rates_last20 ?? [];
-  const localMatchedGamesRows = useMemo(() => {
-    const primaryRows = tables?.local_matched_games_rows ?? [];
-    const fallbackRows = tablesFallback?.local_matched_games_rows ?? [];
-    return fallbackRows.length > primaryRows.length ? fallbackRows : primaryRows;
-  }, [tables?.local_matched_games_rows, tablesFallback?.local_matched_games_rows]);
+  const localMatchedGamesRows = tables?.local_matched_games_rows ?? [];
   const settledBetsRows = tables?.settled_bets_rows ?? [];
   const START_BANKROLL_REAL = 1000;
   const START_BANKROLL_SIM = 1000;
