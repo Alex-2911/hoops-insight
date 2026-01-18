@@ -475,11 +475,14 @@ def _compute_ece(y: List[int], p: List[float], bins: int = 10) -> Optional[float
 def load_played_games(path: Path) -> List[Dict[str, object]]:
     rows: List[Dict[str, object]] = []
     for row in _read_csv_normalized(path):
-        home_team = row.get("home_team")
-        away_team = row.get("away_team")
+        home_team = _safe_team(row.get("home_team"))
+        away_team = _safe_team(row.get("away_team"))
 
-        result = row.get("result") or row.get("result_raw")
-        if result is None or str(result).strip() in {"", "0"}:
+        result_raw = row.get("result") or row.get("result_raw")
+        result_team = _safe_team(result_raw)
+
+        # played games only
+        if result_team is None or result_team in {"0"}:
             continue
 
         date_raw = row.get("game_date") or row.get("date")
@@ -487,7 +490,8 @@ def load_played_games(path: Path) -> List[Dict[str, object]]:
         if game_date is None:
             continue
 
-        home_team_won = 1 if str(result).strip() == str(home_team).strip() else 0
+        # label: 1 if home team won, else 0
+        home_team_won = 1 if (home_team is not None and result_team == home_team) else 0
 
         prob_raw = _safe_float(row.get("pred_home_win_proba") or row.get("home_team_prob"))
         prob_iso = _safe_float(row.get("iso_proba_home_win"))
@@ -509,12 +513,23 @@ def load_played_games(path: Path) -> List[Dict[str, object]]:
     return rows
 
 
+
 def build_historical_stats(rows: List[Dict[str, object]]) -> List[Dict[str, object]]:
     per_day = defaultdict(lambda: {"total": 0, "correct": 0})
+
     for r in rows:
         d = r["date"].strftime(DATE_FMT)
+        p = r["prob_iso"] if r.get("prob_iso") is not None else r.get("prob_raw")
+        if p is None:
+            continue
+
+        y = int(r["home_team_won"])
+        pred = 1 if float(p) >= 0.5 else 0
+        correct = 1 if pred == y else 0
+
         per_day[d]["total"] += 1
-        per_day[d]["correct"] += int(r["home_team_won"])
+        per_day[d]["correct"] += correct
+
     output = []
     for d in sorted(per_day.keys()):
         total = per_day[d]["total"]
@@ -530,22 +545,34 @@ def build_historical_stats(rows: List[Dict[str, object]]) -> List[Dict[str, obje
     return output
 
 
+
 def build_accuracy_thresholds(rows: List[Dict[str, object]]) -> List[Dict[str, object]]:
     out = []
     for spec in THRESHOLDS:
         threshold = spec["threshold"]
         passed = []
         for r in rows:
-            p = r["prob_iso"] if r["prob_iso"] is not None else r["prob_raw"]
+            p = r["prob_iso"] if r.get("prob_iso") is not None else r.get("prob_raw")
             if p is None:
                 continue
+            p = float(p)
+
             if spec["thresholdType"] == "gt" and p > threshold:
                 passed.append(r)
             elif spec["thresholdType"] == "lt" and p <= threshold:
                 passed.append(r)
 
-        total = len(passed)
-        correct = sum(int(r["home_team_won"]) for r in passed)
+        total = 0
+        correct = 0
+        for r in passed:
+            p = r["prob_iso"] if r.get("prob_iso") is not None else r.get("prob_raw")
+            if p is None:
+                continue
+            y = int(r["home_team_won"])
+            pred = 1 if float(p) >= 0.5 else 0
+            total += 1
+            correct += 1 if pred == y else 0
+
         out.append(
             {
                 "label": spec["label"],
@@ -556,6 +583,7 @@ def build_accuracy_thresholds(rows: List[Dict[str, object]]) -> List[Dict[str, o
             }
         )
     return out
+
 
 
 def build_calibration_metrics(
@@ -953,16 +981,26 @@ def main() -> None:
     # Resolve sources
     # ----------------------------
     if data_dir:
+        combined_latest = data_dir / "combined_latest.csv"
+
         sources = SourcePaths(
-            combined_iso=data_dir / "combined_latest.csv",
+            combined_iso=combined_latest if combined_latest.exists() else None,
             combined_acc=None,
             bet_log=None,
-            bet_log_flat=(data_dir / "bet_log_flat_live.csv") if (data_dir / "bet_log_flat_live.csv").exists() else None,
-            local_matched_games=(data_dir / "local_matched_games_latest.csv") if (data_dir / "local_matched_games_latest.csv").exists() else None,
-            strategy_params=(data_dir / "strategy_params.json") if (data_dir / "strategy_params.json").exists() else None,
+            bet_log_flat=(data_dir / "bet_log_flat_live.csv")
+            if (data_dir / "bet_log_flat_live.csv").exists()
+            else None,
+            local_matched_games=(data_dir / "local_matched_games_latest.csv")
+            if (data_dir / "local_matched_games_latest.csv").exists()
+            else None,
+            strategy_params=(data_dir / "strategy_params.json")
+            if (data_dir / "strategy_params.json").exists()
+            else None,
         )
     else:
         sources = _resolve_sources(source_root, None)
+
+
 
     if sources.combined_iso:
         combined_path = sources.combined_iso
