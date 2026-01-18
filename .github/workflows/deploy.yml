@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  actions: write
   pages: write
   id-token: write
 
@@ -22,9 +23,213 @@ jobs:
       # GitHub Pages base path for Vite build
       BASE_URL: /hoops-insight/
 
+      # Cross-repo Basketball_prediction settings
+      BP_OWNER: "Alex-2911"
+      BP_REPO: "Basketball_prediction"
+      BP_BRANCH: "2026"
+      BP_WORKFLOW_FILE: "1_get_data_previous_game_day_2026.yml"
+
+      # Optional
+      N_WINDOW: "200"
+
     steps:
       - name: Checkout hoops-insight repo
         uses: actions/checkout@v4
+
+      - name: Install jq (needed for workflow status polling)
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      # IMPORTANT:
+      # - github.token cannot trigger workflows in another repo.
+      # - Use a PAT in secrets.BP_TOKEN with at least: repo + workflow scopes.
+      - name: Trigger Basketball_prediction pipeline
+        shell: bash
+        env:
+          BP_TOKEN: ${{ secrets.BP_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${BP_TOKEN:-}" ]]; then
+            echo "ERROR: secrets.BP_TOKEN is required to trigger cross-repo workflow."
+            exit 1
+          fi
+
+          echo "Triggering workflow '$BP_WORKFLOW_FILE' in $BP_OWNER/$BP_REPO on ref=$BP_BRANCH"
+          WF_ENC="${BP_WORKFLOW_FILE// /%20}"
+
+          curl -fLsS -X POST \
+            -H "Authorization: Bearer $BP_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -d "{\"ref\":\"$BP_BRANCH\"}" \
+            "https://api.github.com/repos/$BP_OWNER/$BP_REPO/actions/workflows/$WF_ENC/dispatches"
+
+          echo "✔ Triggered."
+
+      - name: Wait for Basketball_prediction run to succeed
+        shell: bash
+        env:
+          BP_TOKEN: ${{ secrets.BP_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${BP_TOKEN:-}" ]]; then
+            echo "ERROR: secrets.BP_TOKEN is required to query cross-repo workflow status."
+            exit 1
+          fi
+
+          echo "Waiting for workflow '$BP_WORKFLOW_FILE' on ref=$BP_BRANCH to complete successfully..."
+          WF_ENC="${BP_WORKFLOW_FILE// /%20}"
+
+          # 60 attempts x 10s = 10 minutes
+          for i in {1..60}; do
+            RUN_JSON="$(curl -fsS \
+              -H "Authorization: Bearer $BP_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/$BP_OWNER/$BP_REPO/actions/workflows/$WF_ENC/runs?branch=$BP_BRANCH&per_page=1")"
+
+            ID="$(echo "$RUN_JSON" | jq -r '.workflow_runs[0].id // empty')"
+            STATUS="$(echo "$RUN_JSON" | jq -r '.workflow_runs[0].status // empty')"
+            CONCLUSION="$(echo "$RUN_JSON" | jq -r '.workflow_runs[0].conclusion // empty')"
+
+            echo "Attempt $i → RunID=${ID:-n/a} | status=${STATUS:-n/a} | conclusion=${CONCLUSION:-n/a}"
+
+            if [[ "${STATUS:-}" == "completed" && "${CONCLUSION:-}" == "success" ]]; then
+              echo "✔ Latest Basketball_prediction run succeeded!"
+              exit 0
+            fi
+
+            echo "Not successful yet — waiting 10s..."
+            sleep 10
+          done
+
+          echo "✖ Workflow did not succeed in time."
+          exit 1
+
+      - name: Checkout Basketball_prediction repo (branch 2026)
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.BP_OWNER }}/${{ env.BP_REPO }}
+          ref: ${{ env.BP_BRANCH }}
+          path: Basketball_prediction
+          fetch-depth: 1
+          token: ${{ secrets.BP_TOKEN }}
+
+      - name: Verify Basketball_prediction repo is fresh
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "BP ref info:"
+          git -C Basketball_prediction branch --show-current
+          git -C Basketball_prediction rev-parse HEAD
+          git -C Basketball_prediction log -1 --oneline
+
+      - name: Verify required Basketball_prediction outputs exist
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/Basketball_prediction/2026/output/LightGBM"
+
+          test -d "$ROOT" || (echo "ERROR: missing directory: $ROOT" && exit 1)
+
+          METRICS="$ROOT/metrics_snapshot.json"
+          STRATEGY_TXT="$ROOT/strategy_params.txt"
+
+          [[ -f "$METRICS" ]] || (echo "ERROR: missing $METRICS" && exit 1)
+          [[ -f "$STRATEGY_TXT" ]] || (echo "ERROR: missing $STRATEGY_TXT" && exit 1)
+
+          COMBINED_ACC="$(find "$ROOT" -maxdepth 1 -name "combined_nba_predictions_acc_*.csv" -type f -printf "%T@ %p\n" | sort -nr | head -n1 | cut -d' ' -f2- || true)"
+          [[ -n "${COMBINED_ACC:-}" ]] || (echo "ERROR: no combined_nba_predictions_acc_*.csv under $ROOT" && exit 1)
+
+          LOCAL_MATCHED="$(find "$ROOT" -maxdepth 1 -name "local_matched_games_*.csv" -type f -printf "%T@ %p\n" | sort -nr | head -n1 | cut -d' ' -f2- || true)"
+          [[ -n "${LOCAL_MATCHED:-}" ]] || (echo "ERROR: no local_matched_games_*.csv under $ROOT" && exit 1)
+
+          echo "✔ Found metrics_snapshot: $METRICS"
+          echo "✔ Found strategy_params.txt: $STRATEGY_TXT"
+          echo "✔ Found combined (ACC): $COMBINED_ACC"
+          echo "✔ Found local_matched: $LOCAL_MATCHED"
+
+      - name: Copy dashboard sources into public/data (keep committed local_matched)
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ROOT="$GITHUB_WORKSPACE/Basketball_prediction/2026/output/LightGBM"
+          OUT="$GITHUB_WORKSPACE/public/data"
+          mkdir -p "$OUT"
+
+          METRICS="$ROOT/metrics_snapshot.json"
+          STRATEGY_TXT="$ROOT/strategy_params.txt"
+          COMBINED_ACC="$(find "$ROOT" -maxdepth 1 -name "combined_nba_predictions_acc_*.csv" -type f -printf "%T@ %p\n" | sort -nr | head -n1 | cut -d' ' -f2-)"
+          LOCAL_MATCHED="$(find "$ROOT" -maxdepth 1 -name "local_matched_games_*.csv" -type f -printf "%T@ %p\n" | sort -nr | head -n1 | cut -d' ' -f2-)"
+
+          BET_LOG_FLAT="$ROOT/bet_log_flat_live.csv"
+          STRATEGY_PARAMS_JSON="$ROOT/strategy_params.json"
+
+          cp "$METRICS" "$OUT/metrics_snapshot.json"
+          cp "$STRATEGY_TXT" "$OUT/strategy_params.txt"
+          cp "$COMBINED_ACC" "$OUT/combined_latest.csv"
+
+          # Keep the repo-committed local_matched_games_latest.csv to preserve the 16-row window display
+          if [[ -f "$OUT/local_matched_games_latest.csv" ]]; then
+            echo "✔ Keeping existing $OUT/local_matched_games_latest.csv (not overwriting from Basketball_prediction)."
+            echo "  Existing rows: $(($(wc -l < "$OUT/local_matched_games_latest.csv") - 1)) (excluding header)"
+          else
+            echo "⚠ local_matched_games_latest.csv not found in repo; falling back to Basketball_prediction output:"
+            echo "  $LOCAL_MATCHED"
+            cp "$LOCAL_MATCHED" "$OUT/local_matched_games_latest.csv"
+          fi
+
+          # Bring back Placed Bets (Real)
+          if [[ -f "$BET_LOG_FLAT" ]]; then
+            cp "$BET_LOG_FLAT" "$OUT/bet_log_flat_live.csv"
+            echo "✔ Updated bet_log_flat_live.csv from Basketball_prediction."
+            echo "  Rows: $(($(wc -l < "$OUT/bet_log_flat_live.csv") - 1)) (excluding header)"
+          else
+            echo "⚠ No bet_log_flat_live.csv found in Basketball_prediction output; Placed Bets may show 0."
+          fi
+
+          [[ -f "$STRATEGY_PARAMS_JSON" ]] && cp "$STRATEGY_PARAMS_JSON" "$OUT/strategy_params.json" || true
+
+          echo "✔ public/data contents:"
+          ls -la "$OUT"
+
+      - name: Setup Python 3.11 with pip cache
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install Python deps (hoops-insight)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          if [[ -f requirements.txt ]]; then
+            pip install -r requirements.txt
+          else
+            echo "No requirements.txt in hoops-insight; skipping."
+          fi
+
+      - name: Generate dashboard data from public/data
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f public/data/metrics_snapshot.json
+          test -f public/data/combined_latest.csv
+          test -f public/data/local_matched_games_latest.csv
+          python scripts/generate_dashboard_data.py --data-dir "$GITHUB_WORKSPACE/public/data"
+
+      - name: Validate dashboard payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f public/data/dashboard_payload.json
+          python scripts/validate_dashboard_payload.py --path public/data/dashboard_payload.json
+
+      - name: Validate dashboard state
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f public/data/dashboard_state.json
+          node scripts/validate_dashboard_state.mjs public/data
 
       - name: Setup Node 20
         uses: actions/setup-node@v4
