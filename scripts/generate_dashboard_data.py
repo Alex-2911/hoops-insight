@@ -980,25 +980,27 @@ def main() -> None:
     # ----------------------------
     # Resolve sources
     # ----------------------------
-    if data_dir:
-        combined_latest = data_dir / "combined_latest.csv"
+if data_dir:
+    combined_latest = data_dir / "combined_latest.csv"
 
-        sources = SourcePaths(
-            combined_iso=combined_latest if combined_latest.exists() else None,
-            combined_acc=None,
-            bet_log=None,
-            bet_log_flat=(data_dir / "bet_log_flat_live.csv")
-            if (data_dir / "bet_log_flat_live.csv").exists()
-            else None,
-            local_matched_games=(data_dir / "local_matched_games_latest.csv")
-            if (data_dir / "local_matched_games_latest.csv").exists()
-            else None,
-            strategy_params=(data_dir / "strategy_params.json")
-            if (data_dir / "strategy_params.json").exists()
-            else None,
-        )
-    else:
-        sources = _resolve_sources(source_root, None)
+    strategy_json = data_dir / "strategy_params.json"
+    strategy_txt = data_dir / "strategy_params.txt"
+
+    sources = SourcePaths(
+        combined_iso=combined_latest if combined_latest.exists() else None,
+        combined_acc=None,
+        bet_log=None,
+        bet_log_flat=(data_dir / "bet_log_flat_live.csv") if (data_dir / "bet_log_flat_live.csv").exists() else None,
+        local_matched_games=(data_dir / "local_matched_games_latest.csv") if (data_dir / "local_matched_games_latest.csv").exists() else None,
+        strategy_params=(
+            strategy_json if strategy_json.exists()
+            else strategy_txt if strategy_txt.exists()
+            else None
+        ),
+    )
+else:
+    sources = _resolve_sources(source_root, None)
+
 
 
 
