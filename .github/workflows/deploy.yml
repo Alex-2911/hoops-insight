@@ -196,34 +196,7 @@ jobs:
           OUT="$GITHUB_WORKSPACE/public/data"
 
           if [[ ! -f "$OUT/strategy_params.json" && -f "$OUT/strategy_params.txt" ]]; then
-            python - <<'PY'
-            import json, re
-            from pathlib import Path
-            
-            p = Path("public/data/strategy_params.txt")
-            params = {}
-            for line in p.read_text(encoding="utf-8").splitlines():
-                s = line.strip()
-                if not s or s.startswith("#"):
-                    continue
-                m = re.match(r"^([^:=#]+)[:=]\s*(.+)$", s)
-                if not m:
-                    continue
-                k = m.group(1).strip()
-                v = m.group(2).strip()
-                try:
-                    fv = float(v)
-                    v = int(fv) if fv.is_integer() else fv
-                except Exception:
-                    pass
-                params[k] = v
-            
-            Path("public/data/strategy_params.json").write_text(
-                json.dumps({"params_used": params, "params_used_label": "Historical"}, indent=2, ensure_ascii=False),
-                encoding="utf-8",
-            )
-            print("Wrote public/data/strategy_params.json from strategy_params.txt")
-            PY
+            python -c $'import json, re\nfrom pathlib import Path\n\np = Path("public/data/strategy_params.txt")\nparams = {}\nfor line in p.read_text(encoding="utf-8").splitlines():\n    s = line.strip()\n    if not s or s.startswith("#"):\n        continue\n    m = re.match(r"^([^:=#]+)[:=]\\s*(.+)$", s)\n    if not m:\n        continue\n    k = m.group(1).strip()\n    v = m.group(2).strip()\n    try:\n        fv = float(v)\n        v = int(fv) if fv.is_integer() else fv\n    except Exception:\n        pass\n    params[k] = v\n\nPath("public/data/strategy_params.json").write_text(\n    json.dumps({"params_used": params, "params_used_label": "Historical"}, indent=2, ensure_ascii=False),\n    encoding="utf-8",\n)\nprint("Wrote public/data/strategy_params.json from strategy_params.txt")'
           fi
 
       - name: Setup Python 3.11 with pip cache
