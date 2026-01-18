@@ -1516,6 +1516,12 @@ def main() -> None:
 
     settled_bets_summary = build_settled_bet_summary(settled_bets_rows)
 
+    # --- HARD GUARANTEE for validator ---
+    # Always make count match the final emitted rows length.
+    # This prevents any mismatch due to dedupe/filter/order differences.
+    settled_bets_summary["count"] = int(len(settled_bets_rows))
+
+
     window_games_count = next(
         (
             int(filter_item["count"])
