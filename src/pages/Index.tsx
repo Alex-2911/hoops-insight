@@ -123,27 +123,36 @@ const Index = () => {
     games_count: 0,
   };
 
-  const summaryStats = summary?.summary_stats ?? {
-    total_games: 0,
-    overall_accuracy: 0,
-    as_of_date: "—",
-  };
+  const summaryStats = summary?.summary_stats ??
+    (summary?.model?.calibration
+      ? {
+          total_games: summary.model.calibration.fittedGames ?? windowInfo.games_count ?? 0,
+          overall_accuracy: summary.model.calibration.actualWinPct ?? 0,
+          as_of_date: summary.model.calibration.asOfDate ?? "—",
+        }
+      : {
+          total_games: 0,
+          overall_accuracy: 0,
+          as_of_date: "—",
+        });
 
-  const calibrationMetrics = tables?.calibration_metrics ?? {
-    asOfDate: "—",
-    brierBefore: 0,
-    brierAfter: 0,
-    logLossBefore: 0,
-    logLossAfter: 0,
-    fittedGames: 0,
-    ece: 0,
-    calibrationSlope: 0,
-    calibrationIntercept: 0,
-    avgPredictedProb: 0,
-    baseRate: 0,
-    actualWinPct: 0,
-    windowSize: 0,
-  };
+  const calibrationMetrics =
+    tables?.calibration_metrics ??
+    summary?.model?.calibration ?? {
+      asOfDate: "—",
+      brierBefore: 0,
+      brierAfter: 0,
+      logLossBefore: 0,
+      logLossAfter: 0,
+      fittedGames: 0,
+      ece: 0,
+      calibrationSlope: 0,
+      calibrationIntercept: 0,
+      avgPredictedProb: 0,
+      baseRate: 0,
+      actualWinPct: 0,
+      windowSize: 0,
+    };
   const homeWinRatesLast20 = tables?.home_win_rates_last20 ?? [];
   const localMatchedGamesRows = tables?.local_matched_games_rows ?? [];
   const settledBetsRows = tables?.settled_bets_rows ?? [];
