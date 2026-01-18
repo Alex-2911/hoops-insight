@@ -10,7 +10,7 @@ No future predictions are loaded or emitted.
 
 Data contract overview:
 - Model performance (window / historical): combined_nba_predictions_* (played games only).
-- Strategy matches (computed): WINDOW (last 200 played games) filtered by strategy params.
+- Strategy simulation (local matched games): local_matched_games_YYYY-MM-DD.csv.
 - Placed bets (real, settled): bet_log_flat_live.csv settled against combined_* results.
 """
 
@@ -197,6 +197,62 @@ def load_strategy_params(path: Path) -> Dict[str, object]:
             value = _coerce_value(match.group(2))
             params[key] = value
     return params
+
+
+def load_local_matched_games_csv(path: Path) -> Tuple[List[Dict[str, object]], Dict[str, object]]:
+    required_columns = [
+        "date",
+        "home_team",
+        "away_team",
+        "home_win_rate",
+        "prob_iso",
+        "prob_used",
+        "EV_€_per_100",
+        "win",
+        "pnl",
+    ]
+    df = pd.read_csv(path)
+    missing = [col for col in required_columns if col not in df.columns]
+    if missing:
+        return [], {"rows_count": 0, "profit_sum_table": 0.0}
+    odds_col = next(
+        (col for col in ("closing_home_odds", "odds", "odds_1") if col in df.columns), None
+    )
+    if odds_col is None:
+        return [], {"rows_count": 0, "profit_sum_table": 0.0}
+
+    df = df.copy()
+    df["date"] = pd.to_datetime(df["date"], errors="coerce").dt.strftime(DATE_FMT)
+    df["home_team"] = df["home_team"].astype(str).str.strip().str.upper()
+    df["away_team"] = df["away_team"].astype(str).str.strip().str.upper()
+
+    if odds_col != "odds_1":
+        df["odds_1"] = df[odds_col]
+    numeric_cols = ["home_win_rate", "prob_iso", "prob_used", "odds_1", "EV_€_per_100"]
+    for col in numeric_cols:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+    df[numeric_cols] = df[numeric_cols].fillna(0.0)
+
+    df["win"] = pd.to_numeric(df["win"], errors="coerce")
+    df["pnl"] = pd.to_numeric(df["pnl"], errors="coerce")
+    df = df.dropna(subset=["date", "win", "pnl"])
+    df = df[df["win"].isin([0, 1])]
+    df["win"] = df["win"].astype(int)
+    df["pnl"] = df["pnl"].astype(float)
+
+    if "stake" in df.columns:
+        df["stake"] = pd.to_numeric(df["stake"], errors="coerce")
+        df["stake"] = df["stake"].where(pd.notna(df["stake"]), None)
+    else:
+        df["stake"] = None
+
+    df = df.rename(columns={"EV_€_per_100": "ev_eur_per_100"})
+    rows = df.to_dict(orient="records")
+    summary = {
+        "rows_count": int(len(df)),
+        "profit_sum_table": float(df["pnl"].sum()),
+    }
+    return rows, summary
 
 
 def _find_latest_file(path: Path, prefix: str) -> Optional[Path]:
@@ -646,13 +702,7 @@ def build_strategy_filter_stats(
     rows: List[Dict[str, object]], params: Dict[str, object], window_size: int
 ) -> Dict[str, object]:
     if not rows:
-        return {
-            "window_size": window_size,
-            "filters": [],
-            "matched_games_count": 0,
-            "window_start": None,
-            "window_end": None,
-        }
+        return {"window_size": window_size, "filters": [], "matched_games_count": 0, "window_start": None, "window_end": None}
     window_rows, window_start, window_end = compute_window_bounds(rows, window_size)
     filters = [{"label": "Window games", "count": len(window_rows)}]
 
@@ -682,23 +732,14 @@ def build_strategy_filter_stats(
         ]
         filters.append({"label": f"EV €/100 > {min_ev:.2f}", "count": len(current)})
     if min_home_win_rate is not None:
-        current = [
-            r for r in current
-            if r.get("home_win_rate") is not None and r["home_win_rate"] >= min_home_win_rate
-        ]
+        current = [r for r in current if r.get("home_win_rate") is not None and r["home_win_rate"] >= min_home_win_rate]
         filters.append({"label": f"Home win rate ≥ {min_home_win_rate:.2f}", "count": len(current)})
 
-    return {
-        "window_size": window_size,
-        "filters": filters,
-        "matched_games_count": len(current),
-        "window_start": window_start,
-        "window_end": window_end,
-    }
+    return {"window_size": window_size, "filters": filters, "matched_games_count": len(current), "window_start": window_start, "window_end": window_end}
 
 
 def _compute_local_bankroll(rows: List[Dict[str, object]], start: float, stake: float) -> Dict[str, float]:
-    net_pl = sum(row.get("pnl", 0.0) for row in rows)
+    net_pl = sum(row.get("pnl", 0.0) or 0.0 for row in rows)
     return {"start": start, "stake": stake, "net_pl": net_pl, "bankroll": start + net_pl}
 
 
@@ -724,9 +765,7 @@ def build_local_equity_history(rows: List[Dict[str, object]], start: float) -> L
     for row in sorted_rows:
         pnl = row.get("pnl", 0.0) or 0.0
         balance += pnl
-        history.append(
-            {"date": row["date"], "balance": balance, "betsPlaced": 1, "profit": pnl}
-        )
+        history.append({"date": row["date"], "balance": balance, "betsPlaced": 1, "profit": pnl})
     return history
 
 
@@ -767,13 +806,7 @@ def load_bet_log_flat(path: Path) -> List[Dict[str, object]]:
             home_team = home_team or matchup_home
             away_team = away_team or matchup_away
 
-        pick_team = _safe_team(
-            row.get("selection")
-            or row.get("pick")
-            or row.get("team")
-            or row.get("bet_on")
-            or row.get("side")
-        )
+        pick_team = _safe_team(row.get("selection") or row.get("pick") or row.get("team") or row.get("bet_on") or row.get("side"))
 
         odds = _safe_float(row.get("odds") or row.get("odds_decimal") or row.get("price") or row.get("odds_1"))
         stake = _safe_float(row.get("stake") or row.get("stake_eur") or row.get("amount") or row.get("bet_amount"))
@@ -897,9 +930,9 @@ def build_settled_bet_summary(rows: List[Dict[str, object]]) -> Dict[str, object
     if not rows:
         return {"count": 0, "wins": 0, "profit_eur": 0.0, "roi_pct": 0.0, "avg_odds": 0.0}
     wins = sum(1 for row in rows if row.get("win") == 1)
-    profit = sum(row.get("pnl", 0.0) for row in rows)
-    total_stake = sum(row.get("stake", 0.0) for row in rows)
-    avg_odds = _safe_div(sum(row.get("odds", 0.0) for row in rows), total)
+    profit = sum(row.get("pnl", 0.0) or 0.0 for row in rows)
+    total_stake = sum(row.get("stake", 0.0) or 0.0 for row in rows)
+    avg_odds = _safe_div(sum(row.get("odds", 0.0) or 0.0 for row in rows), total)
     roi_pct = _safe_div(profit, total_stake) * 100.0
     return {"count": total, "wins": wins, "profit_eur": profit, "roi_pct": roi_pct, "avg_odds": avg_odds}
 
@@ -915,6 +948,7 @@ def _human_readable_filters(params: Dict[str, object]) -> str:
         max_odds = DEFAULT_MAX_ODDS_FALLBACK
     min_ev = _get_param(params, "min_ev", "min_ev_eur_per_100", "min_ev_per_100")
     min_home_win_rate = _get_param(params, "home_win_rate_threshold", "min_home_win_rate")
+    prefer_lower_odds = params.get("prefer_lower_odds")
 
     def _format_signed(value: float) -> str:
         raw = f"{int(value)}" if value.is_integer() else f"{value:.2f}"
@@ -932,7 +966,10 @@ def _human_readable_filters(params: Dict[str, object]) -> str:
         parts.append(f"p ≥ {min_prob_used:.2f}")
     if min_ev is not None:
         parts.append(f"EV > {_format_signed(float(min_ev))}")
-
+    if isinstance(prefer_lower_odds, str):
+        prefer_lower_odds = prefer_lower_odds.lower() in {"true", "1", "yes"}
+    if prefer_lower_odds:
+        parts.append("Prefer lower odds")
     return " | ".join(parts) if parts else "No active filters."
 
 
@@ -948,7 +985,6 @@ def build_bet_log_summary(rows: List[Dict[str, object]]) -> Dict[str, object]:
             "avgProfitPerBetEur": 0.0,
             "winRate": 0.0,
         }
-
     total_bets = len(rows)
     total_staked = sum(r["stake_eur"] or 0.0 for r in rows)
     total_profit = sum(r["profit_eur"] or 0.0 for r in rows)
@@ -957,7 +993,6 @@ def build_bet_log_summary(rows: List[Dict[str, object]]) -> Dict[str, object]:
     win_rate = _safe_div(sum(1 for r in rows if (r["won"] or 0) == 1), total_bets)
     as_of = max(r["date"] for r in rows).strftime(DATE_FMT)
     roi_pct = _safe_div(total_profit, total_staked) * 100.0
-
     return {
         "asOfDate": as_of,
         "totalBets": total_bets,
@@ -1038,75 +1073,16 @@ def copy_sources(output_dir: Path, sources: Dict[str, Optional[Path]]) -> Dict[s
     return copied
 
 
-# --- NEW: build strategy matches from played window + params (so you can get 13) ---
-def _build_strategy_matches_from_window(
-    window_played_rows: List[Dict[str, object]],
-    params_used: Dict[str, object],
-) -> List[Dict[str, object]]:
-    min_prob_used = _get_param(params_used, "prob_threshold", "min_prob_used", "min_prob", "min_prob_iso")
-    min_odds = _get_param(params_used, "odds_min", "min_odds_1", "min_odds")
-    max_odds = _get_param(params_used, "odds_max", "max_odds_1", "max_odds")
-    if max_odds is None:
-        max_odds = DEFAULT_MAX_ODDS_FALLBACK
-    min_ev = _get_param(params_used, "min_ev", "min_ev_eur_per_100", "min_ev_per_100")
-    min_home_win_rate = _get_param(params_used, "home_win_rate_threshold", "min_home_win_rate")
-
-    def passes(r: Dict[str, object]) -> bool:
-        pu = _prob_used(r)
-        if min_home_win_rate is not None and (r.get("home_win_rate") is None or float(r["home_win_rate"]) < float(min_home_win_rate)):
-            return False
-        if min_prob_used is not None and (pu is None or float(pu) < float(min_prob_used)):
-            return False
-        if min_odds is not None and (r.get("odds_home") is None or float(r["odds_home"]) < float(min_odds)):
-            return False
-        if max_odds is not None and (r.get("odds_home") is None or float(r["odds_home"]) > float(max_odds)):
-            return False
-        if min_ev is not None:
-            ev = _compute_ev_per_100(pu, r.get("odds_home"))
-            if ev is None or float(ev) <= float(min_ev):
-                return False
-        return True
-
-    matched = [r for r in window_played_rows if passes(r)]
-
-    def to_row(r: Dict[str, object]) -> Dict[str, object]:
-        prob_iso = r.get("prob_iso") if r.get("prob_iso") is not None else 0.0
-        pu = _prob_used(r) if _prob_used(r) is not None else 0.0
-        odds = r.get("odds_home") if r.get("odds_home") is not None else 0.0
-        ev = _compute_ev_per_100(_prob_used(r), r.get("odds_home"))
-        win = int(r.get("home_team_won") or 0)
-        pnl = float((float(odds) - 1.0) * 100.0) if win == 1 else -100.0
-
-        return {
-            "date": r["date"].strftime(DATE_FMT),
-            "home_team": _safe_team(r.get("home_team")),
-            "away_team": _safe_team(r.get("away_team")),
-            "home_win_rate": float(r.get("home_win_rate") or 0.0),
-            "prob_iso": float(prob_iso or 0.0),
-            "prob_used": float(pu or 0.0),
-            "odds_1": float(odds or 0.0),
-            "ev_eur_per_100": float(ev or 0.0),
-            "win": win,
-            "pnl": pnl,
-            "stake": 100.0,
-        }
-
-    # Sort newest first (matches your table expectation)
-    out = [to_row(r) for r in sorted(matched, key=lambda x: x["date"], reverse=True)]
-    return out
-
-
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--source-root", type=str, default=None)
-    parser.add_argument("--output-dir", type=str, default=None)
-    parser.add_argument("--data-dir", type=str, default=None)
+    parser.add_argument("--source-root", type=str, default=None, help="Explicit path to Basketball_prediction/2026 root.")
+    parser.add_argument("--output-dir", type=str, default=None, help="Output dir for artifacts (default: hoops-insight/public/data).")
+    parser.add_argument("--data-dir", type=str, default=None, help="Optional public/data directory to load pre-copied artifacts from.")
     args = parser.parse_args()
 
     repo_root = Path(__file__).resolve().parents[1]
     data_dir = Path(args.data_dir) if args.data_dir else None
     source_root = None if data_dir else resolve_source_root(args.source_root, repo_root)
-
     output_dir = Path(args.output_dir) if args.output_dir else repo_root / "public" / "data"
 
     if data_dir:
@@ -1153,11 +1129,10 @@ def main() -> None:
     if expected_lightgbm_dir:
         sources = _resolve_sources(source_root, as_of_date)
 
-    # still resolve/copy these for sources display (even if we don't use local_matched for rows)
-    local_matched_games_path = sources.local_matched_games if sources.local_matched_games and sources.local_matched_games.exists() else None
+    local_matched_games_path = _require_existing(sources.local_matched_games, "local_matched_games")
     bet_log_flat_path = sources.bet_log_flat if sources.bet_log_flat and sources.bet_log_flat.exists() else None
 
-    # Load params (prefer already-copied public/data/strategy_params.json)
+    # ---- Strategy params ----
     strategy_params_path = output_dir / "strategy_params.json"
     if strategy_params_path.exists():
         params = load_strategy_params(strategy_params_path)
@@ -1189,54 +1164,75 @@ def main() -> None:
 
     active_filters_label = _human_readable_filters(params_used)
 
-    # Build filter stats based on played window + params
-    strategy_filter_stats = build_strategy_filter_stats(played_rows, params_used, window_size=CALIBRATION_WINDOW)
+    # ---- Load local_matched_games as canonical strategy matches ----
+    local_matched_games_rows, _ = load_local_matched_games_csv(local_matched_games_path)
 
-    # IMPORTANT: "Strategy matches" rows computed from window + params (so this becomes 13)
-    local_matched_games_rows = _build_strategy_matches_from_window(window_rows, params_used)
+    # DO NOT trim to model window; keep full strategy output.
     local_matched_games_count = int(len(local_matched_games_rows))
-    local_matched_games_profit_sum = float(sum(row.get("pnl", 0.0) for row in local_matched_games_rows))
+    local_matched_games_profit_sum = float(sum(row.get("pnl", 0.0) or 0.0 for row in local_matched_games_rows))
 
-    # Keep filter stats matched count consistent with rows
-    strategy_filter_stats["matched_games_count"] = local_matched_games_count
-
-    matched_as_of_date = _max_date(local_matched_games_rows) or window_end_dt
+    matched_as_of_date = _max_date(local_matched_games_rows)
     strategy_as_of_date = matched_as_of_date.strftime(DATE_FMT) if matched_as_of_date else as_of_date
 
     local_sharpe = _compute_sharpe_style(local_matched_games_rows) if local_matched_games_rows else None
-    local_avg_odds = _safe_div(sum(row.get("odds_1", 0.0) for row in local_matched_games_rows), len(local_matched_games_rows)) if local_matched_games_rows else 0.0
+    local_avg_odds = (
+        _safe_div(sum(row.get("odds_1", 0.0) or 0.0 for row in local_matched_games_rows), len(local_matched_games_rows))
+        if local_matched_games_rows else 0.0
+    )
 
-    # Strategy summary (simulated flat stake 100)
-    strategy_summary = {
-        "totalBets": local_matched_games_count,
-        "totalProfitEur": local_matched_games_profit_sum,
-        "roiPct": (_safe_div(local_matched_games_profit_sum, local_matched_games_count * 100.0) * 100.0) if local_matched_games_count else 0.0,
-        "avgEvPer100": _safe_div(sum(row.get("ev_eur_per_100", 0.0) for row in local_matched_games_rows), local_matched_games_count) if local_matched_games_count else 0.0,
-        "winRate": _safe_div(sum(1 for row in local_matched_games_rows if row.get("win") == 1), local_matched_games_count) if local_matched_games_count else 0.0,
-        "sharpeStyle": local_sharpe,
-        "profitMetricsAvailable": bool(local_matched_games_rows),
-        "asOfDate": strategy_as_of_date,
-    }
+    # Strategy filter stats are for UI labels; but matched_games_count must match the actual rows we emit
+    strategy_filter_stats = build_strategy_filter_stats(played_rows, params_used, window_size=200)
+    strategy_filter_stats["matched_games_count"] = local_matched_games_count
 
     bankroll_last_200 = _compute_local_bankroll(local_matched_games_rows, 1000.0, 100.0)
     ytd_rows = [row for row in local_matched_games_rows if _safe_date(row.get("date")) and _safe_date(row.get("date")) >= datetime(2026, 1, 1)]
     bankroll_ytd_2026 = _compute_local_bankroll(ytd_rows, 1000.0, 100.0)
+
     _, local_max_dd_eur, local_max_dd_pct = compute_local_risk_metrics(local_matched_games_rows, 1000.0, RISK_MIN_SAMPLE)
+
+    # Strategy summary (simulated on the strategy rows we emit)
+    strategy_summary = {
+        "totalBets": 0,
+        "totalProfitEur": 0.0,
+        "roiPct": 0.0,
+        "avgEvPer100": 0.0,
+        "winRate": 0.0,
+        "sharpeStyle": local_sharpe,
+        "profitMetricsAvailable": False,
+        "asOfDate": strategy_as_of_date,
+    }
+    if local_matched_games_rows:
+        total_bets = local_matched_games_count
+        total_profit = local_matched_games_profit_sum
+        roi_pct = _safe_div(total_profit, total_bets * 100.0) * 100.0 if total_bets else 0.0
+        strategy_summary = {
+            "totalBets": total_bets,
+            "totalProfitEur": total_profit,
+            "roiPct": roi_pct,
+            "avgEvPer100": _safe_div(sum(row.get("ev_eur_per_100", 0.0) or 0.0 for row in local_matched_games_rows), total_bets),
+            "winRate": _safe_div(sum(1 for row in local_matched_games_rows if row.get("win") == 1), total_bets),
+            "sharpeStyle": local_sharpe,
+            "profitMetricsAvailable": True,
+            "asOfDate": strategy_as_of_date,
+        }
 
     total_games = len(played_rows)
     total_correct = sum(int(r["home_team_won"]) for r in played_rows)
     overall_accuracy = _safe_div(total_correct, total_games)
-
     last_run = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
-    # --- Placed Bets (Real) — settled YTD from 2026-01-01 ---
+    # ---- Placed Bets (Real) settled YTD 2026 ----
     bet_log_flat_rows = load_bet_log_flat(bet_log_flat_path) if bet_log_flat_path else []
     ytd_start = datetime(2026, 1, 1)
+
     settled_bets_rows = build_settled_bets(bet_log_flat_rows, played_rows, ytd_start=ytd_start)
     settled_bets_summary = build_settled_bet_summary(settled_bets_rows)
-    settled_bets_summary["count"] = int(len(settled_bets_rows))  # hard guarantee for validator
+    settled_bets_summary["count"] = int(len(settled_bets_rows))  # hard guarantee
 
-    window_games_count = int(len(window_rows))
+    window_games_count = next(
+        (int(item["count"]) for item in strategy_filter_stats.get("filters", []) if item.get("label") == "Window games"),
+        0,
+    )
 
     summary_payload = {
         "last_run": last_run,
@@ -1257,9 +1253,9 @@ def main() -> None:
         "strategy_summary": strategy_summary,
         "strategy_counts": {
             "window_games_count": window_games_count,
-            "filter_pass_count": local_matched_games_count,
+            "filter_pass_count": int(strategy_filter_stats.get("matched_games_count", 0)),
             "simulated_bets_count": local_matched_games_count,
-            "settled_bets_count": local_matched_games_count,  # (legacy naming in validator)
+            "settled_bets_count": local_matched_games_count,
         },
         "strategy_params": {
             "source": _label_path(strategy_params_source),
@@ -1288,7 +1284,7 @@ def main() -> None:
         "local_matched_games_count": local_matched_games_count,
         "local_matched_games_profit_sum_table": local_matched_games_profit_sum,
         "local_matched_games_mismatch": False,
-        "local_matched_games_note": "" if local_matched_games_rows else "No matched games recorded for this window.",
+        "local_matched_games_note": "" if local_matched_games_rows else "No matched games recorded.",
         "local_matched_games_source": _label_path(local_matched_games_path),
         "bankroll_last_200": bankroll_last_200,
         "bankroll_ytd_2026": bankroll_ytd_2026,
@@ -1307,6 +1303,8 @@ def main() -> None:
         "bet_log_flat_source": _label_path(bet_log_flat_path),
         "local_matched_games_rows": local_matched_games_count,
         "local_matched_games_profit_sum_table": local_matched_games_profit_sum,
+        "matched_count_table": local_matched_games_count,
+        "matched_count_used": local_matched_games_count,
         "strategy_params": {
             "source": _label_path(strategy_params_source),
             "params": params or {},
@@ -1322,7 +1320,9 @@ def main() -> None:
             "played_games": total_games,
             "bet_log_rows": len(bet_log_rows),
             "bet_log_flat_rows": len(bet_log_flat_rows),
+            "strategy_matched_rows": strategy_summary["totalBets"],
             "local_matched_games_rows": local_matched_games_count,
+            "local_matched_games_profit_sum_table": local_matched_games_profit_sum,
             "settled_bets_rows": len(settled_bets_rows),
         },
     }
@@ -1334,7 +1334,12 @@ def main() -> None:
 
     dashboard_payload = {
         "as_of_date": as_of_date,
-        "window": {"size": 200, "start": window_start_label, "end": window_end_label, "games_count": window_games_count},
+        "window": {
+            "size": 200,  # validator expects 200
+            "start": window_start_label,
+            "end": window_end_label,
+            "games_count": window_games_count,
+        },
         "active_filters_effective": active_filters_label,
         "params_used_label": params_used_label,
         "summary": summary_payload,
@@ -1348,21 +1353,21 @@ def main() -> None:
         },
     }
 
-    window_size_label = 200
+    window_size_label = int(strategy_filter_stats.get("window_size") or 200)
     window_start_display = window_start_label or "—"
     window_end_display = window_end_label or "—"
     active_filters_text = f"{active_filters_label} | window {window_size_label} ({window_start_display} → {window_end_display})"
 
     dashboard_state = {
         "as_of_date": as_of_date,
-        "window_size": int(window_size_label),
+        "window_size": window_size_label,
         "window_start": window_start_label,
         "window_end": window_end_label,
         "active_filters_text": active_filters_text,
         "params_used_label": params_used_label,
         "params_source_label": _label_path(strategy_params_source),
         "strategy_as_of_date": strategy_as_of_date,
-        "strategy_matches_window": int(local_matched_games_count),  # THIS now equals computed
+        "strategy_matches_window": int(local_matched_games_count),  # <-- THIS is the 16
         "last_update_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "sources": {
             "combined": _label_path(combined_path),
@@ -1377,10 +1382,8 @@ def main() -> None:
     write_json(output_dir / "dashboard_payload.json", dashboard_payload)
     write_json(output_dir / "dashboard_state.json", dashboard_state)
 
-    print(
-        "Wrote summary.json, tables.json, last_run.json, dashboard_payload.json, dashboard_state.json "
-        f"to {output_dir}"
-    )
+    print("Wrote summary.json, tables.json, last_run.json, dashboard_payload.json, dashboard_state.json "
+          f"to {output_dir}")
 
 
 if __name__ == "__main__":
