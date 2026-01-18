@@ -244,11 +244,28 @@ const Index = () => {
     params_used: {},
     active_filters: "No active filters.",
   };
+  const pickNumber = (...values: Array<number | null | undefined>) =>
+    values.find((value) => typeof value === "number" && Number.isFinite(value)) ?? null;
+  const pickPositiveNumber = (...values: Array<number | null | undefined>) =>
+    values.find(
+      (value) => typeof value === "number" && Number.isFinite(value) && value > 0,
+    ) ?? null;
+  const formatPercentFromMaybeRatio = (value: number | null, decimals = 2) => {
+    if (value === null) {
+      return "—";
+    }
+    const percentValue = Math.abs(value) <= 1 ? value * 100 : value;
+    return fmtPercent(percentValue, decimals);
+  };
   const betLogFlatSource = dashboardState?.sources?.bet_log ?? "bet_log_flat_live.csv";
   const combinedSource = dashboardState?.sources?.combined ?? "combined_latest.csv";
   const summaryAsOfDate =
     dashboardState?.as_of_date ?? payload?.as_of_date ?? summary?.as_of_date ?? "—";
-  const overallAccuracyPct = fmtPercent(summaryStats.overall_accuracy * 100, 2);
+  const overallAccuracyValue = pickNumber(
+    summaryStats.overall_accuracy,
+    calibrationMetrics.actualWinPct,
+  );
+  const overallAccuracyPct = formatPercentFromMaybeRatio(overallAccuracyValue, 2);
   const windowSize =
     dashboardState?.window_size ||
     windowInfo.size ||
@@ -260,7 +277,12 @@ const Index = () => {
   const windowEndLabel =
     dashboardState?.window_end ?? windowInfo.end ?? summary?.window_end ?? summaryAsOfDate ?? "—";
   const windowGamesLabel =
-    windowInfo.games_count && windowInfo.games_count > 0 ? windowInfo.games_count : windowSize;
+    pickPositiveNumber(
+      windowInfo.games_count,
+      summaryStats.total_games,
+      calibrationMetrics.fittedGames,
+      windowSize,
+    ) ?? windowSize;
   const activeFiltersEffective =
     dashboardState?.active_filters_text ??
     payload?.active_filters_effective ??
