@@ -791,6 +791,52 @@ def filter_local_matched_games_window(
     return filtered
 
 
+def filter_local_matched_games_params(
+    rows: List[Dict[str, object]], params: Dict[str, object]
+) -> List[Dict[str, object]]:
+    if not rows:
+        return rows
+    min_prob_used = _get_param(
+        params, "prob_threshold", "min_prob_used", "min_prob", "min_prob_iso"
+    )
+    min_odds = _get_param(params, "odds_min", "min_odds_1", "min_odds")
+    max_odds = _get_param(params, "odds_max", "max_odds_1", "max_odds")
+    if max_odds is None:
+        max_odds = DEFAULT_MAX_ODDS_FALLBACK
+    min_ev = _get_param(params, "min_ev", "min_ev_eur_per_100", "min_ev_per_100")
+    min_home_win_rate = _get_param(params, "home_win_rate_threshold", "min_home_win_rate")
+
+    current = rows
+    if min_prob_used is not None:
+        current = [
+            r
+            for r in current
+            if r.get("prob_used") is not None and r["prob_used"] >= min_prob_used
+        ]
+    if min_odds is not None:
+        current = [
+            r for r in current if r.get("odds_1") is not None and r["odds_1"] >= min_odds
+        ]
+    if max_odds is not None:
+        current = [
+            r for r in current if r.get("odds_1") is not None and r["odds_1"] <= max_odds
+        ]
+    if min_ev is not None:
+        current = [
+            r
+            for r in current
+            if r.get("ev_eur_per_100") is not None and r["ev_eur_per_100"] > min_ev
+        ]
+    if min_home_win_rate is not None:
+        current = [
+            r
+            for r in current
+            if r.get("home_win_rate") is not None
+            and r["home_win_rate"] >= min_home_win_rate
+        ]
+    return current
+
+
 def _compute_local_bankroll(rows: List[Dict[str, object]], start: float, stake: float) -> Dict[str, float]:
     net_pl = sum(row.get("pnl", 0.0) for row in rows)
     return {"start": start, "stake": stake, "net_pl": net_pl, "bankroll": start + net_pl}
@@ -1302,6 +1348,9 @@ def main() -> None:
         local_matched_games_rows,
         strategy_filter_stats.get("window_start"),
         strategy_filter_stats.get("window_end"),
+    )
+    local_matched_games_rows = filter_local_matched_games_params(
+        local_matched_games_rows, params_used
     )
     local_matched_games_count = len(local_matched_games_rows)
     local_matched_games_profit_sum = sum(row.get("pnl", 0.0) for row in local_matched_games_rows)
