@@ -1185,11 +1185,61 @@ def main() -> None:
         "windowEnd": window_end_label,
     }
 
+    copied_sources = copy_sources(
+    output_dir,
+    {
+        "combined": combined_path,
+        "local_matched": local_matched_games_path,
+        "strategy_params": strategy_params_source,
+        "bet_log": sources.bet_log if sources.bet_log and sources.bet_log.exists() else None,
+        "bet_log_flat": bet_log_flat_path,
+    },
+)
+
+dashboard_payload = {
+    "as_of_date": as_of_date,
+    "window": {
+        "size": int(window_size_label),
+        "start": window_start_label or "—",
+        "end": window_end_label or "—",
+        "games_count": int(len(window_played_rows) if window_played_rows else 0),
+    },
+    "active_filters_effective": active_filters_label,
+    "summary": summary_payload,
+    "tables": tables_payload,
+    "sources": {
+        "combined_file": _label_path(combined_path),
+        "local_matched_games": _label_path(local_matched_games_path),
+        "bet_log_flat": _label_path(bet_log_flat_path),
+        "copied": copied_sources,
+    },
+}
+
+
     dashboard_payload = {
-        "summary": summary_payload,
-        "tables": tables_payload,
-        "state": dashboard_state,
+    "as_of_date": as_of_date,
+
+    "window": {
+        "size": int(window_size_label),
+        "start": window_start_label or "—",
+        "end": window_end_label or "—",
+        "games_count": int(len(window_played_rows) if window_played_rows else 0),
+    },
+
+    "active_filters_effective": active_filters_label,
+
+    "summary": summary_payload,
+
+    "tables": tables_payload,
+
+    "sources": {
+        "combined_file": _label_path(combined_path),
+        "local_matched_games": _label_path(local_matched_games_path),
+        "bet_log_flat": _label_path(bet_log_flat_path),
+        "copied": {},
     }
+}
+
 
     # ----------------------------
     # Write outputs
