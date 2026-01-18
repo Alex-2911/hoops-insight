@@ -1030,7 +1030,9 @@ def main() -> None:
 
     raw_params_used_label = None
     if isinstance(params_raw, dict):
-        raw_params_used_label = params_raw.get("params_used_label") or params_raw.get("params_label") or params_raw.get("label")
+        raw_params_used_label = (
+            params_raw.get("params_used_label") or params_raw.get("params_label") or params_raw.get("label")
+        )
     params_used_label = str(raw_params_used_label).strip() if raw_params_used_label else "Historical"
 
     active_filters_label = _human_readable_filters(params_used)
@@ -1040,7 +1042,6 @@ def main() -> None:
     # Source of truth: public/data/local_matched_games_latest.csv filtered by window + params_used
     # ----------------------------
     local_matched_games_rows_all: List[Dict[str, object]] = []
-    local_matched_games_profit_sum = 0.0
 
     local_matched_games_path: Optional[Path] = None
     local_latest_path = output_dir / "local_matched_games_latest.csv"
@@ -1050,8 +1051,7 @@ def main() -> None:
         local_matched_games_path = sources.local_matched_games
 
     if local_matched_games_path and local_matched_games_path.exists():
-        local_matched_games_rows_all, local_summary = load_local_matched_games_csv(local_matched_games_path)
-        local_matched_games_profit_sum = float(local_summary.get("profit_sum_table", 0.0) or 0.0)
+        local_matched_games_rows_all, _local_summary = load_local_matched_games_csv(local_matched_games_path)
 
     def _in_window(row: Dict[str, object]) -> bool:
         d = _safe_date(row.get("date"))
@@ -1103,7 +1103,8 @@ def main() -> None:
     bankroll_last_200 = _compute_local_bankroll(local_matched_games_rows, 1000.0, 100.0)
 
     ytd_rows = [
-        row for row in local_matched_games_rows
+        row
+        for row in local_matched_games_rows
         if (_safe_date(row.get("date")) is not None and _safe_date(row.get("date")) >= datetime(2026, 1, 1))
     ]
     bankroll_ytd_2026 = _compute_local_bankroll(ytd_rows, 1000.0, 100.0)
@@ -1113,9 +1114,17 @@ def main() -> None:
     strategy_summary = {
         "totalBets": int(local_matched_games_count),
         "totalProfitEur": float(local_matched_games_profit_sum),
-        "roiPct": float(_safe_div(local_matched_games_profit_sum, local_matched_games_count * 100.0) * 100.0) if local_matched_games_count else 0.0,
-        "avgEvPer100": float(_safe_div(sum((row.get("ev_eur_per_100") or 0.0) for row in local_matched_games_rows), local_matched_games_count)) if local_matched_games_count else 0.0,
-        "winRate": float(_safe_div(sum(1 for row in local_matched_games_rows if row.get("win") == 1), local_matched_games_count)) if local_matched_games_count else 0.0,
+        "roiPct": float(_safe_div(local_matched_games_profit_sum, local_matched_games_count * 100.0) * 100.0)
+        if local_matched_games_count
+        else 0.0,
+        "avgEvPer100": float(
+            _safe_div(sum((row.get("ev_eur_per_100") or 0.0) for row in local_matched_games_rows), local_matched_games_count)
+        )
+        if local_matched_games_count
+        else 0.0,
+        "winRate": float(_safe_div(sum(1 for row in local_matched_games_rows if row.get("win") == 1), local_matched_games_count))
+        if local_matched_games_count
+        else 0.0,
         "sharpeStyle": local_sharpe,
         "maxDrawdownEur": local_max_dd_eur,
         "maxDrawdownPct": local_max_dd_pct,
@@ -1186,72 +1195,6 @@ def main() -> None:
     }
 
     copied_sources = copy_sources(
-    output_dir,
-    {
-        "combined": combined_path,
-        "local_matched": local_matched_games_path,
-        "strategy_params": strategy_params_source,
-        "bet_log": sources.bet_log if sources.bet_log and sources.bet_log.exists() else None,
-        "bet_log_flat": bet_log_flat_path,
-    },
-)
-
-dashboard_payload = {
-    "as_of_date": as_of_date,
-    "window": {
-        "size": int(window_size_label),
-        "start": window_start_label or "—",
-        "end": window_end_label or "—",
-        "games_count": int(len(window_played_rows) if window_played_rows else 0),
-    },
-    "active_filters_effective": active_filters_label,
-    "summary": summary_payload,
-    "tables": tables_payload,
-    "sources": {
-        "combined_file": _label_path(combined_path),
-        "local_matched_games": _label_path(local_matched_games_path),
-        "bet_log_flat": _label_path(bet_log_flat_path),
-        "copied": copied_sources,
-    },
-}
-
-
-    dashboard_payload = {
-    "as_of_date": as_of_date,
-
-    "window": {
-        "size": int(window_size_label),
-        "start": window_start_label or "—",
-        "end": window_end_label or "—",
-        "games_count": int(len(window_played_rows) if window_played_rows else 0),
-    },
-
-    "active_filters_effective": active_filters_label,
-
-    "summary": summary_payload,
-
-    "tables": tables_payload,
-
-    "sources": {
-        "combined_file": _label_path(combined_path),
-        "local_matched_games": _label_path(local_matched_games_path),
-        "bet_log_flat": _label_path(bet_log_flat_path),
-        "copied": {},
-    }
-}
-
-
-    # ----------------------------
-    # Write outputs
-    # ----------------------------
-    write_json(output_dir / "dashboard_state.json", dashboard_state)
-    write_json(output_dir / "summary.json", summary_payload)
-    write_json(output_dir / "tables.json", tables_payload)
-    write_json(output_dir / "last_run.json", last_run_payload)
-    write_json(output_dir / "dashboard_payload.json", dashboard_payload)
-
-    # Optional: copy sources for traceability
-    _ = copy_sources(
         output_dir,
         {
             "combined": combined_path,
@@ -1261,6 +1204,37 @@ dashboard_payload = {
             "bet_log_flat": bet_log_flat_path,
         },
     )
+
+    # NOTE: validate_dashboard_payload.py expects these top-level fields:
+    # as_of_date, window, active_filters_effective, sources (plus summary/tables/state already used by the app)
+    dashboard_payload = {
+        "as_of_date": as_of_date,
+        "window": {
+            "size": int(window_size_label),
+            "start": window_start_label or "—",
+            "end": window_end_label or "—",
+            "games_count": int(len(window_played_rows) if window_played_rows else 0),
+        },
+        "active_filters_effective": active_filters_label,
+        "summary": summary_payload,
+        "tables": tables_payload,
+        "state": dashboard_state,
+        "sources": {
+            "combined_file": _label_path(combined_path),
+            "local_matched_games": _label_path(local_matched_games_path),
+            "bet_log_flat": _label_path(bet_log_flat_path),
+            "copied": copied_sources,
+        },
+    }
+
+    # ----------------------------
+    # Write outputs
+    # ----------------------------
+    write_json(output_dir / "dashboard_state.json", dashboard_state)
+    write_json(output_dir / "summary.json", summary_payload)
+    write_json(output_dir / "tables.json", tables_payload)
+    write_json(output_dir / "last_run.json", last_run_payload)
+    write_json(output_dir / "dashboard_payload.json", dashboard_payload)
 
     print(
         "Wrote summary.json, tables.json, last_run.json, dashboard_payload.json, dashboard_state.json "
