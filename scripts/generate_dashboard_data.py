@@ -1504,10 +1504,24 @@ def main() -> None:
 
     last_run = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
+    # ----------------------------
+    # Placed Bets (Real) — SETTLED (YTD from 2026-01-01)
+    # Source: bet_log_flat_live.csv
+    # ----------------------------
     bet_log_flat_rows = load_bet_log_flat(bet_log_flat_path) if bet_log_flat_path else []
-    settled_bets_rows_all = build_settled_bets(bet_log_flat_rows, played_rows, ytd_start=None)
-    settled_bets_rows = build_settled_bets(bet_log_flat_rows, played_rows, ytd_start=datetime(2026, 1, 1))
 
+    # YTD filter for Placed Bets (Real)
+    ytd_start = datetime(2026, 1, 1)
+
+    # Build settled bets using CSV fields (status/won/pnl) when present.
+    # Falls back to played outcomes only if needed and available.
+    settled_bets_rows = build_settled_bets(
+        bet_log_flat_rows,
+        played_rows,
+        ytd_start=ytd_start,
+    )
+
+    # Optional: verify settled win matches local simulation (only when both exist)
     try:
         if bet_log_flat_rows and settled_bets_rows:
             assert_settled_bets_match_local(settled_bets_rows, local_matched_games_rows)
@@ -1516,11 +1530,9 @@ def main() -> None:
 
     settled_bets_summary = build_settled_bet_summary(settled_bets_rows)
 
-    # --- HARD GUARANTEE for validator ---
+    # HARD GUARANTEE for validator:
     # Always make count match the final emitted rows length.
-    # This prevents any mismatch due to dedupe/filter/order differences.
     settled_bets_summary["count"] = int(len(settled_bets_rows))
-
 
     window_games_count = next(
         (
@@ -1556,6 +1568,8 @@ def main() -> None:
             "window_games_count": window_games_count,
             "filter_pass_count": strategy_filter_stats.get("matched_games_count", 0),
             "simulated_bets_count": local_matched_games_count,
+
+            # IMPORTANT: this is the SIMULATED strategy count (keep as-is)
             "settled_bets_count": local_matched_games_count,
         },
         "strategy_params": {
@@ -1576,6 +1590,12 @@ def main() -> None:
         },
     }
 
+    # ----------------------------
+    # Tables payload (frontend)
+    # MUST contain these keys for validator + UI:
+    # - settled_bets_rows
+    # - settled_bets_summary
+    # ----------------------------
     tables_payload = {
         "historical_stats": historical_stats,
         "accuracy_threshold_stats": accuracy_thresholds,
@@ -1593,10 +1613,12 @@ def main() -> None:
         "bankroll_last_200": bankroll_last_200,
         "bankroll_ytd_2026": bankroll_ytd_2026,
         "local_matched_games_avg_odds": local_avg_odds,
-        "settled_bets_rows_all": settled_bets_rows_all,         # NEU: alle settled Bets
-        "settled_bets_summary_all": build_settled_bet_summary(settled_bets_rows_all),
 
+        # Placed Bets (Real) — YTD 2026 (SETTLED only)
+        "settled_bets_rows": settled_bets_rows,
+        "settled_bets_summary": settled_bets_summary,
     }
+
 
     last_run_payload = {
         "last_run": last_run,
