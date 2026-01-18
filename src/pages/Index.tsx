@@ -3,6 +3,7 @@ import { StatCard } from "@/components/cards/StatCard";
 import type {
   DashboardPayload,
   DashboardState,
+  LocalMatchedGameRow,
   StrategyParamsFile,
   TablesPayload,
 } from "@/data/dashboardTypes";
@@ -14,9 +15,73 @@ const Index = () => {
   const [payload, setPayload] = useState<DashboardPayload | null>(null);
   const [dashboardState, setDashboardState] = useState<DashboardState | null>(null);
   const [strategyParamsFile, setStrategyParamsFile] = useState<StrategyParamsFile | null>(null);
+  const [localMatchedLatestRows, setLocalMatchedLatestRows] = useState<LocalMatchedGameRow[]>(
+    [],
+  );
   const [tablesFallback, setTablesFallback] = useState<TablesPayload | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const baseUrl = import.meta.env.BASE_URL ?? "/";
+
+  const parseLocalMatchedCsv = (csvText: string): LocalMatchedGameRow[] => {
+    const trimmed = csvText.trim();
+    if (!trimmed) {
+      return [];
+    }
+    const lines = trimmed.split(/\r?\n/).filter(Boolean);
+    if (lines.length < 2) {
+      return [];
+    }
+    const delimiter = lines[0].includes("\t") ? "\t" : ",";
+    const headers = lines[0].split(delimiter).map((header) => header.trim());
+    const normalizeHeader = (header: string) =>
+      header.trim().toLowerCase().replace(/[^\w]+/g, "_");
+    const headerKeys = headers.map((header) => {
+      const normalized = normalizeHeader(header);
+      if (normalized.includes("ev") && normalized.includes("per_100")) {
+        return "ev_eur_per_100";
+      }
+      return normalized;
+    });
+    const headerIndex = headerKeys.reduce<Record<string, number>>((acc, key, index) => {
+      if (!(key in acc)) {
+        acc[key] = index;
+      }
+      return acc;
+    }, {});
+
+    const readString = (columns: string[], key: string) => {
+      const index = headerIndex[key];
+      return index !== undefined ? columns[index]?.trim() ?? "" : "";
+    };
+    const readNumber = (columns: string[], key: string) => {
+      const raw = readString(columns, key);
+      const parsed = Number.parseFloat(raw);
+      return Number.isFinite(parsed) ? parsed : Number.NaN;
+    };
+
+    return lines.slice(1).reduce<LocalMatchedGameRow[]>((acc, line) => {
+      const columns = line.split(delimiter);
+      const date = readString(columns, "date");
+      const homeTeam = readString(columns, "home_team");
+      const awayTeam = readString(columns, "away_team");
+      if (!date || !homeTeam || !awayTeam) {
+        return acc;
+      }
+      acc.push({
+        date,
+        home_team: homeTeam,
+        away_team: awayTeam,
+        home_win_rate: readNumber(columns, "home_win_rate"),
+        prob_iso: readNumber(columns, "prob_iso"),
+        prob_used: readNumber(columns, "prob_used"),
+        odds_1: readNumber(columns, "odds_1"),
+        ev_eur_per_100: readNumber(columns, "ev_eur_per_100"),
+        win: readNumber(columns, "win"),
+        pnl: readNumber(columns, "pnl"),
+      });
+      return acc;
+    }, []);
+  };
 
   useEffect(() => {
     let alive = true;
@@ -43,6 +108,17 @@ const Index = () => {
           setDashboardState(stateJson);
           if (tablesJson) {
             setTablesFallback(tablesJson);
+          }
+        }
+
+        const localMatchedSource =
+          stateJson.sources?.local_matched ?? "local_matched_games_latest.csv";
+        const localMatchedRes = await fetch(`${baseUrl}data/${localMatchedSource}`);
+        if (alive && localMatchedRes.ok) {
+          const localMatchedText = await localMatchedRes.text();
+          const parsedRows = parseLocalMatchedCsv(localMatchedText);
+          if (parsedRows.length > 0) {
+            setLocalMatchedLatestRows(parsedRows);
           }
         }
 
@@ -155,6 +231,8 @@ const Index = () => {
     };
   const homeWinRatesLast20 = tables?.home_win_rates_last20 ?? [];
   const localMatchedGamesRows = tables?.local_matched_games_rows ?? [];
+  const localMatchedRowsDisplay =
+    localMatchedLatestRows.length > 0 ? localMatchedLatestRows : localMatchedGamesRows;
   const settledBetsRows = tables?.settled_bets_rows ?? [];
   const START_BANKROLL_REAL = 1000;
   const START_BANKROLL_SIM = 1000;
@@ -266,6 +344,8 @@ const Index = () => {
     const percentValue = Math.abs(value) <= 1 ? value * 100 : value;
     return fmtPercent(percentValue, decimals);
   };
+  const localMatchedSourceLabel =
+    dashboardState?.sources?.local_matched ?? "local_matched_games_latest.csv";
   const betLogFlatSource = dashboardState?.sources?.bet_log ?? "bet_log_flat_live.csv";
   const combinedSource = dashboardState?.sources?.combined ?? "combined_latest.csv";
   const summaryAsOfDate =
@@ -336,8 +416,8 @@ const Index = () => {
     : `${activeFiltersEffective} | window ${windowSize} (${windowStartLabel} → ${windowEndLabel})`;
 
   const localMatchedGamesRowsSorted = useMemo(() => {
-    return [...localMatchedGamesRows].sort((a, b) => b.date.localeCompare(a.date));
-  }, [localMatchedGamesRows]);
+    return [...localMatchedRowsDisplay].sort((a, b) => b.date.localeCompare(a.date));
+  }, [localMatchedRowsDisplay]);
   const localMatchedCountDisplay = localMatchedTotalCount;
   const localMatchedWinsDisplay = localMatchedWins;
   const localMatchedProfitSumDisplay = localMatchedProfitSum;
@@ -351,6 +431,14 @@ const Index = () => {
     localMatchedRowsCount > 0 && localMatchedTotalCount > localMatchedRowsCount
       ? `${localMatchedRowsCount} of ${localMatchedTotalCount}`
       : `${localMatchedTotalCount}`;
+  const localMatchedDisplayWins = localMatchedRowsDisplay.filter(
+    (row) => row.win === 1,
+  ).length;
+  const localMatchedDisplayProfitSum = localMatchedRowsDisplay.reduce(
+    (acc, row) => acc + (row.pnl ?? 0),
+    0,
+  );
+  const localMatchedDisplayCount = localMatchedRowsDisplay.length;
   const simulatedBankroll = START_BANKROLL_SIM + localMatchedProfitSumDisplay;
 
   const topHomeTeams = useMemo(() => {
@@ -358,6 +446,13 @@ const Index = () => {
       .filter((team) => team.homeWinRate > 0.5)
       .sort((a, b) => b.homeWinRate - a.homeWinRate);
   }, [homeWinRatesLast20]);
+  const strategyRoiDisplay = strategySummary.profitMetricsAvailable
+    ? fmtPercent(kpis.roi_pct, 2)
+    : "—";
+  const strategySharpeDisplay =
+    strategySummary.sharpeStyle !== null ? fmtNumber(strategySummary.sharpeStyle, 2) : "—";
+  const strategyMaxDrawdownDisplay =
+    kpis.max_drawdown_eur !== null ? fmtCurrencyEUR(kpis.max_drawdown_eur, 0) : "—";
 
   return (
     <>
@@ -471,6 +566,7 @@ const Index = () => {
             <h2 className="text-2xl font-bold">Strategy (Simulated on Window Subset)</h2>
             <p className="text-sm text-muted-foreground">
               Simulated performance on local_matched_games restricted to the window (not actual placed bets).
+              The table below highlights the latest local_matched_games file.
             </p>
           </div>
           <span className="rounded-full border border-border bg-muted/30 px-3 py-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -502,31 +598,31 @@ const Index = () => {
           />
           <StatCard
             title="ROI / Sharpe / Max DD"
-            value={fmtPercent(kpis.roi_pct, 2)}
-            subtitle={`Sharpe: ${fmtNumber(strategySummary.sharpeStyle, 2)} • DD: ${fmtCurrencyEUR(
-              kpis.max_drawdown_eur,
-              0,
-            )}`}
+            value={strategyRoiDisplay}
+            subtitle={`Sharpe: ${strategySharpeDisplay} • DD: ${strategyMaxDrawdownDisplay}`}
             icon={<BarChart3 className="w-6 h-6" />}
           />
         </div>
 
         <div className="glass-card p-6">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-            <h3 className="text-lg font-semibold">LOCAL MATCHED GAMES (Window)</h3>
+            <div>
+              <h3 className="text-lg font-semibold">LOCAL MATCHED GAMES (Latest)</h3>
+              <p className="text-xs text-muted-foreground">Source: {localMatchedSourceLabel}</p>
+            </div>
             <div className="text-xs text-muted-foreground">
               {localMatchedGamesRowsSorted.length > 0
-                ? `n=${localMatchedCountBreakdown} • Wins=${localMatchedWinsDisplay} • P/L ${formatSigned(
-                    localMatchedProfitSumDisplay,
+                ? `n=${localMatchedDisplayCount} • Wins=${localMatchedDisplayWins} • P/L ${formatSigned(
+                    localMatchedDisplayProfitSum,
                   )}`
-                : "No local matched games in the window."}
+                : "No local matched games available."}
             </div>
           </div>
 
           <div className="overflow-x-auto">
             {localMatchedGamesRowsSorted.length === 0 ? (
               <div className="rounded-lg border border-border p-4 text-sm text-muted-foreground">
-                No local matched games available for this window.
+                No local matched games available.
               </div>
             ) : (
               <table className="w-full text-sm">
