@@ -197,7 +197,7 @@ const filterLocalMatchedGamesParams = (rows, params) => {
   }
   if (minEv !== null) {
     current = current.filter((row) => {
-      const ev = coerceNumber(row.ev_eur_per_100);
+      const ev = coerceNumber(row.ev_eur_per_100 ?? row.ev_per_100);
       return ev !== null && ev > minEv;
     });
   }
