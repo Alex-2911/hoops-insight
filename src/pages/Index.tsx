@@ -137,9 +137,16 @@ const Index = () => {
   const localMatchedProfitSum =
     tables?.local_matched_games_profit_sum_table ??
     localMatchedGamesRows.reduce((acc, row) => acc + (row.pnl ?? 0), 0);
-  const localMatchedCount = Math.max(
-    tables?.local_matched_games_count ?? 0,
-    localMatchedGamesRows.length,
+  const localMatchedCountFromTables = tables?.local_matched_games_count ?? 0;
+  const localMatchedCountFromSummary =
+    summary?.strategy_filter_stats?.matched_games_count ?? 0;
+  const localMatchedCountFromState = dashboardState?.strategy_matches_window ?? 0;
+  const localMatchedRowsCount = localMatchedGamesRows.length;
+  const localMatchedTotalCount = Math.max(
+    localMatchedCountFromTables,
+    localMatchedCountFromSummary,
+    localMatchedCountFromState,
+    localMatchedRowsCount,
   );
   const localMatchedWins = localMatchedGamesRows.filter((row) => row.win === 1).length;
   const kpis = summary?.kpis ?? {
@@ -253,12 +260,19 @@ const Index = () => {
   const localMatchedGamesRowsSorted = useMemo(() => {
     return [...localMatchedGamesRows].sort((a, b) => b.date.localeCompare(a.date));
   }, [localMatchedGamesRows]);
-  const localMatchedCountDisplay =
-    localMatchedGamesRows.length > 0 ? localMatchedGamesRows.length : localMatchedCount;
+  const localMatchedCountDisplay = localMatchedTotalCount;
   const localMatchedWinsDisplay = localMatchedWins;
   const localMatchedProfitSumDisplay = localMatchedProfitSum;
+  const localMatchedWinRateBase =
+    localMatchedRowsCount > 0 ? localMatchedRowsCount : localMatchedTotalCount;
   const localMatchedWinRateDisplay =
-    localMatchedCountDisplay > 0 ? (localMatchedWinsDisplay / localMatchedCountDisplay) * 100 : 0;
+    localMatchedWinRateBase > 0
+      ? (localMatchedWinsDisplay / localMatchedWinRateBase) * 100
+      : 0;
+  const localMatchedCountBreakdown =
+    localMatchedRowsCount > 0 && localMatchedTotalCount > localMatchedRowsCount
+      ? `${localMatchedRowsCount} of ${localMatchedTotalCount}`
+      : `${localMatchedTotalCount}`;
   const simulatedBankroll = START_BANKROLL_SIM + localMatchedProfitSumDisplay;
 
   const topHomeTeams = useMemo(() => {
@@ -396,7 +410,7 @@ const Index = () => {
           <StatCard
             title="Wins / Win rate"
             value={`${localMatchedWinsDisplay} / ${fmtPercent(localMatchedWinRateDisplay, 1)}`}
-            subtitle={`n=${localMatchedCountDisplay} • window ${windowStartLabel} → ${windowEndLabel}`}
+            subtitle={`n=${localMatchedCountBreakdown} • window ${windowStartLabel} → ${windowEndLabel}`}
             icon={<TrendingUp className="w-6 h-6" />}
           />
           <StatCard
@@ -424,7 +438,7 @@ const Index = () => {
             <h3 className="text-lg font-semibold">LOCAL MATCHED GAMES (Window)</h3>
             <div className="text-xs text-muted-foreground">
               {localMatchedGamesRowsSorted.length > 0
-                ? `n=${localMatchedGamesRowsSorted.length} • Wins=${localMatchedWinsDisplay} • P/L ${formatSigned(
+                ? `n=${localMatchedCountBreakdown} • Wins=${localMatchedWinsDisplay} • P/L ${formatSigned(
                     localMatchedProfitSumDisplay,
                   )}`
                 : "No local matched games in the window."}
