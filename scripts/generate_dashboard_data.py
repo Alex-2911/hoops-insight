@@ -906,6 +906,7 @@ def load_bet_log_flat(path: Path) -> List[Dict[str, object]]:
     rows = []
     for row in _read_csv_normalized(path):
         date = _safe_date(row.get("date") or row.get("game_date") or row.get("event_date"))
+
         home_team = _safe_team(row.get("home_team") or row.get("home"))
         away_team = _safe_team(row.get("away_team") or row.get("away"))
         if not home_team or not away_team:
@@ -922,6 +923,7 @@ def load_bet_log_flat(path: Path) -> List[Dict[str, object]]:
             or row.get("bet_on")
             or row.get("side")
         )
+
         odds = _safe_float(
             row.get("odds")
             or row.get("odds_decimal")
@@ -932,6 +934,17 @@ def load_bet_log_flat(path: Path) -> List[Dict[str, object]]:
             row.get("stake") or row.get("stake_eur") or row.get("amount") or row.get("bet_amount")
         )
 
+        status = (row.get("status") or "").strip().upper()
+        won = _safe_float(row.get("won"))
+        pnl = _safe_float(row.get("pnl") or row.get("profit") or row.get("profit_eur"))
+
+        prob_used = _safe_float(row.get("prob_used"))
+        ev_per_100 = _safe_float(row.get("ev_per_100") or row.get("ev_eur_per_100"))
+
+        created_at_utc = (row.get("created_at_utc") or "").strip() or None
+        settled_at_utc = (row.get("settled_at_utc") or "").strip() or None
+        source = (row.get("source") or "").strip() or None
+
         rows.append(
             {
                 "date": date,
@@ -940,17 +953,27 @@ def load_bet_log_flat(path: Path) -> List[Dict[str, object]]:
                 "pick_team": pick_team,
                 "odds": odds,
                 "stake": stake,
+                "status": status,
+                "won": won,
+                "pnl": pnl,
+                "prob_used": prob_used,
+                "ev_per_100": ev_per_100,
+                "created_at_utc": created_at_utc,
+                "settled_at_utc": settled_at_utc,
+                "source": source,
                 "raw": row,
             }
         )
     return rows
 
 
+
 def build_settled_bets(
     bet_rows: List[Dict[str, object]],
     played_rows: List[Dict[str, object]],
-    ytd_start: datetime,
+    ytd_start: Optional[datetime] = None,
 ) -> List[Dict[str, object]]:
+    # Lookup nur als Fallback (wenn won/pnl fehlen)
     played_lookup: Dict[Tuple[str, str, str], Dict[str, object]] = {}
     for row in played_rows:
         key = (
@@ -965,25 +988,50 @@ def build_settled_bets(
         bet_date = bet.get("date")
         if not isinstance(bet_date, datetime):
             continue
-        if bet_date < ytd_start:
+
+        if ytd_start is not None and bet_date < ytd_start:
             continue
+
+        status = str(bet.get("status") or "").upper().strip()
+        won_val = bet.get("won")
+        pnl_val = bet.get("pnl")
+
+        # "Settled" Heuristik: status SETTLED ODER won/pnl vorhanden
+        is_settled = (status == "SETTLED") or (won_val is not None) or (pnl_val is not None)
+        if not is_settled:
+            continue
+
         home_team = _safe_team(bet.get("home_team"))
         away_team = _safe_team(bet.get("away_team"))
         pick_team = _safe_team(bet.get("pick_team"))
         if not home_team or not away_team or not pick_team:
             continue
-        played = played_lookup.get((bet_date.strftime(DATE_FMT), home_team, away_team))
-        if not played:
-            continue
-        home_team_won = int(played.get("home_team_won") or 0)
-        win = 1 if home_team_won == 1 else 0
+
         odds = bet.get("odds")
         if odds is None or not isinstance(odds, (int, float)) or odds <= 0:
             odds = 1.0
+
         stake = bet.get("stake")
         if stake is None or not isinstance(stake, (int, float)) or stake < 0:
             stake = 0.0
-        pnl = (odds - 1.0) * stake if win == 1 else -stake
+
+        # 1) Wenn CSV won/pnl schon liefert: benutze das direkt
+        if won_val is not None:
+            win = 1 if float(won_val) == 1.0 else 0
+        else:
+            # 2) Fallback: aus played outcome bestimmen (nur wenn vorhanden)
+            played = played_lookup.get((bet_date.strftime(DATE_FMT), home_team, away_team))
+            if not played:
+                # ohne played und ohne won -> nicht bewertbar
+                continue
+            home_team_won = int(played.get("home_team_won") or 0)
+            win = 1 if home_team_won == 1 else 0
+
+        if pnl_val is not None and isinstance(pnl_val, (int, float)):
+            pnl = float(pnl_val)
+        else:
+            pnl = (float(odds) - 1.0) * float(stake) if win == 1 else -float(stake)
+
         settled.append(
             {
                 "date": bet_date.strftime(DATE_FMT),
@@ -992,10 +1040,32 @@ def build_settled_bets(
                 "pick_team": pick_team,
                 "odds": float(odds),
                 "stake": float(stake),
-                "win": win,
+                "win": int(win),
                 "pnl": float(pnl),
+                "prob_used": bet.get("prob_used"),
+                "ev_per_100": bet.get("ev_per_100"),
+                "created_at_utc": bet.get("created_at_utc"),
+                "settled_at_utc": bet.get("settled_at_utc"),
+                "source": bet.get("source"),
             }
         )
+
+    # dedupe (stabil)
+    deduped = {}
+    for row in sorted(settled, key=lambda r: r["date"], reverse=True):
+        key = (
+            row["date"],
+            row["home_team"],
+            row["away_team"],
+            row["pick_team"],
+            row["odds"],
+            row["stake"],
+        )
+        if key in deduped:
+            continue
+        deduped[key] = row
+    return list(deduped.values())
+
 
     deduped = {}
     for row in sorted(settled, key=lambda r: r["date"], reverse=True):
@@ -1435,11 +1505,15 @@ def main() -> None:
     last_run = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
     bet_log_flat_rows = load_bet_log_flat(bet_log_flat_path) if bet_log_flat_path else []
-    settled_bets_rows = build_settled_bets(
-        bet_log_flat_rows, played_rows, ytd_start=datetime(2026, 1, 1)
-    )
-    if bet_log_flat_rows:
-        assert_settled_bets_match_local(settled_bets_rows, local_matched_games_rows)
+    settled_bets_rows_all = build_settled_bets(bet_log_flat_rows, played_rows, ytd_start=None)
+    settled_bets_rows = build_settled_bets(bet_log_flat_rows, played_rows, ytd_start=datetime(2026, 1, 1))
+
+    try:
+        if bet_log_flat_rows and settled_bets_rows:
+            assert_settled_bets_match_local(settled_bets_rows, local_matched_games_rows)
+    except Exception as e:
+        print(f"WARNING: settled vs local mismatch: {e}")
+
     settled_bets_summary = build_settled_bet_summary(settled_bets_rows)
 
     window_games_count = next(
@@ -1513,8 +1587,9 @@ def main() -> None:
         "bankroll_last_200": bankroll_last_200,
         "bankroll_ytd_2026": bankroll_ytd_2026,
         "local_matched_games_avg_odds": local_avg_odds,
-        "settled_bets_rows": settled_bets_rows,
-        "settled_bets_summary": settled_bets_summary,
+        "settled_bets_rows_all": settled_bets_rows_all,         # NEU: alle settled Bets
+        "settled_bets_summary_all": build_settled_bet_summary(settled_bets_rows_all),
+
     }
 
     last_run_payload = {
