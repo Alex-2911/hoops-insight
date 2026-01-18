@@ -136,7 +136,14 @@ def _normalize_params(params: Dict[str, object]) -> Dict[str, object]:
 
 def _read_csv_normalized(path: Path) -> Iterable[Dict[str, str]]:
     with path.open("r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
+        sample = f.read(4096)
+        f.seek(0)
+        try:
+            dialect = csv.Sniffer().sniff(sample, delimiters=[",", "\t", ";", "|"])
+        except csv.Error:
+            dialect = csv.excel
+
+        reader = csv.DictReader(f, dialect=dialect)
         for row in reader:
             normalized = {}
             for k, v in row.items():
