@@ -445,6 +445,45 @@ const Index = () => {
   const localMatchedGamesRowsSorted = useMemo(() => {
     return [...localMatchedRowsDisplay].sort((a, b) => b.date.localeCompare(a.date));
   }, [localMatchedRowsDisplay]);
+  const localMatchedWindowRange = useMemo(() => {
+    if (localMatchedRowsDisplay.length === 0) {
+      return null;
+    }
+    const parseDate = (value: string) => {
+      const parsed = Date.parse(value);
+      return Number.isNaN(parsed) ? null : parsed;
+    };
+    let minDate = localMatchedRowsDisplay[0].date;
+    let maxDate = localMatchedRowsDisplay[0].date;
+    let minTime = parseDate(minDate);
+    let maxTime = parseDate(maxDate);
+    for (const row of localMatchedRowsDisplay.slice(1)) {
+      const current = row.date;
+      const currentTime = parseDate(current);
+      if (currentTime !== null && minTime !== null) {
+        if (currentTime < minTime) {
+          minTime = currentTime;
+          minDate = current;
+        }
+      } else if (current < minDate) {
+        minDate = current;
+        minTime = parseDate(current);
+      }
+      if (currentTime !== null && maxTime !== null) {
+        if (currentTime > maxTime) {
+          maxTime = currentTime;
+          maxDate = current;
+        }
+      } else if (current > maxDate) {
+        maxDate = current;
+        maxTime = parseDate(current);
+      }
+    }
+    return {
+      start: minDate,
+      end: maxDate,
+    };
+  }, [localMatchedRowsDisplay]);
   const localMatchedCountDisplay = localMatchedTotalCount;
   const localMatchedWinsDisplay = localMatchedWins;
   const localMatchedProfitSumDisplay = localMatchedProfitSum;
@@ -454,6 +493,8 @@ const Index = () => {
     localMatchedWinRateBase > 0
       ? (localMatchedWinsDisplay / localMatchedWinRateBase) * 100
       : 0;
+  const localMatchedWindowStartLabel = localMatchedWindowRange?.start ?? windowStartLabel;
+  const localMatchedWindowEndLabel = localMatchedWindowRange?.end ?? windowEndLabel;
   const localMatchedCountBreakdown =
     localMatchedRowsCount > 0 && localMatchedTotalCount > localMatchedRowsCount
       ? `${localMatchedRowsCount} of ${localMatchedTotalCount}`
@@ -611,7 +652,7 @@ const Index = () => {
           <StatCard
             title="Wins / Win rate"
             value={`${localMatchedWinsDisplay} / ${fmtPercent(localMatchedWinRateDisplay, 1)}`}
-            subtitle={`n=${localMatchedCountBreakdown} • window ${windowStartLabel} → ${windowEndLabel}`}
+            subtitle={`n=${localMatchedCountBreakdown} • window ${localMatchedWindowStartLabel} → ${localMatchedWindowEndLabel}`}
             icon={<TrendingUp className="w-6 h-6" />}
           />
           <StatCard
