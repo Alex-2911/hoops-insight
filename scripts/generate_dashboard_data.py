@@ -784,6 +784,64 @@ def build_home_win_rates_last20(rows: List[Dict[str, object]]) -> List[Dict[str,
     return [row for row in output if row["homeWinRate"] > 0.50]
 
 
+def build_home_win_rates_window(
+    played_rows: List[Dict[str, object]],
+    window_size: int = 20,
+) -> List[Dict[str, object]]:
+    """
+    Windowed home win rate per team, computed only from HOME games
+    inside the last `window_size` played games (overall games window).
+    Output row shape:
+      team, homeWinRate, homeWins, homeGames, windowGames
+    """
+    if not played_rows:
+        return []
+
+    sorted_rows = sorted(played_rows, key=lambda r: r["date"])
+    window_rows = sorted_rows[-window_size:] if window_size else sorted_rows
+    window_games = len(window_rows)
+    if window_games == 0:
+        return []
+
+    counts = defaultdict(lambda: {"home_games": 0, "home_wins": 0})
+
+    for row in window_rows:
+        home = _safe_team(row.get("home_team"))
+        if not home:
+            continue
+
+        htw = row.get("home_team_won")
+        win = None
+        if htw is not None:
+            s = str(htw).strip().lower()
+            if s in {"1", "true", "yes"}:
+                win = 1
+            elif s in {"0", "false", "no"}:
+                win = 0
+
+        counts[home]["home_games"] += 1
+        if win == 1:
+            counts[home]["home_wins"] += 1
+
+    output = []
+    for team, counts_row in counts.items():
+        home_games = int(counts_row["home_games"])
+        home_wins = int(counts_row["home_wins"])
+        home_win_rate = _safe_div(home_wins, home_games) if home_games else 0.0
+        output.append(
+            {
+                "team": team,
+                "homeWinRate": float(home_win_rate),
+                "homeWins": home_wins,
+                "homeGames": home_games,
+                "windowGames": int(window_games),
+            }
+        )
+
+    output.sort(key=lambda x: (x["homeWinRate"], x["homeGames"]), reverse=True)
+    return output
+
+
 def _get_param(params: Dict[str, object], *names: str) -> Optional[float]:
     for name in names:
         key = _normalize_key(name)
@@ -1117,6 +1175,11 @@ def main() -> None:
     accuracy_thresholds = build_accuracy_thresholds(played_rows)
     calibration = build_calibration_metrics(played_rows, window_size=CALIBRATION_WINDOW)
     home_win_rates = build_home_win_rates_last20(played_rows)
+    HOME_WIN_RATE_WINDOW = 20
+    home_win_rates_window = build_home_win_rates_window(
+        played_rows,
+        window_size=HOME_WIN_RATE_WINDOW,
+    )
 
     # ----------------------------
     # Bet log (optional)
@@ -1337,6 +1400,7 @@ def main() -> None:
         "local_matched_games_rows": local_rows_out,
         "settled_bets_rows": settled_bets_rows,
         "settled_bets_summary": {"count": int(len(settled_bets_rows))},
+        "home_win_rates_window": home_win_rates_window,
     }
 
     # Validator requires these NOT be None when sample size >= 5
