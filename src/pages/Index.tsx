@@ -32,15 +32,34 @@ const Index = () => {
       return [];
     }
     const delimiter = lines[0].includes("\t") ? "\t" : ",";
-    const headers = lines[0].split(delimiter).map((header) => header.trim());
+    const headers = lines[0]
+      .split(delimiter)
+      .map((header) => header.replace(/^\uFEFF/, "").trim());
     const normalizeHeader = (header: string) =>
-      header.trim().toLowerCase().replace(/[^\w]+/g, "_");
+      header
+        .trim()
+        .toLowerCase()
+        .replace(/[^\w]+/g, "_")
+        .replace(/_+/g, "_")
+        .replace(/^_+|_+$/g, "");
+    const headerAliases: Record<string, string> = {
+      closing_home_odds: "odds_1",
+      odds: "odds_1",
+      odds_1: "odds_1",
+      ev_per_100: "ev_eur_per_100",
+      ev_eur_per_100: "ev_eur_per_100",
+      ev_eur_per100: "ev_eur_per_100",
+      ev_per100: "ev_eur_per_100",
+      p_l: "pnl",
+      pl: "pnl",
+      pnl: "pnl",
+    };
     const headerKeys = headers.map((header) => {
       const normalized = normalizeHeader(header);
       if (normalized.includes("ev") && normalized.includes("per_100")) {
         return "ev_eur_per_100";
       }
-      return normalized;
+      return headerAliases[normalized] ?? normalized;
     });
     const headerIndex = headerKeys.reduce<Record<string, number>>((acc, key, index) => {
       if (!(key in acc)) {
