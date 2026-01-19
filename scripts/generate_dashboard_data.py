@@ -933,17 +933,50 @@ def _label_path(path: Optional[Path]) -> str:
 
 
 def load_bet_log(path: Path) -> List[Dict[str, object]]:
-    rows = []
+    rows: List[Dict[str, object]] = []
+
     for row in _read_csv_normalized(path):
-        date = _safe_date(row.get("date"))
+        date = _safe_date(row.get("date") or row.get("game_date"))
         if date is None:
             continue
+
+        status_raw = (row.get("status") or "").strip().upper()
+        has_status = bool(status_raw)
+
+        stake = _safe_float(row.get("stake") or row.get("stake_eur") or row.get("stake_flat"))
+        pnl = _safe_float(row.get("pnl") or row.get("profit_eur") or row.get("profit"))
+        won = _safe_float(row.get("won"))
+
+        if won is None and pnl is not None:
+            if pnl > 0:
+                won = 1.0
+            elif pnl < 0:
+                won = 0.0
+
+        if has_status:
+            if status_raw != "SETTLED":
+                continue
+        else:
+            if won is None and pnl is None:
+                continue
+
+        odds_1 = _safe_float(
+            row.get("odds_1")
+            or row.get("odds")
+            or row.get("closing_home_odds")
+            or row.get("home_odds")
+        )
+
         rows.append(
             {
                 "date": date,
-                "stake_eur": _safe_float(row.get("stake_eur")),
-                "profit_eur": _safe_float(row.get("profit_eur")),
-                "won": _safe_float(row.get("won")),
+                "stake_eur": stake,
+                "profit_eur": pnl,
+                "won": won,
+                "odds_1": odds_1,
+                "home_team": _safe_team(row.get("home_team")),
+                "away_team": _safe_team(row.get("away_team")),
+                "status": status_raw if has_status else None,
                 "bankroll": _safe_float(row.get("bankroll")),
                 "bankroll_after": _safe_float(row.get("bankroll_after")),
             }
@@ -962,6 +995,7 @@ def build_bet_log_summary(rows: List[Dict[str, object]]) -> Dict[str, object]:
             "avgStakeEur": 0.0,
             "avgProfitPerBetEur": 0.0,
             "winRate": 0.0,
+            "avgOdds": 0.0,
         }
     total_bets = len(rows)
     total_staked = sum(float(r.get("stake_eur") or 0.0) for r in rows)
@@ -969,6 +1003,8 @@ def build_bet_log_summary(rows: List[Dict[str, object]]) -> Dict[str, object]:
     avg_stake = _safe_div(total_staked, total_bets)
     avg_profit = _safe_div(total_profit, total_bets)
     win_rate = _safe_div(sum(1 for r in rows if float(r.get("won") or 0.0) == 1.0), total_bets)
+    odds_values = [float(r.get("odds_1")) for r in rows if r.get("odds_1") is not None]
+    avg_odds = _safe_div(sum(odds_values), len(odds_values)) if odds_values else 0.0
     as_of = max(r["date"] for r in rows).strftime(DATE_FMT)
     roi_pct = _safe_div(total_profit, total_staked) * 100.0
     return {
@@ -980,6 +1016,7 @@ def build_bet_log_summary(rows: List[Dict[str, object]]) -> Dict[str, object]:
         "avgStakeEur": float(avg_stake),
         "avgProfitPerBetEur": float(avg_profit),
         "winRate": float(win_rate),
+        "avgOdds": float(avg_odds),
     }
 
 
@@ -1098,6 +1135,27 @@ def main() -> None:
 
     bet_log_summary = build_bet_log_summary(bet_log_rows)
     bankroll_history = build_bankroll_history(bet_log_rows)
+    settled_bets_rows = []
+    for row in bet_log_rows:
+        bet_date = row.get("date")
+        if not isinstance(bet_date, datetime) or bet_date < datetime(2026, 1, 1):
+            continue
+        pnl = row.get("profit_eur")
+        win = row.get("won")
+        if pnl is None or win is None:
+            continue
+        settled_bets_rows.append(
+            {
+                "date": bet_date.strftime(DATE_FMT),
+                "home_team": row.get("home_team") or "",
+                "away_team": row.get("away_team") or "",
+                "pick_team": "HOME",
+                "odds": float(row.get("odds_1") or 0.0),
+                "stake": float(row.get("stake_eur") or 0.0),
+                "win": int(win),
+                "pnl": float(pnl),
+            }
+        )
 
     # ----------------------------
     # Window bounds (last N played games) - must match validator
@@ -1277,8 +1335,8 @@ def main() -> None:
     local_rows_out = local_matched_games_rows[:2000]  # cap ok
     tables_payload = {
         "local_matched_games_rows": local_rows_out,
-        "settled_bets_rows": [],  # wire later if you want; must match count below
-        "settled_bets_summary": {"count": 0},
+        "settled_bets_rows": settled_bets_rows,
+        "settled_bets_summary": {"count": int(len(settled_bets_rows))},
     }
 
     # Validator requires these NOT be None when sample size >= 5
