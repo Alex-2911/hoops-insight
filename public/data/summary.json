@@ -38,23 +38,23 @@
     "window_size": 200,
     "filters": [
       {
-        "label": "Home win rate ≥ 0.50",
+        "label": "Home win rate \u2265 0.50",
         "count": 136
       },
       {
-        "label": "Odds range 2.00–3.20",
+        "label": "Odds range 2.00\u20133.20",
         "count": 28
       },
       {
-        "label": "Win prob ≥ 0.40",
+        "label": "Win prob \u2265 0.40",
         "count": 21
       },
       {
-        "label": "EV per €100 > -5.0",
-        "count": 16
+        "label": "EV per \u20ac100 > -5.0",
+        "count": 17
       }
     ],
-    "matched_games_count": 16
+    "matched_games_count": 17
   },
   "source": {
     "combined_file": "/Users/alexanderrazmyslov/1. Python/Basketball_prediction/2026/output/LightGBM/Kelly/combined_nba_predictions_iso_2026-01-07.csv",
