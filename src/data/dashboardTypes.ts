@@ -142,6 +142,14 @@ export interface HomeWinRate {
   homeWinRate: number;
 }
 
+export interface HomeWinRateWindowRow {
+  team: string;
+  homeWinRate: number;
+  homeWins: number;
+  homeGames: number;
+  windowGames: number;
+}
+
 export interface CalibrationMetrics {
   asOfDate: string;
   brierBefore: number;
@@ -213,6 +221,7 @@ export interface TablesPayload {
   accuracy_threshold_stats: AccuracyThresholdStat[];
   calibration_metrics: CalibrationMetrics;
   home_win_rates_last20: HomeWinRate[];
+  home_win_rates_window?: HomeWinRateWindowRow[];
   bet_log_summary: BetLogSummary;
   bankroll_history: BankrollEntry[];
   bankroll_ytd_2026: BankrollSummary;

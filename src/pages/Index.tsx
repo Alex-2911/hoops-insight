@@ -192,6 +192,10 @@ const Index = () => {
         payload.tables.home_win_rates_last20,
         tablesFallback.home_win_rates_last20,
       ),
+      home_win_rates_window: pickArray(
+        payload.tables.home_win_rates_window,
+        tablesFallback.home_win_rates_window,
+      ),
       bankroll_history: pickArray(
         payload.tables.bankroll_history,
         tablesFallback.bankroll_history,
@@ -256,7 +260,7 @@ const Index = () => {
       actualWinPct: 0,
       windowSize: 0,
     };
-  const homeWinRatesLast20 = tables?.home_win_rates_last20 ?? [];
+  const homeWinRatesWindow = tables?.home_win_rates_window ?? [];
   const localMatchedGamesRows = tables?.local_matched_games_rows ?? [];
   const localMatchedRowsDisplay =
     localMatchedLatestRows.length > 0 ? localMatchedLatestRows : localMatchedGamesRows;
@@ -509,11 +513,11 @@ const Index = () => {
   const localMatchedDisplayCount = localMatchedRowsDisplay.length;
   const simulatedBankroll = START_BANKROLL_SIM + localMatchedProfitSumDisplay;
 
-  const topHomeTeams = useMemo(() => {
-    return [...homeWinRatesLast20]
-      .filter((team) => team.homeWinRate > 0.5)
-      .sort((a, b) => b.homeWinRate - a.homeWinRate);
-  }, [homeWinRatesLast20]);
+  const homeWinRatesWindowFiltered = useMemo(
+    () => homeWinRatesWindow.filter((team) => (team.homeWinRate ?? 0) > 0.5),
+    [homeWinRatesWindow],
+  );
+  const homeWinRateWindowGames = homeWinRatesWindow[0]?.windowGames ?? 20;
   const strategyRoiDisplay = strategySummary.profitMetricsAvailable
     ? fmtPercent(kpis.roi_pct, 2)
     : "—";
@@ -871,44 +875,53 @@ const Index = () => {
 
       {/* Home win rates */}
       <section className="container mx-auto px-4 py-10">
-        <div className="glass-card p-6">
-          <h2 className="text-xl font-bold mb-2">
-            Home Win Rates (Window)
-          </h2>
-          <p className="text-sm text-muted-foreground mb-6">
-            Windowed home win rate per team; computed only on home games inside the last {windowSize} games.
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold">Home Win Rates (Window)</h2>
+          <p className="text-sm text-muted-foreground">
+            Windowed home win rate per team; computed only on home games inside the last 20 games.
           </p>
+        </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left border-b border-border">
-                  <th className="py-2 pr-4">Team</th>
-                  <th className="py-2 pr-4">Home Win Rate</th>
-                  <th className="py-2 pr-4">Home Wins</th>
-                  <th className="py-2 pr-4">Home Games</th>
-                  <th className="py-2 pr-4">Window Games</th>
-                </tr>
-              </thead>
-              <tbody>
-                {topHomeTeams.map((t) => (
-                  <tr key={t.team} className="border-b border-border/50">
-                    <td className="py-2 pr-4 font-medium">{t.team}</td>
-                    <td className="py-2 pr-4">
-                      {fmtPercent(t.homeWinRate * 100, 0)}
-                    </td>
-                    <td className="py-2 pr-4">{t.homeWins}</td>
-                    <td className="py-2 pr-4">{t.totalHomeGames}</td>
-                    <td className="py-2 pr-4">{t.totalLast20Games}</td>
+        <div className="glass-card p-6 overflow-x-auto">
+          {homeWinRatesWindow.length === 0 ? (
+            <div className="rounded-lg border border-border p-4 text-sm text-muted-foreground">
+              No home win rate window data available yet.
+            </div>
+          ) : homeWinRatesWindowFiltered.length === 0 ? (
+            <div className="rounded-lg border border-border p-4 text-sm text-muted-foreground">
+              No teams have a home win rate above 50% in the last {homeWinRateWindowGames} games.
+            </div>
+          ) : (
+            <>
+              <div className="text-xs text-muted-foreground mb-3">
+                Showing all teams with home win rate &gt; 50% in the last {homeWinRateWindowGames} games.
+              </div>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left border-b border-border">
+                    <th className="py-2 pr-4">Team</th>
+                    <th className="py-2 pr-4">Home Win Rate</th>
+                    <th className="py-2 pr-4">Home Wins</th>
+                    <th className="py-2 pr-4">Home Games</th>
+                    <th className="py-2 pr-4">Window Games</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="text-xs text-muted-foreground mt-4">
-            Showing all teams with home win rate &gt; 50% in the last {windowSize} games.
-          </div>
+                </thead>
+                <tbody>
+                  {homeWinRatesWindowFiltered.map((row) => (
+                    <tr key={row.team} className="border-b border-border/50">
+                      <td className="py-2 pr-4 font-medium">{row.team}</td>
+                      <td className="py-2 pr-4">
+                        {fmtPercent(row.homeWinRate * 100, 1)}
+                      </td>
+                      <td className="py-2 pr-4">{row.homeWins}</td>
+                      <td className="py-2 pr-4">{row.homeGames}</td>
+                      <td className="py-2 pr-4">{row.windowGames}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
+          )}
         </div>
       </section>
     </>
