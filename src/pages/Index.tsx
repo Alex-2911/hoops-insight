@@ -31,7 +31,15 @@ const Index = () => {
     if (lines.length < 2) {
       return [];
     }
-    const delimiter = lines[0].includes("\t") ? "\t" : ",";
+    const delimiter = (() => {
+      const headerLine = lines[0];
+      const candidates: Array<{ delimiter: string; count: number }> = [
+        { delimiter: "\t", count: headerLine.split("\t").length - 1 },
+        { delimiter: ";", count: headerLine.split(";").length - 1 },
+        { delimiter: ",", count: headerLine.split(",").length - 1 },
+      ];
+      return candidates.sort((a, b) => b.count - a.count)[0]?.delimiter ?? ",";
+    })();
     const headers = lines[0]
       .split(delimiter)
       .map((header) => header.replace(/^\uFEFF/, "").trim());
