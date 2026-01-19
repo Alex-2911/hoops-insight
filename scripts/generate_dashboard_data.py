@@ -758,30 +758,61 @@ def build_calibration_metrics(
 
 
 def build_home_win_rates_last20(rows: List[Dict[str, object]]) -> List[Dict[str, object]]:
-    per_team = defaultdict(list)
-    for r in rows:
-        per_team[str(r["home_team"])].append((r["date"], True, int(r["home_team_won"])))
-        per_team[str(r["away_team"])].append((r["date"], False, 0))
+    per_team: Dict[str, List[Dict[str, object]]] = defaultdict(list)
+    for row in rows:
+        game_date = row.get("date")
+        if not isinstance(game_date, datetime):
+            continue
+
+        home_team = _safe_team(row.get("home_team"))
+        away_team = _safe_team(row.get("away_team"))
+        if not home_team or not away_team:
+            continue
+
+        raw_home_win = row.get("home_team_won")
+        if isinstance(raw_home_win, bool):
+            home_team_won = 1 if raw_home_win else 0
+        elif isinstance(raw_home_win, (int, float)) and raw_home_win in (0, 1):
+            home_team_won = int(raw_home_win)
+        else:
+            home_team_won = None
+
+        per_team[home_team].append(
+            {
+                "date": game_date,
+                "is_home": True,
+                "home_team_won": home_team_won,
+            }
+        )
+        per_team[away_team].append(
+            {
+                "date": game_date,
+                "is_home": False,
+                "home_team_won": home_team_won,
+            }
+        )
 
     output = []
     for team, games in per_team.items():
-        games = sorted(games, key=lambda x: x[0])[-20:]
+        games = sorted(games, key=lambda x: x["date"])[-20:]
         total_last20 = len(games)
-        home_games = [g for g in games if g[1]]
-        total_home = len(home_games)
-        home_wins = sum(g[2] for g in home_games)
-        home_win_rate = _safe_div(home_wins, total_home)
+        total_home = sum(1 for g in games if g["is_home"])
+        home_wins = sum(
+            1 for g in games if g["is_home"] and g["home_team_won"] == 1
+        )
+        home_win_rate = _safe_div(home_wins, total_home) if total_home else 0.0
         output.append(
             {
                 "team": team,
-                "totalLast20Games": total_last20,
-                "totalHomeGames": total_home,
-                "homeWins": home_wins,
-                "homeWinRate": home_win_rate,
+                "totalLast20Games": int(total_last20),
+                "totalHomeGames": int(total_home),
+                "homeWins": int(home_wins),
+                "homeWinRate": float(home_win_rate),
             }
         )
-    output.sort(key=lambda x: (x["homeWinRate"], x["totalHomeGames"]), reverse=True)
-    return [row for row in output if row["homeWinRate"] > 0.50]
+
+    output.sort(key=lambda x: (-x["homeWinRate"], -x["totalHomeGames"], x["team"]))
+    return output
 
 
 def build_home_win_rates_window(
