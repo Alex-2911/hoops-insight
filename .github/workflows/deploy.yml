@@ -138,17 +138,25 @@ jobs:
           LOCAL_MATCHED="$(find "$ROOT" -maxdepth 1 -name "local_matched_games_*.csv" -type f -printf "%T@ %p\n" | sort -n | tail -n1 | cut -d' ' -f2- || true)"
           [[ -n "${LOCAL_MATCHED:-}" ]] || (echo "ERROR: no local_matched_games_*.csv under $ROOT" && exit 1)
 
-          # ✅ Source-of-truth CSV (wisdom)
-          WISDOM_CSV="$GITHUB_WORKSPACE/Basketball_prediction/web/public/data/local_matched_games_latest.csv"
+          # ✅ Source-of-truth data (wisdom)
+          WISDOM_DIR="$GITHUB_WORKSPACE/Basketball_prediction/web/public/data"
+          WISDOM_CSV="$WISDOM_DIR/local_matched_games_latest.csv"
+          WISDOM_STRATEGY="$WISDOM_DIR/strategy_params.json"
+          WISDOM_METRICS="$WISDOM_DIR/metrics_snapshot.json"
+
           [[ -f "$WISDOM_CSV" ]] || (echo "ERROR: missing $WISDOM_CSV" && exit 1)
+          [[ -f "$WISDOM_STRATEGY" ]] || (echo "ERROR: missing $WISDOM_STRATEGY" && exit 1)
+          [[ -f "$WISDOM_METRICS" ]] || (echo "ERROR: missing $WISDOM_METRICS" && exit 1)
 
           echo "✔ Found metrics_snapshot: $METRICS"
           echo "✔ Found strategy_params.txt: $STRATEGY_TXT"
           echo "✔ Found combined (ACC): $COMBINED_ACC"
           echo "✔ Found local_matched (dated): $LOCAL_MATCHED"
           echo "✔ Found wisdom CSV: $WISDOM_CSV"
+          echo "✔ Found wisdom strategy_params.json: $WISDOM_STRATEGY"
+          echo "✔ Found wisdom metrics_snapshot.json: $WISDOM_METRICS"
 
-      - name: Copy dashboard sources into public/data (sync wisdom CSV)
+      - name: Copy dashboard sources into public/data (sync wisdom data)
         shell: bash
         run: |
           set -euo pipefail
@@ -157,20 +165,22 @@ jobs:
           OUT="$GITHUB_WORKSPACE/public/data"
           mkdir -p "$OUT"
 
-          METRICS="$ROOT/metrics_snapshot.json"
-          STRATEGY_TXT="$ROOT/strategy_params.txt"
-
           COMBINED_ACC="$(find "$ROOT" -maxdepth 1 -name "combined_nba_predictions_acc_*.csv" -type f -printf "%T@ %p\n" | sort -n | tail -n1 | cut -d' ' -f2-)"
           BET_LOG_FLAT="$ROOT/bet_log_flat_live.csv"
-          STRATEGY_PARAMS_JSON="$ROOT/strategy_params.json"
 
-          cp "$METRICS" "$OUT/metrics_snapshot.json"
-          cp "$STRATEGY_TXT" "$OUT/strategy_params.txt"
           cp "$COMBINED_ACC" "$OUT/combined_latest.csv"
 
-          # ✅ Always overwrite with the source-of-truth CSV
-          WISDOM_CSV="$GITHUB_WORKSPACE/Basketball_prediction/web/public/data/local_matched_games_latest.csv"
+          # ✅ Always overwrite with the source-of-truth data
+          WISDOM_DIR="$GITHUB_WORKSPACE/Basketball_prediction/web/public/data"
+          WISDOM_CSV="$WISDOM_DIR/local_matched_games_latest.csv"
+          WISDOM_STRATEGY="$WISDOM_DIR/strategy_params.json"
+          WISDOM_METRICS="$WISDOM_DIR/metrics_snapshot.json"
+
+          cp "$WISDOM_METRICS" "$OUT/metrics_snapshot.json"
+          cp "$WISDOM_STRATEGY" "$OUT/strategy_params.json"
           cp "$WISDOM_CSV" "$OUT/local_matched_games_latest.csv"
+          echo "✔ Synced metrics_snapshot.json from Basketball_prediction (wisdom)."
+          echo "✔ Synced strategy_params.json from Basketball_prediction (wisdom)."
           echo "✔ Synced local_matched_games_latest.csv from Basketball_prediction (wisdom)."
           echo "  Rows: $(($(wc -l < "$OUT/local_matched_games_latest.csv") - 1)) (excluding header)"
 
@@ -183,19 +193,18 @@ jobs:
             echo "⚠ No bet_log_flat_live.csv found in Basketball_prediction output; Placed Bets may show 0."
           fi
 
-          [[ -f "$STRATEGY_PARAMS_JSON" ]] && cp "$STRATEGY_PARAMS_JSON" "$OUT/strategy_params.json" || true
-
           echo "✔ public/data contents:"
           ls -la "$OUT"
 
-      - name: Ensure strategy_params.json exists (convert from txt if needed)
+      - name: Ensure strategy_params.json exists
         shell: bash
         run: |
           set -euo pipefail
           OUT="$GITHUB_WORKSPACE/public/data"
 
-          if [[ ! -f "$OUT/strategy_params.json" && -f "$OUT/strategy_params.txt" ]]; then
-            python -c $'import json, re\nfrom pathlib import Path\n\np = Path("public/data/strategy_params.txt")\nparams = {}\nfor line in p.read_text(encoding="utf-8").splitlines():\n    s = line.strip()\n    if not s or s.startswith("#"):\n        continue\n    m = re.match(r"^([^:=#]+)[:=]\\s*(.+)$", s)\n    if not m:\n        continue\n    k = m.group(1).strip()\n    v = m.group(2).strip()\n    try:\n        fv = float(v)\n        v = int(fv) if fv.is_integer() else fv\n    except Exception:\n        pass\n    params[k] = v\n\nPath("public/data/strategy_params.json").write_text(\n    json.dumps({"params_used": params, "params_used_label": "Historical"}, indent=2, ensure_ascii=False),\n    encoding="utf-8",\n)\nprint("Wrote public/data/strategy_params.json from strategy_params.txt")'
+          if [[ ! -f "$OUT/strategy_params.json" ]]; then
+            echo "ERROR: strategy_params.json missing (must be synced from Basketball_prediction)."
+            exit 1
           fi
 
       - name: Setup Python 3.11 with pip cache
