@@ -1112,18 +1112,19 @@ def main() -> None:
         sources = _resolve_sources(source_root, as_of_date)
 
     # ----------------------------
-    # Load params (prefer output_dir/strategy_params.json if present)
+    # Load params (prefer resolved source params; only fallback to output_dir)
     # ----------------------------
-    strategy_params_path = output_dir / "strategy_params.json"
-    if strategy_params_path.exists():
-        params_raw = load_strategy_params(strategy_params_path)
-        strategy_params_source = strategy_params_path
-    elif sources.strategy_params and sources.strategy_params.exists():
+    params_raw = {}
+    strategy_params_source = None
+
+    if sources.strategy_params and sources.strategy_params.exists():
         params_raw = load_strategy_params(sources.strategy_params)
         strategy_params_source = sources.strategy_params
     else:
-        params_raw = {}
-        strategy_params_source = None
+        strategy_params_path = output_dir / "strategy_params.json"
+        if strategy_params_path.exists():
+            params_raw = load_strategy_params(strategy_params_path)
+            strategy_params_source = strategy_params_path
 
     # Mirror validator selection: candidates = [raw.params_used, raw.params, raw]
     params_used_raw = None
@@ -1139,7 +1140,7 @@ def main() -> None:
         raw_params_used_label = (
             params_raw.get("params_used_label") or params_raw.get("params_label") or params_raw.get("label")
         )
-    params_used_label = str(raw_params_used_label).strip() if raw_params_used_label else "Historical"
+    params_used_label = str(raw_params_used_label).strip() if raw_params_used_label else "Unknown"
 
     active_filters_label = _human_readable_filters(params_used)
 
