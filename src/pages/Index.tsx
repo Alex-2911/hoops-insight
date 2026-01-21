@@ -15,22 +15,17 @@ const Index = () => {
   const [payload, setPayload] = useState<DashboardPayload | null>(null);
   const [dashboardState, setDashboardState] = useState<DashboardState | null>(null);
   const [strategyParamsFile, setStrategyParamsFile] = useState<StrategyParamsFile | null>(null);
-  const [localMatchedLatestRows, setLocalMatchedLatestRows] = useState<LocalMatchedGameRow[]>(
-    [],
-  );
+  const [localMatchedLatestRows, setLocalMatchedLatestRows] = useState<LocalMatchedGameRow[]>([]);
   const [tablesFallback, setTablesFallback] = useState<TablesPayload | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const baseUrl = import.meta.env.BASE_URL ?? "/";
 
   const parseLocalMatchedCsv = (csvText: string): LocalMatchedGameRow[] => {
     const trimmed = csvText.trim();
-    if (!trimmed) {
-      return [];
-    }
+    if (!trimmed) return [];
     const lines = trimmed.split(/\r?\n/).filter(Boolean);
-    if (lines.length < 2) {
-      return [];
-    }
+    if (lines.length < 2) return [];
+
     const delimiter = (() => {
       const headerLine = lines[0];
       const candidates: Array<{ delimiter: string; count: number }> = [
@@ -40,9 +35,11 @@ const Index = () => {
       ];
       return candidates.sort((a, b) => b.count - a.count)[0]?.delimiter ?? ",";
     })();
+
     const headers = lines[0]
       .split(delimiter)
       .map((header) => header.replace(/^\uFEFF/, "").trim());
+
     const normalizeHeader = (header: string) =>
       header
         .trim()
@@ -50,6 +47,7 @@ const Index = () => {
         .replace(/[^\w]+/g, "_")
         .replace(/_+/g, "_")
         .replace(/^_+|_+$/g, "");
+
     const headerAliases: Record<string, string> = {
       closing_home_odds: "odds_1",
       odds: "odds_1",
@@ -62,6 +60,7 @@ const Index = () => {
       pl: "pnl",
       pnl: "pnl",
     };
+
     const headerKeys = headers.map((header) => {
       const normalized = normalizeHeader(header);
       if (normalized.includes("ev") && normalized.includes("per_100")) {
@@ -69,10 +68,9 @@ const Index = () => {
       }
       return headerAliases[normalized] ?? normalized;
     });
+
     const headerIndex = headerKeys.reduce<Record<string, number>>((acc, key, index) => {
-      if (!(key in acc)) {
-        acc[key] = index;
-      }
+      if (!(key in acc)) acc[key] = index;
       return acc;
     }, {});
 
@@ -91,9 +89,8 @@ const Index = () => {
       const date = readString(columns, "date");
       const homeTeam = readString(columns, "home_team");
       const awayTeam = readString(columns, "away_team");
-      if (!date || !homeTeam || !awayTeam) {
-        return acc;
-      }
+      if (!date || !homeTeam || !awayTeam) return acc;
+
       acc.push({
         date,
         home_team: homeTeam,
@@ -112,6 +109,7 @@ const Index = () => {
 
   useEffect(() => {
     let alive = true;
+
     const load = async () => {
       try {
         const [payloadRes, stateRes, tablesRes] = await Promise.all([
@@ -126,27 +124,20 @@ const Index = () => {
 
         const payloadJson = (await payloadRes.json()) as DashboardPayload;
         const stateJson = (await stateRes.json()) as DashboardState;
-        const tablesJson = tablesRes.ok
-          ? ((await tablesRes.json()) as TablesPayload)
-          : null;
+        const tablesJson = tablesRes.ok ? ((await tablesRes.json()) as TablesPayload) : null;
 
         if (alive) {
           setPayload(payloadJson);
           setDashboardState(stateJson);
-          if (tablesJson) {
-            setTablesFallback(tablesJson);
-          }
+          if (tablesJson) setTablesFallback(tablesJson);
         }
 
-        const localMatchedSource =
-          stateJson.sources?.local_matched ?? "local_matched_games_latest.csv";
+        const localMatchedSource = stateJson.sources?.local_matched ?? "local_matched_games_latest.csv";
         const localMatchedRes = await fetch(`${baseUrl}data/${localMatchedSource}`);
         if (alive && localMatchedRes.ok) {
           const localMatchedText = await localMatchedRes.text();
           const parsedRows = parseLocalMatchedCsv(localMatchedText);
-          if (parsedRows.length > 0) {
-            setLocalMatchedLatestRows(parsedRows);
-          }
+          if (parsedRows.length > 0) setLocalMatchedLatestRows(parsedRows);
         }
 
         const paramsRes = await fetch(`${baseUrl}data/strategy_params.json`);
@@ -168,6 +159,7 @@ const Index = () => {
   }, []);
 
   const summary = payload?.summary ?? null;
+
   const tables = useMemo(() => {
     if (!payload?.tables) {
       return tablesFallback ?? null;
@@ -180,49 +172,29 @@ const Index = () => {
     return {
       ...payload.tables,
       ...tablesFallback,
-      historical_stats: pickArray(
-        payload.tables.historical_stats,
-        tablesFallback.historical_stats,
-      ),
+      historical_stats: pickArray(payload.tables.historical_stats, tablesFallback.historical_stats),
       accuracy_threshold_stats: pickArray(
         payload.tables.accuracy_threshold_stats,
         tablesFallback.accuracy_threshold_stats,
       ),
-      home_win_rates_last20: pickArray(
-        payload.tables.home_win_rates_last20,
-        tablesFallback.home_win_rates_last20,
-      ),
-      home_win_rates_window: pickArray(
-        payload.tables.home_win_rates_window,
-        tablesFallback.home_win_rates_window,
-      ),
-      bankroll_history: pickArray(
-        payload.tables.bankroll_history,
-        tablesFallback.bankroll_history,
-      ),
-      settled_bets_rows: pickArray(
-        payload.tables.settled_bets_rows,
-        tablesFallback.settled_bets_rows,
-      ),
-      local_matched_games_rows: pickArray(
-        payload.tables.local_matched_games_rows,
-        tablesFallback.local_matched_games_rows,
-      ),
+      home_win_rates_last20: pickArray(payload.tables.home_win_rates_last20, tablesFallback.home_win_rates_last20),
+      home_win_rates_window: pickArray(payload.tables.home_win_rates_window, tablesFallback.home_win_rates_window),
+      bankroll_history: pickArray(payload.tables.bankroll_history, tablesFallback.bankroll_history),
+      settled_bets_rows: pickArray(payload.tables.settled_bets_rows, tablesFallback.settled_bets_rows),
+      local_matched_games_rows: pickArray(payload.tables.local_matched_games_rows, tablesFallback.local_matched_games_rows),
       calibration_metrics: tablesFallback.calibration_metrics ?? payload.tables.calibration_metrics,
       bet_log_summary: tablesFallback.bet_log_summary ?? payload.tables.bet_log_summary,
       bankroll_ytd_2026: tablesFallback.bankroll_ytd_2026 ?? payload.tables.bankroll_ytd_2026,
       settled_bets_summary: tablesFallback.settled_bets_summary ?? payload.tables.settled_bets_summary,
-      local_matched_games_count:
-        tablesFallback.local_matched_games_count ?? payload.tables.local_matched_games_count,
+      local_matched_games_count: tablesFallback.local_matched_games_count ?? payload.tables.local_matched_games_count,
       local_matched_games_profit_sum_table:
-        tablesFallback.local_matched_games_profit_sum_table ??
-        payload.tables.local_matched_games_profit_sum_table,
-      local_matched_games_note:
-        tablesFallback.local_matched_games_note ?? payload.tables.local_matched_games_note,
+        tablesFallback.local_matched_games_profit_sum_table ?? payload.tables.local_matched_games_profit_sum_table,
+      local_matched_games_note: tablesFallback.local_matched_games_note ?? payload.tables.local_matched_games_note,
       local_matched_games_mismatch:
         tablesFallback.local_matched_games_mismatch ?? payload.tables.local_matched_games_mismatch,
     };
   }, [payload?.tables, tablesFallback]);
+
   const windowInfo = payload?.window ?? {
     size: 0,
     start: "—",
@@ -230,7 +202,8 @@ const Index = () => {
     games_count: 0,
   };
 
-  const summaryStats = summary?.summary_stats ??
+  const summaryStats =
+    summary?.summary_stats ??
     (summary?.model?.calibration
       ? {
           total_games: summary.model.calibration.fittedGames ?? windowInfo.games_count ?? 0,
@@ -260,13 +233,15 @@ const Index = () => {
       actualWinPct: 0,
       windowSize: 0,
     };
+
   const homeWinRatesLast20 = tables?.home_win_rates_last20 ?? [];
   const localMatchedGamesRows = tables?.local_matched_games_rows ?? [];
-  const localMatchedRowsDisplay =
-    localMatchedLatestRows.length > 0 ? localMatchedLatestRows : localMatchedGamesRows;
+  const localMatchedRowsDisplay = localMatchedLatestRows.length > 0 ? localMatchedLatestRows : localMatchedGamesRows;
   const settledBetsRows = tables?.settled_bets_rows ?? [];
+
   const START_BANKROLL_REAL = 1000;
   const START_BANKROLL_SIM = 1000;
+
   const settledBetsSummary = useMemo(() => {
     if (!settledBetsRows.length) {
       return {
@@ -281,9 +256,7 @@ const Index = () => {
     const wins = settledBetsRows.filter((row) => row.win === 1).length;
     const profit = settledBetsRows.reduce((acc, row) => acc + (row.pnl ?? 0), 0);
     const totalStake = settledBetsRows.reduce((acc, row) => acc + (row.stake ?? 0), 0);
-    const avgOdds =
-      settledBetsRows.reduce((acc, row) => acc + (row.odds ?? 0), 0) /
-      settledBetsRows.length;
+    const avgOdds = settledBetsRows.reduce((acc, row) => acc + (row.odds ?? 0), 0) / settledBetsRows.length;
     return {
       count: settledBetsRows.length,
       wins,
@@ -293,26 +266,28 @@ const Index = () => {
       total_stake: totalStake,
     };
   }, [settledBetsRows]);
+
   const realBankroll = START_BANKROLL_REAL + settledBetsSummary.profit_eur;
   const settledWinRatePct =
-    settledBetsSummary.count > 0
-      ? (settledBetsSummary.wins / settledBetsSummary.count) * 100
-      : 0;
+    settledBetsSummary.count > 0 ? (settledBetsSummary.wins / settledBetsSummary.count) * 100 : 0;
+
   const localMatchedProfitSum =
-    tables?.local_matched_games_profit_sum_table ??
-    localMatchedGamesRows.reduce((acc, row) => acc + (row.pnl ?? 0), 0);
+    tables?.local_matched_games_profit_sum_table ?? localMatchedGamesRows.reduce((acc, row) => acc + (row.pnl ?? 0), 0);
+
   const localMatchedCountFromTables = tables?.local_matched_games_count ?? 0;
-  const localMatchedCountFromSummary =
-    summary?.strategy_filter_stats?.matched_games_count ?? 0;
+  const localMatchedCountFromSummary = summary?.strategy_filter_stats?.matched_games_count ?? 0;
   const localMatchedCountFromState = dashboardState?.strategy_matches_window ?? 0;
   const localMatchedRowsCount = localMatchedGamesRows.length;
+
   const localMatchedTotalCount = Math.max(
     localMatchedCountFromTables,
     localMatchedCountFromSummary,
     localMatchedCountFromState,
     localMatchedRowsCount,
   );
+
   const localMatchedWins = localMatchedGamesRows.filter((row) => row.win === 1).length;
+
   const kpis = summary?.kpis ?? {
     total_bets: 0,
     win_rate: 0,
@@ -322,6 +297,9 @@ const Index = () => {
     max_drawdown_eur: null,
     max_drawdown_pct: null,
   };
+
+  // NOTE: in your payload, "strategy_summary" may only contain sharpeStyle.
+  // "strategy" contains the full simulated strategy block (roiPct, totalProfitEur, etc).
   const strategySummary = summary?.strategy_summary ?? {
     totalBets: 0,
     totalProfitEur: 0,
@@ -332,6 +310,7 @@ const Index = () => {
     profitMetricsAvailable: false,
     asOfDate: "—",
   };
+
   const renderMetricTitle = (label: string, tooltipContent: React.ReactNode) => (
     <span className="inline-flex items-center gap-2">
       <span>{label}</span>
@@ -362,58 +341,52 @@ const Index = () => {
     params_used: {},
     active_filters: "No active filters.",
   };
+
   const pickNumber = (...values: Array<number | null | undefined>) =>
     values.find((value) => typeof value === "number" && Number.isFinite(value)) ?? null;
+
   const pickPositiveNumber = (...values: Array<number | null | undefined>) =>
-    values.find(
-      (value) => typeof value === "number" && Number.isFinite(value) && value > 0,
-    ) ?? null;
+    values.find((value) => typeof value === "number" && Number.isFinite(value) && value > 0) ?? null;
+
   const formatPercentFromMaybeRatio = (value: number | null, decimals = 2) => {
-    if (value === null) {
-      return "—";
-    }
+    if (value === null) return "—";
     const percentValue = Math.abs(value) <= 1 ? value * 100 : value;
     return fmtPercent(percentValue, decimals);
   };
-  const localMatchedSourceLabel =
-    dashboardState?.sources?.local_matched ?? "local_matched_games_latest.csv";
+
+  const localMatchedSourceLabel = dashboardState?.sources?.local_matched ?? "local_matched_games_latest.csv";
   const betLogFlatSource = dashboardState?.sources?.bet_log ?? "bet_log_flat_live.csv";
   const combinedSource = dashboardState?.sources?.combined ?? "combined_latest.csv";
-  const summaryAsOfDate =
-    dashboardState?.as_of_date ?? payload?.as_of_date ?? summary?.as_of_date ?? "—";
-  const overallAccuracyValue = pickNumber(
-    summaryStats.overall_accuracy,
-    calibrationMetrics.actualWinPct,
-  );
+
+  const summaryAsOfDate = dashboardState?.as_of_date ?? payload?.as_of_date ?? summary?.as_of_date ?? "—";
+
+  const overallAccuracyValue = pickNumber(summaryStats.overall_accuracy, calibrationMetrics.actualWinPct);
   const overallAccuracyPct = formatPercentFromMaybeRatio(overallAccuracyValue, 2);
+
   const windowSize =
-    dashboardState?.window_size ||
-    windowInfo.size ||
-    calibrationMetrics.windowSize ||
-    summaryStats.total_games ||
-    200;
-  const windowStartLabel =
-    dashboardState?.window_start ?? windowInfo.start ?? summary?.window_start ?? "—";
-  const windowEndLabel =
-    dashboardState?.window_end ?? windowInfo.end ?? summary?.window_end ?? summaryAsOfDate ?? "—";
+    dashboardState?.window_size || windowInfo.size || calibrationMetrics.windowSize || summaryStats.total_games || 200;
+
+  const windowStartLabel = dashboardState?.window_start ?? windowInfo.start ?? summary?.window_start ?? "—";
+  const windowEndLabel = dashboardState?.window_end ?? windowInfo.end ?? summary?.window_end ?? summaryAsOfDate ?? "—";
+
   const windowGamesLabel =
-    pickPositiveNumber(
-      windowInfo.games_count,
-      summaryStats.total_games,
-      calibrationMetrics.fittedGames,
-      windowSize,
-    ) ?? windowSize;
+    pickPositiveNumber(windowInfo.games_count, summaryStats.total_games, calibrationMetrics.fittedGames, windowSize) ??
+    windowSize;
+
   const activeFiltersEffective =
     dashboardState?.active_filters_text ??
     payload?.active_filters_effective ??
     strategyParams.active_filters ??
     "No active filters.";
+
   const paramsUsedLabel =
     dashboardState?.params_used_label ??
     payload?.params_used_label ??
-    strategyParams.params_used_label ??
+    (strategyParams as any).params_used_label ??
     "Historical";
+
   const paramsSourceLabel = dashboardState?.params_source_label ?? "strategy_params.json";
+
   const strategyParamsValues =
     strategyParamsFile?.params_used ??
     summary?.strategy_params?.params_used ??
@@ -422,15 +395,11 @@ const Index = () => {
 
   const readNumberParam = (keys: string[]) => {
     for (const key of keys) {
-      const value = strategyParamsValues[key];
-      if (typeof value === "number") {
-        return value;
-      }
+      const value = (strategyParamsValues as any)[key];
+      if (typeof value === "number") return value;
       if (typeof value === "string") {
         const parsed = Number.parseFloat(value);
-        if (!Number.isNaN(parsed)) {
-          return parsed;
-        }
+        if (!Number.isNaN(parsed)) return parsed;
       }
     }
     return null;
@@ -439,9 +408,8 @@ const Index = () => {
   const oddsMin = readNumberParam(["odds_min"]);
   const oddsMax = readNumberParam(["odds_max"]);
   const oddsRangeLabel =
-    oddsMin !== null && oddsMax !== null
-      ? `${fmtNumber(oddsMin, 2)}–${fmtNumber(oddsMax, 2)}`
-      : null;
+    oddsMin !== null && oddsMax !== null ? `${fmtNumber(oddsMin, 2)}–${fmtNumber(oddsMax, 2)}` : null;
+
   const activeFiltersDisplay = /window\s+\d+/i.test(activeFiltersEffective)
     ? activeFiltersEffective
     : `${activeFiltersEffective} | window ${windowSize} (${windowStartLabel} → ${windowEndLabel})`;
@@ -449,21 +417,24 @@ const Index = () => {
   const localMatchedGamesRowsSorted = useMemo(() => {
     return [...localMatchedRowsDisplay].sort((a, b) => b.date.localeCompare(a.date));
   }, [localMatchedRowsDisplay]);
+
   const localMatchedWindowRange = useMemo(() => {
-    if (localMatchedRowsDisplay.length === 0) {
-      return null;
-    }
+    if (localMatchedRowsDisplay.length === 0) return null;
+
     const parseDate = (value: string) => {
       const parsed = Date.parse(value);
       return Number.isNaN(parsed) ? null : parsed;
     };
+
     let minDate = localMatchedRowsDisplay[0].date;
     let maxDate = localMatchedRowsDisplay[0].date;
     let minTime = parseDate(minDate);
     let maxTime = parseDate(maxDate);
+
     for (const row of localMatchedRowsDisplay.slice(1)) {
       const current = row.date;
       const currentTime = parseDate(current);
+
       if (currentTime !== null && minTime !== null) {
         if (currentTime < minTime) {
           minTime = currentTime;
@@ -473,6 +444,7 @@ const Index = () => {
         minDate = current;
         minTime = parseDate(current);
       }
+
       if (currentTime !== null && maxTime !== null) {
         if (currentTime > maxTime) {
           maxTime = currentTime;
@@ -483,43 +455,51 @@ const Index = () => {
         maxTime = parseDate(current);
       }
     }
-    return {
-      start: minDate,
-      end: maxDate,
-    };
+
+    return { start: minDate, end: maxDate };
   }, [localMatchedRowsDisplay]);
+
   const localMatchedCountDisplay = localMatchedTotalCount;
   const localMatchedWinsDisplay = localMatchedWins;
   const localMatchedProfitSumDisplay = localMatchedProfitSum;
-  const localMatchedWinRateBase =
-    localMatchedRowsCount > 0 ? localMatchedRowsCount : localMatchedTotalCount;
-  const localMatchedWinRateDisplay =
-    localMatchedWinRateBase > 0
-      ? (localMatchedWinsDisplay / localMatchedWinRateBase) * 100
-      : 0;
+
+  const localMatchedWinRateBase = localMatchedRowsCount > 0 ? localMatchedRowsCount : localMatchedTotalCount;
+  const localMatchedWinRateDisplay = localMatchedWinRateBase > 0 ? (localMatchedWinsDisplay / localMatchedWinRateBase) * 100 : 0;
+
   const localMatchedWindowStartLabel = localMatchedWindowRange?.start ?? windowStartLabel;
   const localMatchedWindowEndLabel = localMatchedWindowRange?.end ?? windowEndLabel;
+
   const localMatchedCountBreakdown =
     localMatchedRowsCount > 0 && localMatchedTotalCount > localMatchedRowsCount
       ? `${localMatchedRowsCount} of ${localMatchedTotalCount}`
       : `${localMatchedTotalCount}`;
-  const localMatchedDisplayWins = localMatchedRowsDisplay.filter(
-    (row) => row.win === 1,
-  ).length;
-  const localMatchedDisplayProfitSum = localMatchedRowsDisplay.reduce(
-    (acc, row) => acc + (row.pnl ?? 0),
-    0,
-  );
+
+  const localMatchedDisplayWins = localMatchedRowsDisplay.filter((row) => row.win === 1).length;
+  const localMatchedDisplayProfitSum = localMatchedRowsDisplay.reduce((acc, row) => acc + (row.pnl ?? 0), 0);
   const localMatchedDisplayCount = localMatchedRowsDisplay.length;
+
   const simulatedBankroll = START_BANKROLL_SIM + localMatchedProfitSumDisplay;
 
-  const strategyRoiDisplay = strategySummary.profitMetricsAvailable
-    ? fmtPercent(kpis.roi_pct, 2)
-    : "—";
-  const strategySharpeDisplay =
-    strategySummary.sharpeStyle !== null ? fmtNumber(strategySummary.sharpeStyle, 2) : "—";
+  // ✅ FIX: ROI should never depend on strategySummary.profitMetricsAvailable (often missing).
+  // Prefer summary.kpis.roi_pct; fallback to summary.strategy.roiPct; fallback to 0.
+  const strategyRoiPctValue =
+    typeof summary?.kpis?.roi_pct === "number" && Number.isFinite(summary.kpis.roi_pct)
+      ? summary.kpis.roi_pct
+      : typeof (summary as any)?.strategy?.roiPct === "number" && Number.isFinite((summary as any).strategy.roiPct)
+        ? (summary as any).strategy.roiPct
+        : 0;
+
+  const strategyRoiDisplay = fmtPercent(strategyRoiPctValue, 2);
+
+  const strategySharpeValue =
+    typeof strategySummary.sharpeStyle === "number" && Number.isFinite(strategySummary.sharpeStyle)
+      ? strategySummary.sharpeStyle
+      : null;
+
+  const strategySharpeDisplay = strategySharpeValue !== null ? fmtNumber(strategySharpeValue, 2) : "—";
+
   const strategyMaxDrawdownDisplay =
-    kpis.max_drawdown_eur !== null ? fmtCurrencyEUR(kpis.max_drawdown_eur, 0) : "—";
+    kpis.max_drawdown_eur !== null ? fmtCurrencyEUR(kpis.max_drawdown_eur as number, 0) : "—";
 
   return (
     <>
@@ -527,21 +507,15 @@ const Index = () => {
       <section className="container mx-auto px-4 py-6">
         <div className="glass-card p-6">
           <h2 className="text-xl font-bold mb-3">Context &amp; Assumptions</h2>
-          {loadError && (
-            <p className="text-sm text-red-400 mb-3">Data unavailable: {loadError}</p>
-          )}
+          {loadError && <p className="text-sm text-red-400 mb-3">Data unavailable: {loadError}</p>}
           <div className="text-sm text-muted-foreground space-y-3">
             <div>
               <span className="font-medium text-foreground">Active Filters (effective)</span>
-              <div className="text-foreground">
-                {activeFiltersDisplay}
-              </div>
+              <div className="text-foreground">{activeFiltersDisplay}</div>
             </div>
             <div className="text-foreground">Params used: {paramsUsedLabel}</div>
             <div className="text-foreground">Params source: {paramsSourceLabel}</div>
-            <p>
-              Historical results and statistical summaries only; no future predictions are shown.
-            </p>
+            <p>Historical results and statistical summaries only; no future predictions are shown.</p>
           </div>
         </div>
       </section>
@@ -550,9 +524,7 @@ const Index = () => {
       <section className="container mx-auto px-4 py-10">
         <div className="mb-6">
           <h2 className="text-2xl font-bold">Window Performance (Model)</h2>
-          <p className="text-sm text-muted-foreground">
-            Source: {combinedSource} (played games only, windowed).
-          </p>
+          <p className="text-sm text-muted-foreground">Source: {combinedSource} (played games only, windowed).</p>
         </div>
         <TooltipProvider delayDuration={100}>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -565,12 +537,10 @@ const Index = () => {
                     Computed on played games only.
                   </p>
                   <p>Accuracy = correct predictions / total games in window.</p>
-                </>
+                </>,
               )}
               value={overallAccuracyPct}
-              subtitle={
-                <div>Window games: {windowGamesLabel}</div>
-              }
+              subtitle={<div>Window games: {windowGamesLabel}</div>}
               icon={<Target className="w-6 h-6" />}
             />
 
@@ -582,7 +552,7 @@ const Index = () => {
                   <p>It is the mean squared error between predicted probabilities and actual results (0 or 1).</p>
                   <p>Lower values indicate better calibrated probabilities.</p>
                   <p>Computed on the last 200 played games only.</p>
-                </>
+                </>,
               )}
               value={fmtNumber(calibrationMetrics.brierAfter, 3)}
               subtitle={`Before: ${fmtNumber(calibrationMetrics.brierBefore, 3)}`}
@@ -599,7 +569,7 @@ const Index = () => {
                   </p>
                   <p>Lower values indicate better probability estimates.</p>
                   <p>Unlike accuracy, LogLoss accounts for confidence, not just correctness.</p>
-                </>
+                </>,
               )}
               value={fmtNumber(calibrationMetrics.logLossAfter, 3)}
               subtitle={`Before: ${fmtNumber(calibrationMetrics.logLossBefore, 3)}`}
@@ -616,7 +586,7 @@ const Index = () => {
                   </p>
                   <p>Lower values indicate better calibration.</p>
                   <p>An ECE of 0 means perfect calibration.</p>
-                </>
+                </>,
               )}
               value={fmtNumber(calibrationMetrics.ece, 3)}
               subtitle={`Before: ${fmtNumber(calibrationMetrics.ece, 3)}`}
@@ -632,8 +602,8 @@ const Index = () => {
           <div>
             <h2 className="text-2xl font-bold">Strategy (Simulated on Window Subset)</h2>
             <p className="text-sm text-muted-foreground">
-              Simulated performance on local_matched_games restricted to the window (not actual placed bets).
-              The table below highlights the latest local_matched_games file.
+              Simulated performance on local_matched_games restricted to the window (not actual placed bets). The
+              table below highlights the latest local_matched_games file.
             </p>
           </div>
           <span className="rounded-full border border-border bg-muted/30 px-3 py-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -711,9 +681,7 @@ const Index = () => {
                 <tbody>
                   {localMatchedGamesRowsSorted.map((row) => {
                     const oddsInRange =
-                      oddsMin !== null && oddsMax !== null
-                        ? row.odds_1 >= oddsMin && row.odds_1 <= oddsMax
-                        : null;
+                      oddsMin !== null && oddsMax !== null ? row.odds_1 >= oddsMin && row.odds_1 <= oddsMax : null;
                     return (
                       <tr
                         key={`${row.date}-${row.home_team}-${row.away_team}`}
@@ -729,9 +697,7 @@ const Index = () => {
                         <td className="py-2 pr-4">{fmtNumber(row.ev_eur_per_100, 2)}</td>
                         <td className="py-2 pr-4">
                           {oddsRangeLabel ? (
-                            <span
-                              className={oddsInRange ? "text-emerald-400" : "text-red-400"}
-                            >
+                            <span className={oddsInRange ? "text-emerald-400" : "text-red-400"}>
                               {oddsInRange ? "✓" : "✕"} {oddsRangeLabel}
                             </span>
                           ) : (
@@ -754,9 +720,7 @@ const Index = () => {
       <section className="container mx-auto px-4 py-10">
         <div className="mb-6">
           <h2 className="text-2xl font-bold">Placed Bets (Real) — Overview</h2>
-          <p className="text-sm text-muted-foreground">
-            Source: {betLogFlatSource} (settled only).
-          </p>
+          <p className="text-sm text-muted-foreground">Source: {betLogFlatSource} (settled only).</p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -769,9 +733,7 @@ const Index = () => {
           <StatCard
             title="Wins / Win rate"
             value={`${settledBetsSummary.wins} / ${fmtPercent(settledWinRatePct, 2)}`}
-            subtitle={`${settledBetsSummary.wins} wins · ${
-              settledBetsSummary.count - settledBetsSummary.wins
-            } losses`}
+            subtitle={`${settledBetsSummary.wins} wins · ${settledBetsSummary.count - settledBetsSummary.wins} losses`}
             icon={<TrendingUp className="w-6 h-6" />}
           />
           <StatCard
@@ -800,6 +762,7 @@ const Index = () => {
             Source: {betLogFlatSource}, settled against {combinedSource} outcomes.
           </p>
         </div>
+
         <div className="glass-card p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             <StatCard
@@ -897,9 +860,7 @@ const Index = () => {
                 {homeWinRatesLast20.map((row) => (
                   <tr key={row.team} className="border-b border-border/50">
                     <td className="py-2 pr-4 font-medium">{row.team}</td>
-                    <td className="py-2 pr-4">
-                      {fmtPercent(row.homeWinRate * 100, 1)}
-                    </td>
+                    <td className="py-2 pr-4">{fmtPercent(row.homeWinRate * 100, 1)}</td>
                     <td className="py-2 pr-4">{row.homeWins}</td>
                     <td className="py-2 pr-4">{row.totalHomeGames}</td>
                     <td className="py-2 pr-4">{row.totalLast20Games}</td>
