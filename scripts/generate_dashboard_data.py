@@ -565,9 +565,6 @@ def load_played_games(path: Path) -> List[Dict[str, object]]:
     return rows
 
 
-
-
-
 def build_historical_stats(rows: List[Dict[str, object]]) -> List[Dict[str, object]]:
     per_day = defaultdict(lambda: {"total": 0, "correct": 0})
 
@@ -597,7 +594,6 @@ def build_historical_stats(rows: List[Dict[str, object]]) -> List[Dict[str, obje
             }
         )
     return output
-
 
 
 def build_accuracy_thresholds(rows: List[Dict[str, object]]) -> List[Dict[str, object]]:
@@ -637,7 +633,6 @@ def build_accuracy_thresholds(rows: List[Dict[str, object]]) -> List[Dict[str, o
             }
         )
     return out
-
 
 
 def build_calibration_metrics(
@@ -1187,7 +1182,6 @@ def main() -> None:
     else:
         sources = _resolve_sources(source_root, None)
 
-
     if sources.combined_iso:
         combined_path = sources.combined_iso
     elif sources.combined_acc:
@@ -1217,15 +1211,14 @@ def main() -> None:
     # ----------------------------
     bet_log_rows: List[Dict[str, object]] = []
     bet_log_path = None
-    
+
     if sources.bet_log_flat and sources.bet_log_flat.exists():
         bet_log_path = sources.bet_log_flat
     elif sources.bet_log and sources.bet_log.exists():
         bet_log_path = sources.bet_log
-    
+
     if bet_log_path:
         bet_log_rows = load_bet_log(bet_log_path)
-
 
     bet_log_summary = build_bet_log_summary(bet_log_rows)
     bankroll_history = build_bankroll_history(bet_log_rows)
@@ -1357,16 +1350,20 @@ def main() -> None:
 
     # Profit sum should reflect emitted (filtered) rows
     local_matched_games_profit_sum = float(sum((row.get("pnl") or 0.0) for row in local_matched_games_rows))
-    stake_values = []
+
+    # --- ROI (simulated strategy) ---
+    # Use stake column if present/finite; otherwise fallback to 100.0 (flat stake)
+    stake_values: List[float] = []
     for row in local_matched_games_rows:
         stake_val = _safe_float(row.get("stake"))
         if stake_val is None or not math.isfinite(stake_val):
             continue
         stake_values.append(stake_val)
+
     flat_stake = float(stake_values[0] if stake_values else 100.0)
     stake_sum = float(local_matched_games_count * flat_stake)
     strategy_roi = _safe_div(local_matched_games_profit_sum, stake_sum) if local_matched_games_count else 0.0
-    strategy_roi_pct = float(strategy_roi * 100.0)
+    strategy_roi_pct = round(float(strategy_roi * 100.0), 2)
 
     local_sharpe = _compute_sharpe_style(local_matched_games_rows) if local_matched_games_rows else None
     bankroll_last_200 = _compute_local_bankroll(local_matched_games_rows, 1000.0, 100.0)
@@ -1383,13 +1380,21 @@ def main() -> None:
     strategy_summary = {
         "totalBets": int(local_matched_games_count),
         "totalProfitEur": float(local_matched_games_profit_sum),
-        "roiPct": strategy_roi_pct,
+        "roiPct": float(strategy_roi_pct),
         "avgEvPer100": float(
-            _safe_div(sum((row.get("ev_eur_per_100") or 0.0) for row in local_matched_games_rows), local_matched_games_count)
+            _safe_div(
+                sum((row.get("ev_eur_per_100") or 0.0) for row in local_matched_games_rows),
+                local_matched_games_count,
+            )
         )
         if local_matched_games_count
         else 0.0,
-        "winRate": float(_safe_div(sum(1 for row in local_matched_games_rows if row.get("win") == 1), local_matched_games_count))
+        "winRate": float(
+            _safe_div(
+                sum(1 for row in local_matched_games_rows if row.get("win") == 1),
+                local_matched_games_count,
+            )
+        )
         if local_matched_games_count
         else 0.0,
         "sharpeStyle": local_sharpe,
@@ -1432,7 +1437,6 @@ def main() -> None:
     # Payloads (keep simple + stable)
     # ----------------------------
 
-
     # Tables expected by validate_dashboard_payload.py
     local_rows_out = local_matched_games_rows[:2000]  # cap ok
     tables_payload = {
@@ -1461,7 +1465,7 @@ def main() -> None:
         },
         "kpis": {
             "max_drawdown_eur": max_dd_out,
-            "roi_pct": strategy_roi_pct,
+            "roi_pct": float(strategy_roi_pct),
         },
 
         # --- keep your app stuff (optional, extra fields are fine) ---
@@ -1517,9 +1521,6 @@ def main() -> None:
             "copied": copied_sources,
         },
     }
-
-
-
 
     # ----------------------------
     # Write outputs
