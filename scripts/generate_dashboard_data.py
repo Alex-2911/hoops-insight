@@ -1357,6 +1357,16 @@ def main() -> None:
 
     # Profit sum should reflect emitted (filtered) rows
     local_matched_games_profit_sum = float(sum((row.get("pnl") or 0.0) for row in local_matched_games_rows))
+    stake_values = []
+    for row in local_matched_games_rows:
+        stake_val = _safe_float(row.get("stake"))
+        if stake_val is None or not math.isfinite(stake_val):
+            continue
+        stake_values.append(stake_val)
+    flat_stake = float(stake_values[0] if stake_values else 100.0)
+    stake_sum = float(local_matched_games_count * flat_stake)
+    strategy_roi = _safe_div(local_matched_games_profit_sum, stake_sum) if local_matched_games_count else 0.0
+    strategy_roi_pct = float(strategy_roi * 100.0)
 
     local_sharpe = _compute_sharpe_style(local_matched_games_rows) if local_matched_games_rows else None
     bankroll_last_200 = _compute_local_bankroll(local_matched_games_rows, 1000.0, 100.0)
@@ -1373,9 +1383,7 @@ def main() -> None:
     strategy_summary = {
         "totalBets": int(local_matched_games_count),
         "totalProfitEur": float(local_matched_games_profit_sum),
-        "roiPct": float(_safe_div(local_matched_games_profit_sum, local_matched_games_count * 100.0) * 100.0)
-        if local_matched_games_count
-        else 0.0,
+        "roiPct": strategy_roi_pct,
         "avgEvPer100": float(
             _safe_div(sum((row.get("ev_eur_per_100") or 0.0) for row in local_matched_games_rows), local_matched_games_count)
         )
@@ -1453,6 +1461,7 @@ def main() -> None:
         },
         "kpis": {
             "max_drawdown_eur": max_dd_out,
+            "roi_pct": strategy_roi_pct,
         },
 
         # --- keep your app stuff (optional, extra fields are fine) ---
