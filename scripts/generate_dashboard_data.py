@@ -1444,6 +1444,7 @@ def main() -> None:
         "settled_bets_rows": settled_bets_rows,
         "settled_bets_summary": {"count": int(len(settled_bets_rows))},
         "home_win_rates_window": home_win_rates_window,
+        "home_win_rates_last20": home_win_rates,
     }
 
     # Validator requires these NOT be None when sample size >= 5
