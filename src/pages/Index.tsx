@@ -234,7 +234,10 @@ const Index = () => {
       windowSize: 0,
     };
 
-  const homeWinRatesLast20 = tables?.home_win_rates_last20 ?? [];
+  const homeWinRatesLast20 =
+    tables?.home_win_rates_last20 && tables.home_win_rates_last20.length > 0
+      ? tables.home_win_rates_last20
+      : summary?.model?.homeWinRatesLast20 ?? [];
   const localMatchedGamesRows = tables?.local_matched_games_rows ?? [];
   const localMatchedRowsDisplay = localMatchedLatestRows.length > 0 ? localMatchedLatestRows : localMatchedGamesRows;
   const settledBetsRows = tables?.settled_bets_rows ?? [];
@@ -834,7 +837,7 @@ const Index = () => {
       {/* Home win rates */}
       <section className="container mx-auto px-4 py-10">
         <div className="mb-6">
-          <h2 className="text-2xl font-bold">Home Win Rates (Window)</h2>
+          <h2 className="text-2xl font-bold">Home Win Rates (Last 20)</h2>
           <p className="text-sm text-muted-foreground">
             Computed per team: home win rate using that team’s last 20 games (home + away).
           </p>
