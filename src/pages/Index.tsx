@@ -19,6 +19,10 @@ const Index = () => {
   const [tablesFallback, setTablesFallback] = useState<TablesPayload | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const baseUrl = import.meta.env.BASE_URL ?? "/";
+  const staleMessage = dashboardState?.last_update_utc
+    ? `Last update: ${dashboardState.last_update_utc}`
+    : null;
+
 
   const parseLocalMatchedCsv = (csvText: string): LocalMatchedGameRow[] => {
     const trimmed = csvText.trim();
@@ -132,12 +136,20 @@ const Index = () => {
           if (tablesJson) setTablesFallback(tablesJson);
         }
 
-        const localMatchedSource = stateJson.sources?.local_matched ?? "local_matched_games_latest.csv";
-        const localMatchedRes = await fetch(`${baseUrl}data/${localMatchedSource}`);
-        if (alive && localMatchedRes.ok) {
-          const localMatchedText = await localMatchedRes.text();
-          const parsedRows = parseLocalMatchedCsv(localMatchedText);
-          if (parsedRows.length > 0) setLocalMatchedLatestRows(parsedRows);
+        const localMatchedJsonRes = await fetch(`${baseUrl}data/local_matched_games_latest.json`);
+        if (alive && localMatchedJsonRes.ok) {
+          const localMatchedJson = (await localMatchedJsonRes.json()) as { rows?: LocalMatchedGameRow[] };
+          if (Array.isArray(localMatchedJson.rows) && localMatchedJson.rows.length > 0) {
+            setLocalMatchedLatestRows(localMatchedJson.rows);
+          }
+        } else {
+          const localMatchedSource = stateJson.sources?.local_matched ?? "local_matched_games_latest.csv";
+          const localMatchedRes = await fetch(`${baseUrl}data/${localMatchedSource}`);
+          if (alive && localMatchedRes.ok) {
+            const localMatchedText = await localMatchedRes.text();
+            const parsedRows = parseLocalMatchedCsv(localMatchedText);
+            if (parsedRows.length > 0) setLocalMatchedLatestRows(parsedRows);
+          }
         }
 
         const paramsRes = await fetch(`${baseUrl}data/strategy_params.json`);
@@ -510,7 +522,7 @@ const Index = () => {
       <section className="container mx-auto px-4 py-6">
         <div className="glass-card p-6">
           <h2 className="text-xl font-bold mb-3">Context &amp; Assumptions</h2>
-          {loadError && <p className="text-sm text-red-400 mb-3">Data unavailable: {loadError}</p>}
+          {loadError && <p className="text-sm text-red-400 mb-3">Data unavailable: {loadError}{staleMessage ? ` (${staleMessage})` : ""}</p>}
           <div className="text-sm text-muted-foreground space-y-3">
             <div>
               <span className="font-medium text-foreground">Active Filters (effective)</span>

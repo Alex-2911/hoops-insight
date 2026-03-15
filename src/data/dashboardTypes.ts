@@ -92,6 +92,7 @@ export interface DashboardState {
   last_update_utc: string;
   sources: {
     combined: string;
+    local_matched?: string;
     bet_log: string;
   };
 }

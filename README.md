@@ -19,11 +19,15 @@ npm install
 
 ### Run the app
 
+Configuration is centralized in `hoops_insight_config.toml` (repo root). Update paths/ports there, or override with env vars for one-off runs.
+
 ```sh
 npm run dev
 ```
 
 ## Data pipeline (stats-only)
+
+See `DATA_SCHEMA.md` for required/optional input columns and output payload schema.
 
 This dashboard reads historical-only artifacts from `public/data/*.json`.
 Generate these files from the Basketball_prediction pipeline outputs. Data sources:
@@ -45,10 +49,9 @@ npm run gen:data
 npm run dev
 ```
 
-By default, the exporter expects Basketball_prediction data at:
-`../Basketball_prediction/2026/output/LightGBM`
+The exporter reads defaults from `hoops_insight_config.toml` and writes to `public/data` by default.
 
-Override with:
+Override source root with:
 
 ```sh
 python3 scripts/generate_dashboard_data.py --source-root "/path/to/Basketball_prediction/2026"
@@ -63,14 +66,7 @@ SOURCE_ROOT="/path/to/Basketball_prediction/2026" PORT=4173 ./scripts/run_pipeli
 ./scripts/run_pipeline.sh --dry-run
 ```
 
-Environment variables:
-
-- `HOOPS_DIR` (default: `pwd`) — path to this repo
-- `NBA_DIR` (default: `$HOOPS_DIR/../Basketball_prediction`) — Basketball_prediction repo
-- `SOURCE_ROOT` (default: `$NBA_DIR/2026`) — output root for predictions
-- `HOST` (default: `127.0.0.1`) — preview host
-- `PORT` (default: `4173`) — preview port
-- `HISTORICAL_ROUTE` (default: `/`) — route to open after preview
+Config keys are loaded from `hoops_insight_config.toml` (`paths.*`, `dashboard.*`). Environment variables with the same names still override config values when set.
 
 ## Tech stack
 

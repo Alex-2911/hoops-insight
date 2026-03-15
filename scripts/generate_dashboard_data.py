@@ -35,6 +35,9 @@ from typing import Dict, Iterable, List, Optional, Tuple
 
 import pandas as pd
 
+from config_loader import load_config
+from strategy_logic import apply_strategy_filters, load_strategy_params as load_versioned_strategy_params, required_columns
+
 
 DATE_FMT = "%Y-%m-%d"
 CALIBRATION_WINDOW = 200
@@ -211,29 +214,20 @@ def load_local_matched_games_csv(path: Path) -> Tuple[List[Dict[str, object]], D
     - DO NOT fill missing numeric values with 0.0 (JS coerceNumber(null) -> null, not 0)
     - Convert NaN/NA -> None in output dicts
     """
-    required_columns = [
-        "date",
-        "home_team",
-        "away_team",
-        "home_win_rate",
-        "prob_iso",
-        "prob_used",
-        "win",
-        "pnl",
-    ]
+    required_columns = list(required_columns())
 
     df = pd.read_csv(path)
     missing = [col for col in required_columns if col not in df.columns]
     if missing:
-        return [], {"rows_count": 0, "profit_sum_table": 0.0}
+        raise ValueError(f"{path.name} is missing required columns: {', '.join(missing)}")
 
     odds_col = next((c for c in ("closing_home_odds", "odds", "odds_1") if c in df.columns), None)
     if odds_col is None:
-        return [], {"rows_count": 0, "profit_sum_table": 0.0}
+        raise ValueError(f"{path.name} requires one of columns: closing_home_odds, odds, odds_1")
 
     ev_col = next((c for c in ("EV_€_per_100", "ev_eur_per_100", "ev_per_100") if c in df.columns), None)
     if ev_col is None:
-        return [], {"rows_count": 0, "profit_sum_table": 0.0}
+        raise ValueError(f"{path.name} requires one of columns: EV_€_per_100, ev_eur_per_100, ev_per_100")
 
     df = df.copy()
 
@@ -333,15 +327,15 @@ def _find_strategy_params(lightgbm_dir: Path, as_of_date: Optional[str]) -> Opti
 
 
 def resolve_source_root(cli_root: Optional[str], repo_root: Path) -> Optional[Path]:
-    env_root = os.getenv("SOURCE_ROOT", "").strip()
-    if env_root:
-        candidate = Path(env_root).expanduser().resolve()
-        if candidate.exists():
-            return candidate
+    """Resolve source root from CLI override or central config."""
     if cli_root:
         candidate = Path(cli_root).expanduser().resolve()
         if candidate.exists():
             return candidate
+    cfg = load_config()
+    candidate = Path(cfg["SOURCE_ROOT"]).expanduser().resolve()
+    if candidate.exists():
+        return candidate
     fallback = repo_root / "Basketball_prediction" / "2026"
     if fallback.exists():
         return fallback.resolve()
@@ -1257,36 +1251,18 @@ def main() -> None:
         sources = _resolve_sources(source_root, as_of_date)
 
     # ----------------------------
-    # Load params (prefer resolved source params; only fallback to output_dir)
+    # Load versioned params (shared strategy module)
     # ----------------------------
-    params_raw = {}
     strategy_params_source = None
+    params_payload_path = sources.strategy_params if (sources.strategy_params and sources.strategy_params.exists()) else None
+    if params_payload_path is None:
+        fallback_params = output_dir / "strategy_params.json"
+        params_payload_path = fallback_params if fallback_params.exists() else None
 
-    if sources.strategy_params and sources.strategy_params.exists():
-        params_raw = load_strategy_params(sources.strategy_params)
-        strategy_params_source = sources.strategy_params
-    else:
-        strategy_params_path = output_dir / "strategy_params.json"
-        if strategy_params_path.exists():
-            params_raw = load_strategy_params(strategy_params_path)
-            strategy_params_source = strategy_params_path
-
-    # Mirror validator selection: candidates = [raw.params_used, raw.params, raw]
-    params_used_raw = None
-    if isinstance(params_raw, dict):
-        for cand in (params_raw.get("params_used"), params_raw.get("params"), params_raw):
-            if isinstance(cand, dict):
-                params_used_raw = cand
-                break
-    params_used = _normalize_params(params_used_raw or {})
-
-    raw_params_used_label = None
-    if isinstance(params_raw, dict):
-        raw_params_used_label = (
-            params_raw.get("params_used_label") or params_raw.get("params_label") or params_raw.get("label")
-        )
-    params_used_label = str(raw_params_used_label).strip() if raw_params_used_label else "Unknown"
-
+    strategy_params_obj = load_versioned_strategy_params(params_payload_path)
+    params_used = _normalize_params(strategy_params_obj.params)
+    strategy_params_source = Path(strategy_params_obj.source) if strategy_params_obj.source != "defaults" else None
+    params_used_label = f"v{strategy_params_obj.version}"
     active_filters_label = _human_readable_filters(params_used)
 
     # ----------------------------
@@ -1313,39 +1289,10 @@ def main() -> None:
 
     window_filtered_local_rows = [r for r in local_matched_games_rows_all if _in_window(r)]
 
-    # Params filter: MUST mirror validate_dashboard_state.mjs
-    min_prob_used = _get_param(params_used, "prob_threshold", "min_prob_used", "min_prob", "min_prob_iso")
-    min_odds = _get_param(params_used, "odds_min", "min_odds_1", "min_odds")
-    max_odds = _get_param(params_used, "odds_max", "max_odds_1", "max_odds")
-    if max_odds is None:
-        max_odds = DEFAULT_MAX_ODDS_FALLBACK
-    min_ev = _get_param(params_used, "min_ev", "min_ev_eur_per_100", "min_ev_per_100")
-    min_home_win_rate = _get_param(params_used, "home_win_rate_threshold", "min_home_win_rate")
-
-    def _passes_local_params(row: Dict[str, object]) -> bool:
-        prob_used_val = row.get("prob_used")
-        odds_1_val = row.get("odds_1")
-        ev_val = row.get("ev_eur_per_100") if row.get("ev_eur_per_100") is not None else row.get("ev_per_100")
-        hwr_val = row.get("home_win_rate")
-
-        if min_prob_used is not None:
-            if prob_used_val is None or float(prob_used_val) < float(min_prob_used):
-                return False
-        if min_odds is not None:
-            if odds_1_val is None or float(odds_1_val) < float(min_odds):
-                return False
-        if max_odds is not None:
-            if odds_1_val is None or float(odds_1_val) > float(max_odds):
-                return False
-        if min_ev is not None:
-            if ev_val is None or float(ev_val) <= float(min_ev):
-                return False
-        if min_home_win_rate is not None:
-            if hwr_val is None or float(hwr_val) < float(min_home_win_rate):
-                return False
-        return True
-
-    local_matched_games_rows = [r for r in window_filtered_local_rows if _passes_local_params(r)]
+    # Params filter from shared strategy module
+    window_local_df = pd.DataFrame(window_filtered_local_rows)
+    filtered_local_df, shared_params = apply_strategy_filters(window_local_df, strategy_params_obj)
+    local_matched_games_rows = filtered_local_df.where(pd.notna(filtered_local_df), None).to_dict(orient="records")
     local_matched_games_count = int(len(local_matched_games_rows))
 
     # Profit sum should reflect emitted (filtered) rows
@@ -1523,6 +1470,23 @@ def main() -> None:
         },
     }
 
+    # JSON subset for UI to avoid client CSV parsing
+    local_matched_subset = [
+        {
+            "date": row.get("date"),
+            "home_team": row.get("home_team"),
+            "away_team": row.get("away_team"),
+            "home_win_rate": row.get("home_win_rate"),
+            "prob_iso": row.get("prob_iso"),
+            "prob_used": row.get("prob_used"),
+            "odds_1": row.get("odds_1"),
+            "ev_eur_per_100": row.get("ev_eur_per_100"),
+            "win": row.get("win"),
+            "pnl": row.get("pnl"),
+        }
+        for row in local_rows_out
+    ]
+
     # ----------------------------
     # Write outputs
     # ----------------------------
@@ -1531,6 +1495,7 @@ def main() -> None:
     write_json(output_dir / "tables.json", tables_payload)
     write_json(output_dir / "last_run.json", last_run_payload)
     write_json(output_dir / "dashboard_payload.json", dashboard_payload)
+    write_json(output_dir / "local_matched_games_latest.json", {"rows": local_matched_subset})
 
     print(
         "Wrote summary.json, tables.json, last_run.json, dashboard_payload.json, dashboard_state.json "

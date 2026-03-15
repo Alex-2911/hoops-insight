@@ -25,6 +25,12 @@ USAGE
 DRY_RUN=false
 OPEN_DASHBOARD=false
 
+# Load defaults from central config (env vars still allowed as overrides)
+if [[ -f "$(dirname "$0")/config_loader.py" ]]; then
+  eval "$(python3 "$(dirname "$0")/config_loader.py" shell)"
+fi
+
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --dry-run)

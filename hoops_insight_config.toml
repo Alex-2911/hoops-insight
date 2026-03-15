@@ -1,0 +1,14 @@
+[paths]
+# Root of Basketball_prediction yearly run outputs.
+source_root = "../Basketball_prediction/2026"
+# Basketball_prediction repository root.
+nba_dir = "../Basketball_prediction"
+# Hoops Insight repository root.
+hoops_dir = "."
+# Dashboard export target directory.
+dashboard_data_dir = "public/data"
+
+[dashboard]
+host = "127.0.0.1"
+port = 4173
+historical_route = "/"
