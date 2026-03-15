@@ -86,6 +86,15 @@ export interface DashboardState {
   window_end?: string | null;
   active_filters_text: string;
   params_used_label: string;
+  params_used?: string;
+  active_params?: {
+    home_win_rate_min?: number;
+    odds_min?: number;
+    odds_max?: number;
+    prob_threshold?: number;
+    min_ev?: number;
+    window_size?: number;
+  };
   params_source_label: string;
   strategy_as_of_date?: string | null;
   strategy_matches_window?: number;
