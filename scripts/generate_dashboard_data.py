@@ -23,6 +23,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import logging
 import math
 import os
 import re
@@ -43,6 +44,8 @@ DATE_FMT = "%Y-%m-%d"
 CALIBRATION_WINDOW = 200
 DEFAULT_MAX_ODDS_FALLBACK = 3.2
 RISK_MIN_SAMPLE = 5
+
+LOGGER = logging.getLogger(__name__)
 
 THRESHOLDS = [
     {"label": "> 0.60", "thresholdType": "gt", "threshold": 0.60},
@@ -214,10 +217,10 @@ def load_local_matched_games_csv(path: Path) -> Tuple[List[Dict[str, object]], D
     - DO NOT fill missing numeric values with 0.0 (JS coerceNumber(null) -> null, not 0)
     - Convert NaN/NA -> None in output dicts
     """
-    required_columns = list(required_columns())
+    required_cols = list(required_columns())
 
     df = pd.read_csv(path)
-    missing = [col for col in required_columns if col not in df.columns]
+    missing = [col for col in required_cols if col not in df.columns]
     if missing:
         raise ValueError(f"{path.name} is missing required columns: {', '.join(missing)}")
 
@@ -914,6 +917,36 @@ def _human_readable_filters(params: Dict[str, object]) -> str:
     return " | ".join(parts) if parts else "No active filters."
 
 
+def _extract_params_name(raw_params: Dict[str, object]) -> Optional[str]:
+    for key in ("params_used", "params_used_type", "params_name", "name"):
+        value = raw_params.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+        if isinstance(value, dict):
+            for nested_key in ("name", "params_used", "params_used_type", "type"):
+                nested_value = value.get(nested_key)
+                if isinstance(nested_value, str) and nested_value.strip():
+                    return nested_value.strip()
+    return None
+
+
+def _build_active_params(params: Dict[str, object], window_size: int) -> Dict[str, float]:
+    home_win_rate_min = _get_param(params, "home_win_rate_threshold", "min_home_win_rate")
+    odds_min = _get_param(params, "odds_min", "min_odds_1", "min_odds")
+    odds_max = _get_param(params, "odds_max", "max_odds_1", "max_odds")
+    prob_threshold = _get_param(params, "prob_threshold", "min_prob_used", "min_prob", "min_prob_iso")
+    min_ev = _get_param(params, "min_ev", "min_ev_eur_per_100", "min_ev_per_100")
+
+    return {
+        "home_win_rate_min": float(home_win_rate_min) if home_win_rate_min is not None else 0.0,
+        "odds_min": float(odds_min) if odds_min is not None else 1.0,
+        "odds_max": float(odds_max) if odds_max is not None else DEFAULT_MAX_ODDS_FALLBACK,
+        "prob_threshold": float(prob_threshold) if prob_threshold is not None else 0.5,
+        "min_ev": float(min_ev) if min_ev is not None else 0.0,
+        "window_size": float(window_size),
+    }
+
+
 def _compute_local_bankroll(rows: List[Dict[str, object]], start: float, stake: float) -> Dict[str, float]:
     net_pl = sum((row.get("pnl") or 0.0) for row in rows)
     return {"start": float(start), "stake": float(stake), "net_pl": float(net_pl), "bankroll": float(start + net_pl)}
@@ -1259,11 +1292,26 @@ def main() -> None:
         fallback_params = output_dir / "strategy_params.json"
         params_payload_path = fallback_params if fallback_params.exists() else None
 
-    strategy_params_obj = load_versioned_strategy_params(params_payload_path)
-    params_used = _normalize_params(strategy_params_obj.params)
-    strategy_params_source = Path(strategy_params_obj.source) if strategy_params_obj.source != "defaults" else None
-    params_used_label = f"v{strategy_params_obj.version}"
+    strategy_params_name = "fallback"
+    try:
+        strategy_params_obj = load_versioned_strategy_params(params_payload_path)
+        params_used = _normalize_params(strategy_params_obj.params)
+        strategy_params_source = Path(strategy_params_obj.source) if strategy_params_obj.source != "defaults" else None
+        params_used_label = f"v{strategy_params_obj.version}"
+        if params_payload_path and params_payload_path.exists():
+            raw_strategy_payload = load_strategy_params(params_payload_path)
+            strategy_params_name = _extract_params_name(raw_strategy_payload) or strategy_params_name
+    except (ValueError, json.JSONDecodeError, TypeError) as exc:
+        LOGGER.warning("Unable to parse strategy params at %s: %s. Falling back to defaults.", params_payload_path, exc)
+        strategy_params_obj = load_versioned_strategy_params(None)
+        params_used = _normalize_params(strategy_params_obj.params)
+        params_used_label = "fallback"
+        strategy_params_source = None
+
+    active_params = _build_active_params(params_used, CALIBRATION_WINDOW)
     active_filters_label = _human_readable_filters(params_used)
+    if strategy_params_source is None:
+        strategy_params_name = "fallback"
 
     # ----------------------------
     # Strategy matches (MUST match validate_dashboard_state.mjs)
@@ -1369,6 +1417,8 @@ def main() -> None:
         "window_end": window_end_label,
         "active_filters_text": active_filters_text,
         "params_used_label": params_used_label,
+        "params_used": strategy_params_name,
+        "active_params": active_params,
         "params_source_label": _label_path(strategy_params_source),
         "strategy_as_of_date": (window_end_dt.strftime(DATE_FMT) if window_end_dt else None),
         "strategy_matches_window": strategy_matches_window,

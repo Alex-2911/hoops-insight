@@ -4,7 +4,6 @@ import type {
   DashboardPayload,
   DashboardState,
   LocalMatchedGameRow,
-  StrategyParamsFile,
   TablesPayload,
 } from "@/data/dashboardTypes";
 import { Target, TrendingUp, Activity, BarChart3, Info } from "lucide-react";
@@ -14,7 +13,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 const Index = () => {
   const [payload, setPayload] = useState<DashboardPayload | null>(null);
   const [dashboardState, setDashboardState] = useState<DashboardState | null>(null);
-  const [strategyParamsFile, setStrategyParamsFile] = useState<StrategyParamsFile | null>(null);
   const [localMatchedLatestRows, setLocalMatchedLatestRows] = useState<LocalMatchedGameRow[]>([]);
   const [tablesFallback, setTablesFallback] = useState<TablesPayload | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -152,11 +150,6 @@ const Index = () => {
           }
         }
 
-        const paramsRes = await fetch(`${baseUrl}data/strategy_params.json`);
-        if (alive && paramsRes.ok) {
-          const paramsJson = (await paramsRes.json()) as StrategyParamsFile;
-          setStrategyParamsFile(paramsJson);
-        }
       } catch (err) {
         if (alive) {
           setLoadError(err instanceof Error ? err.message : "Failed to load data.");
@@ -379,7 +372,7 @@ const Index = () => {
   const overallAccuracyPct = formatPercentFromMaybeRatio(overallAccuracyValue, 2);
 
   const windowSize =
-    dashboardState?.window_size || windowInfo.size || calibrationMetrics.windowSize || summaryStats.total_games || 200;
+    windowSizeFromParams || dashboardState?.window_size || windowInfo.size || calibrationMetrics.windowSize || summaryStats.total_games || 200;
 
   const windowStartLabel = dashboardState?.window_start ?? windowInfo.start ?? summary?.window_start ?? "—";
   const windowEndLabel = dashboardState?.window_end ?? windowInfo.end ?? summary?.window_end ?? summaryAsOfDate ?? "—";
@@ -402,32 +395,48 @@ const Index = () => {
 
   const paramsSourceLabel = dashboardState?.params_source_label ?? "strategy_params.json";
 
-  const strategyParamsValues =
-    strategyParamsFile?.params_used ??
-    summary?.strategy_params?.params_used ??
-    summary?.strategy_params?.params ??
-    {};
+  const activeParams = dashboardState?.active_params;
 
-  const readNumberParam = (keys: string[]) => {
-    for (const key of keys) {
-      const value = (strategyParamsValues as any)[key];
-      if (typeof value === "number") return value;
-      if (typeof value === "string") {
-        const parsed = Number.parseFloat(value);
-        if (!Number.isNaN(parsed)) return parsed;
-      }
-    }
-    return null;
+  const readActiveParam = (key: keyof NonNullable<DashboardState["active_params"]>) => {
+    const value = activeParams?.[key];
+    return typeof value === "number" && Number.isFinite(value) ? value : null;
   };
 
-  const oddsMin = readNumberParam(["odds_min"]);
-  const oddsMax = readNumberParam(["odds_max"]);
+  const activeParamKeys: Array<keyof NonNullable<DashboardState["active_params"]>> = [
+    "home_win_rate_min",
+    "odds_min",
+    "odds_max",
+    "prob_threshold",
+    "min_ev",
+    "window_size",
+  ];
+  const activeParamsComplete = activeParamKeys.every((key) => readActiveParam(key) !== null);
+
+  const homeWinRateMin = readActiveParam("home_win_rate_min");
+  const oddsMin = readActiveParam("odds_min");
+  const oddsMax = readActiveParam("odds_max");
+  const probThreshold = readActiveParam("prob_threshold");
+  const minEv = readActiveParam("min_ev");
+  const windowSizeFromParams = readActiveParam("window_size");
+
+  const fallbackDetailsLabel =
+    homeWinRateMin !== null && oddsMin !== null && oddsMax !== null && probThreshold !== null && minEv !== null
+      ? `Fallback (HW ≥ ${fmtNumber(homeWinRateMin, 2)} • odds ${fmtNumber(oddsMin, 2)}–${fmtNumber(oddsMax, 2)} • p ≥ ${fmtNumber(probThreshold, 2)} • EV ≥ ${fmtNumber(minEv, 2)})`
+      : "Fallback (threshold details unavailable)";
+
+  const paramsUsedDisplay = dashboardState?.params_used === "fallback"
+    ? fallbackDetailsLabel
+    : `Params used: ${dashboardState?.params_used ?? paramsUsedLabel}`;
+
   const oddsRangeLabel =
     oddsMin !== null && oddsMax !== null ? `${fmtNumber(oddsMin, 2)}–${fmtNumber(oddsMax, 2)}` : null;
 
-  const activeFiltersDisplay = /window\s+\d+/i.test(activeFiltersEffective)
-    ? activeFiltersEffective
-    : `${activeFiltersEffective} | window ${windowSize} (${windowStartLabel} → ${windowEndLabel})`;
+  const thresholdsLabel =
+    homeWinRateMin !== null && oddsMin !== null && oddsMax !== null && probThreshold !== null && minEv !== null
+      ? `HW ≥ ${fmtNumber(homeWinRateMin, 2)} | odds ${fmtNumber(oddsMin, 2)}–${fmtNumber(oddsMax, 2)} | p ≥ ${fmtNumber(probThreshold, 2)} | EV ≥ ${fmtNumber(minEv, 2)}`
+      : activeFiltersEffective;
+
+  const activeFiltersDisplay = `${thresholdsLabel} | window ${windowSize} (${windowStartLabel} → ${windowEndLabel})`;
 
   const localMatchedGamesRowsSorted = useMemo(() => {
     return [...localMatchedRowsDisplay].sort((a, b) => b.date.localeCompare(a.date));
@@ -528,7 +537,17 @@ const Index = () => {
               <span className="font-medium text-foreground">Active Filters (effective)</span>
               <div className="text-foreground">{activeFiltersDisplay}</div>
             </div>
-            <div className="text-foreground">Params used: {paramsUsedLabel}</div>
+            <div className="text-foreground">{paramsUsedDisplay}</div>
+            {dashboardState?.params_used === "fallback" && (
+              <p className="text-xs text-amber-300">
+                Fallback thresholds are hard-coded defaults and may differ from the live ledger when the strategy parameter file is missing.
+              </p>
+            )}
+            {!activeParamsComplete && (
+              <p className="text-xs text-amber-300">
+                Warning: active_params is missing or incomplete in dashboard_state.json; threshold displays may be partial.
+              </p>
+            )}
             <div className="text-foreground">Params source: {paramsSourceLabel}</div>
             <p>Historical results and statistical summaries only; no future predictions are shown.</p>
           </div>
