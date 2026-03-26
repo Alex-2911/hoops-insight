@@ -1,40 +1,179 @@
-// Updated script to regenerate the dashboard_state.json instead of failing on mismatches.
+import fs from "fs";
+import path from "path";
+import { filterLocalMatchedGamesParams, loadStrategyParamsVersioned } from "./strategy_logic.mjs";
 
-// Function to validate and update dashboard state
-function validateAndUpdateDashboardState(dashboardData) {
-    const computedValues = computeValues(dashboardData);
+const dataDir = process.argv[2] ?? path.join(process.cwd(), "public", "data");
+const statePath = path.join(dataDir, "dashboard_state.json");
+const strategyParamsPath = path.join(dataDir, "strategy_params.json");
+const combinedPath = path.join(dataDir, "combined_latest.csv");
+const localMatchedPath = path.join(dataDir, "local_matched_games_latest.csv");
 
-    // Update window_end and window_start based on the computed values.
-    dashboardData.window_end = computedValues.window_end;
-    dashboardData.window_start = computedValues.window_start;
+const loadJson = (filePath) => {
+  if (!fs.existsSync(filePath)) {
+    throw new Error(`Missing required file: ${filePath}`);
+  }
+  return JSON.parse(fs.readFileSync(filePath, "utf-8"));
+};
 
-    // Automatically update other computed fields
-    for (let field in computedValues) {
-        if (computedValues.hasOwnProperty(field) && field !== 'window_end' && field !== 'window_start') {
-            dashboardData[field] = computedValues[field];
-        }
+const normalizeKey = (key) =>
+  key
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_")
+    .replace(/[^a-z0-9_]/g, "")
+    .replace(/_+/g, "_");
+
+const parseCsvLine = (line) => {
+  const result = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i += 1) {
+    const char = line[i];
+    if (char === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
     }
+    if (char === "," && !inQuotes) {
+      result.push(current);
+      current = "";
+      continue;
+    }
+    current += char;
+  }
+  result.push(current);
+  return result;
+};
 
-    // Save the updated dashboard state
-    saveDashboardState(dashboardData);
+const parseCsv = (filePath) => {
+  if (!fs.existsSync(filePath)) {
+    throw new Error(`Missing required file: ${filePath}`);
+  }
+  const text = fs.readFileSync(filePath, "utf-8").trim();
+  if (!text) {
+    return [];
+  }
+  const lines = text.split(/\r?\n/);
+  const headers = parseCsvLine(lines[0]).map((h) => normalizeKey(h));
+  return lines.slice(1).filter(Boolean).map((line) => {
+    const values = parseCsvLine(line);
+    const row = {};
+    headers.forEach((header, idx) => {
+      row[header] = values[idx] ?? "";
+    });
+    return row;
+  });
+};
+
+const parseDate = (value) => {
+  if (!value) {
+    return null;
+  }
+  const trimmed = String(value).trim();
+  if (!trimmed) {
+    return null;
+  }
+  const date = new Date(trimmed);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  return date;
+};
+
+const formatDate = (date) => date.toISOString().slice(0, 10);
+
+const coerceNumber = (value) => {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  const trimmed = String(value).trim();
+  if (!trimmed) {
+    return null;
+  }
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const filterLocalMatchedGamesWindow = (rows, startDate, endDate) => {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  return rows.filter((row) => {
+    const rowDate = parseDate(row.date);
+    if (!rowDate) return false;
+    return rowDate >= start && rowDate <= end;
+  });
+};
+
+const dashboardState = loadJson(statePath);
+const strategyParams = loadStrategyParamsVersioned(strategyParamsPath);
+const combinedRows = parseCsv(combinedPath);
+const localRows = parseCsv(localMatchedPath);
+
+const playedRows = combinedRows
+  .map((row) => {
+    const result = row.result || row.result_raw;
+    if (!result || String(result).trim() === "" || String(result).trim() === "0") {
+      return null;
+    }
+    const date = parseDate(row.game_date || row.date);
+    if (!date) {
+      return null;
+    }
+    return { date };
+  })
+  .filter(Boolean);
+
+if (!playedRows.length) {
+  throw new Error("No played games found in combined_latest.csv.");
 }
 
-// Function to compute expected values (mock implementation)
-function computeValues(data) {
-    // Logic for computing expected values goes here.
-    return {
-        window_end: new Date().toISOString(),
-        window_start: new Date(Date.now() - 3600 * 1000).toISOString(),
-        // Include other computed fields as needed
-    };
+playedRows.sort((a, b) => a.date.getTime() - b.date.getTime());
+const windowSize = dashboardState.window_size;
+const windowRows = playedRows.slice(-windowSize);
+if (!windowRows.length) {
+  throw new Error("Window selection produced zero rows.");
 }
 
-// Function to save the dashboard state (mock implementation)
-function saveDashboardState(data) {
-    // Logic to save dashboard state
-    console.log('Dashboard state updated:', data);
+const computedWindowStart = formatDate(windowRows[0].date);
+const computedWindowEnd = formatDate(windowRows[windowRows.length - 1].date);
+
+let stateUpdated = false;
+if (dashboardState.window_start !== computedWindowStart) {
+  dashboardState.window_start = computedWindowStart;
+  stateUpdated = true;
 }
 
-// Example usage of the validation function.
-const dashboardData = { /* your dashboard data here */ };
-validateAndUpdateDashboardState(dashboardData);
+if (dashboardState.window_end !== computedWindowEnd) {
+  dashboardState.window_end = computedWindowEnd;
+  stateUpdated = true;
+}
+
+const windowFilteredLocalRows = filterLocalMatchedGamesWindow(
+  localRows.map((row) => ({
+    ...row,
+    date: row.date || row.game_date || row.event_date,
+  })),
+  computedWindowStart,
+  computedWindowEnd,
+);
+const strategyMatches = filterLocalMatchedGamesParams(windowFilteredLocalRows, strategyParams).length;
+
+if (dashboardState.strategy_matches_window !== strategyMatches) {
+  dashboardState.strategy_matches_window = strategyMatches;
+  stateUpdated = true;
+}
+
+if (stateUpdated) {
+  dashboardState.last_update_utc = new Date().toISOString();
+  fs.writeFileSync(statePath, JSON.stringify(dashboardState, null, 2), "utf-8");
+  console.log("✔ Dashboard state updated and saved.");
+} else {
+  console.log("✔ Dashboard state parity validated.");
+}
