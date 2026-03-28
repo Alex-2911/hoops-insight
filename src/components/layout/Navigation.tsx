@@ -1,9 +1,11 @@
-import { Link, useLocation } from "react-router-dom";
-import { Home } from "lucide-react";
-import { cn } from "@/lib/utils";
-import ThemeToggle from "@/components/ThemeToggle";
+import { Suspense, lazy } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { Home } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
-const navItems = [{ path: "/", label: "Dashboard", icon: Home }];
+const ThemeToggle = lazy(() => import('@/components/ThemeToggle'));
+
+const navItems = [{ path: '/', label: 'Dashboard', icon: Home }];
 
 export const Navigation = () => {
   const location = useLocation();
@@ -31,10 +33,10 @@ export const Navigation = () => {
                   key={item.path}
                   to={item.path}
                   className={cn(
-                    "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200",
+                    'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200',
                     isActive
-                      ? "bg-primary/10 text-primary"
-                      : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                      ? 'bg-primary/10 text-primary'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
                   )}
                 >
                   <Icon className="w-4 h-4" />
@@ -42,7 +44,9 @@ export const Navigation = () => {
                 </Link>
               );
             })}
-            <ThemeToggle />
+            <Suspense fallback={null}>
+              <ThemeToggle />
+            </Suspense>
           </div>
         </div>
       </div>
