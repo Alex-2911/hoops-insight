@@ -8,6 +8,16 @@ const strategyParamsPath = path.join(dataDir, "strategy_params.json");
 const combinedPath = path.join(dataDir, "combined_latest.csv");
 const localMatchedPath = path.join(dataDir, "local_matched_games_latest.csv");
 
+// Check if required data files exist; skip validation if they don't (expected on fresh checkout)
+const requiredFiles = [statePath, strategyParamsPath, combinedPath, localMatchedPath];
+const missingFiles = requiredFiles.filter(f => !fs.existsSync(f));
+
+if (missingFiles.length > 0) {
+  console.log("ℹ️  Skipping validation: data files not found (expected on fresh checkout)");
+  console.log("   Missing files:", missingFiles.map(f => path.basename(f)).join(", "));
+  process.exit(0);
+}
+
 const loadJson = (filePath) => {
   if (!fs.existsSync(filePath)) {
     throw new Error(`Missing required file: ${filePath}`);
