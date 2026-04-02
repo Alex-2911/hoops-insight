@@ -20,7 +20,8 @@
 4. Monitor data flow for any disruptions or anomalies post-deployment.
 5. For local validation, run `npm run gen:data` (or `python scripts/generate_dashboard_data.py --data-dir public/data`) before `npm run dev` or `npm run build`.
 6. Confirm `public/data/dashboard_payload.json`, `public/data/dashboard_state.json`, and `public/data/tables.json` exist after generation.
-7. Verify GitHub Actions deploy run triggered and completed the upstream `Basketball_prediction` pipeline before the dashboard build step.
+7. If typo files such as `dashoard_payload.json` or `dashoard_state.json` exist, rename/move them to `public/data/dashboard_payload.json` and `public/data/dashboard_state.json`, then regenerate.
+8. Verify GitHub Actions deploy run triggered and completed the upstream `Basketball_prediction` pipeline before the dashboard build step.
 
 ## Testing Procedures
 1. Conduct manual testing for major functionalities in the staging environment.
