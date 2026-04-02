@@ -266,6 +266,35 @@ jobs:
           test -f public/data/local_matched_games_latest.csv
           python scripts/generate_dashboard_data.py --data-dir "$GITHUB_WORKSPACE/public/data"
 
+      - name: Normalize generated dashboard JSON paths and names
+        shell: bash
+        run: |
+          set -euo pipefail
+          DATA_DIR="$GITHUB_WORKSPACE/public/data"
+          mkdir -p "$DATA_DIR"
+
+          # Repair known typo variants and ensure canonical filenames under public/data.
+          declare -A TARGETS=(
+            ["$GITHUB_WORKSPACE/dashoard_payload.json"]="dashboard_payload.json"
+            ["$GITHUB_WORKSPACE/dashboard_payload.json"]="dashboard_payload.json"
+            ["$GITHUB_WORKSPACE/dashboard_state.json"]="dashboard_state.json"
+            ["$GITHUB_WORKSPACE/tables.json"]="tables.json"
+            ["$GITHUB_WORKSPACE/summary.json"]="summary.json"
+            ["$GITHUB_WORKSPACE/last_run.json"]="last_run.json"
+          )
+
+          for src in "${!TARGETS[@]}"; do
+            if [[ -f "$src" ]]; then
+              cp "$src" "$DATA_DIR/${TARGETS[$src]}"
+              echo "✔ Normalized $(basename "$src") -> $DATA_DIR/${TARGETS[$src]}"
+            fi
+          done
+
+          # Final canonical guardrail (must exist in public/data for Vite/GitHub Pages).
+          for file in dashboard_payload.json dashboard_state.json tables.json summary.json last_run.json; do
+            [[ -f "$DATA_DIR/$file" ]] || (echo "ERROR: missing canonical $DATA_DIR/$file" && exit 1)
+          done
+
       - name: Verify generated dashboard data
         shell: bash
         run: |
@@ -313,6 +342,9 @@ jobs:
           set -euo pipefail
           [[ -d dist/assets ]] || (echo "ERROR: Missing dist/assets output." && exit 1)
           grep -n "$BASE_URL" dist/index.html >/dev/null || (echo "ERROR: BASE_URL not found in dist/index.html" && exit 1)
+          for file in dashboard_payload.json dashboard_state.json tables.json; do
+            [[ -f "dist/data/$file" ]] || (echo "ERROR: Missing dist/data/$file in build output." && exit 1)
+          done
           echo "✔ Build output verified for GitHub Pages base path."
 
       - name: Upload Pages artifact
