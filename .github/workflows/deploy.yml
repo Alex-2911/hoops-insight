@@ -294,7 +294,7 @@ jobs:
               mv "$typo_root_path" "$data_path"
             fi
 
-            if [[ -f "$typo_data_path" ]]; then
+            if [[ -f "$typo_data_path" && "$typo_data_path" != "$data_path" ]]; then
               echo "🔧 Found typo file $(basename "$typo_data_path") in public/data; renaming to $file."
               mv "$typo_data_path" "$data_path"
             fi
