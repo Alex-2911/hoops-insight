@@ -55,6 +55,15 @@ npm run dev
 The exporter reads defaults from `hoops_insight_config.toml` and writes to `public/data` by default.
 If `dashboard_payload.json`, `dashboard_state.json`, or `tables.json` are missing from `public/data`, the dashboard will show a data-unavailable message until data generation succeeds.
 
+If you ever find typo artifacts such as `dashoard_payload.json` in the repo root or in `public/data`, rename/move them to canonical paths before running the app:
+
+```sh
+mv dashoard_payload.json public/data/dashboard_payload.json
+mv dashoard_state.json public/data/dashboard_state.json
+```
+
+Then re-run `npm run gen:data` to regenerate canonical JSON outputs in `public/data`.
+
 Override source root with:
 
 ```sh

@@ -266,46 +266,56 @@ jobs:
           test -f public/data/local_matched_games_latest.csv
           python scripts/generate_dashboard_data.py --data-dir "$GITHUB_WORKSPACE/public/data"
 
-      - name: Normalize generated dashboard JSON paths and names
+      - name: Move and verify dashboard JSON files
         shell: bash
         run: |
           set -euo pipefail
           DATA_DIR="$GITHUB_WORKSPACE/public/data"
           mkdir -p "$DATA_DIR"
-
-          # Repair known typo variants and ensure canonical filenames under public/data.
-          declare -A TARGETS=(
-            ["$GITHUB_WORKSPACE/dashoard_payload.json"]="dashboard_payload.json"
-            ["$GITHUB_WORKSPACE/dashboard_payload.json"]="dashboard_payload.json"
-            ["$GITHUB_WORKSPACE/dashboard_state.json"]="dashboard_state.json"
-            ["$GITHUB_WORKSPACE/tables.json"]="tables.json"
-            ["$GITHUB_WORKSPACE/summary.json"]="summary.json"
-            ["$GITHUB_WORKSPACE/last_run.json"]="last_run.json"
+          REQUIRED_FILES=(
+            "dashboard_payload.json"
+            "dashboard_state.json"
+            "tables.json"
           )
 
-          for src in "${!TARGETS[@]}"; do
-            if [[ -f "$src" ]]; then
-              cp "$src" "$DATA_DIR/${TARGETS[$src]}"
-              echo "✔ Normalized $(basename "$src") -> $DATA_DIR/${TARGETS[$src]}"
+          for file in "${REQUIRED_FILES[@]}"; do
+            root_path="$GITHUB_WORKSPACE/$file"
+            typo_root_path="$GITHUB_WORKSPACE/${file/dashboard/dashoard}"
+            data_path="$DATA_DIR/$file"
+            typo_data_path="$DATA_DIR/${file/dashboard/dashoard}"
+
+            if [[ -f "$root_path" ]]; then
+              echo "📂 Found $file at repository root; moving to public/data."
+              mv "$root_path" "$data_path"
+            fi
+
+            if [[ -f "$typo_root_path" ]]; then
+              echo "🔧 Found typo file $(basename "$typo_root_path"); renaming and moving to public/data/$file."
+              mv "$typo_root_path" "$data_path"
+            fi
+
+            if [[ -f "$typo_data_path" ]]; then
+              echo "🔧 Found typo file $(basename "$typo_data_path") in public/data; renaming to $file."
+              mv "$typo_data_path" "$data_path"
             fi
           done
 
-          # Final canonical guardrail (must exist in public/data for Vite/GitHub Pages).
-          for file in dashboard_payload.json dashboard_state.json tables.json summary.json last_run.json; do
-            [[ -f "$DATA_DIR/$file" ]] || (echo "ERROR: missing canonical $DATA_DIR/$file" && exit 1)
-          done
-
-      - name: Verify generated dashboard data
-        shell: bash
-        run: |
-          set -euo pipefail
-          for file in dashboard_payload.json dashboard_state.json tables.json; do
-            if [[ ! -f "public/data/$file" ]]; then
-              echo "Missing $file after data generation." >&2
+          for file in "${REQUIRED_FILES[@]}"; do
+            if [[ ! -f "$DATA_DIR/$file" ]]; then
+              echo "ERROR: Missing required dashboard artifact: $DATA_DIR/$file" >&2
               exit 1
             fi
           done
-          echo "✔ Required JSON files exist."
+
+          for optional_file in summary.json last_run.json; do
+            root_optional="$GITHUB_WORKSPACE/$optional_file"
+            if [[ -f "$root_optional" ]]; then
+              echo "📂 Found optional $optional_file at repository root; moving to public/data."
+              mv "$root_optional" "$DATA_DIR/$optional_file"
+            fi
+          done
+
+          echo "✔ Dashboard JSON files verified in public/data."
 
       - name: Validate dashboard payload
         shell: bash

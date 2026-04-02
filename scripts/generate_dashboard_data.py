@@ -44,6 +44,11 @@ DATE_FMT = "%Y-%m-%d"
 CALIBRATION_WINDOW = 200
 DEFAULT_MAX_ODDS_FALLBACK = 3.2
 RISK_MIN_SAMPLE = 5
+REQUIRED_DASHBOARD_JSON = (
+    "dashboard_payload.json",
+    "dashboard_state.json",
+    "tables.json",
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -1144,6 +1149,22 @@ def write_json(path: Path, payload: Dict[str, object]) -> None:
         json.dump(payload, f, default=_serialize, ensure_ascii=False, indent=2)
 
 
+def remove_legacy_typo_files(output_dir: Path) -> None:
+    typo_files = ("dashoard_payload.json", "dashoard_state.json")
+    for typo_name in typo_files:
+        typo_path = output_dir / typo_name
+        if typo_path.exists():
+            typo_path.unlink()
+            LOGGER.warning("Removed legacy typo artifact: %s", typo_path)
+
+
+def verify_required_dashboard_json(output_dir: Path) -> None:
+    missing = [name for name in REQUIRED_DASHBOARD_JSON if not (output_dir / name).exists()]
+    if missing:
+        missing_list = ", ".join(missing)
+        raise FileNotFoundError(f"Missing required dashboard JSON files in {output_dir}: {missing_list}")
+
+
 def copy_sources(output_dir: Path, sources: Dict[str, Optional[Path]]) -> Dict[str, str]:
     copied: Dict[str, str] = {}
     sources_dir = output_dir / "sources"
@@ -1563,6 +1584,8 @@ def main() -> None:
     write_json(output_dir / "last_run.json", last_run_payload)
     write_json(output_dir / "dashboard_payload.json", dashboard_payload)
     write_json(output_dir / "local_matched_games_latest.json", {"rows": local_matched_subset})
+    remove_legacy_typo_files(output_dir)
+    verify_required_dashboard_json(output_dir)
 
     print(
         "Wrote summary.json, tables.json, last_run.json, dashboard_payload.json, dashboard_state.json "
