@@ -292,6 +292,13 @@ def _find_latest_file(path: Path, prefix: str) -> Optional[Path]:
     return sorted(candidates, key=lambda x: x[0])[-1][1]
 
 
+def _resolve_combined_file_from_data_dir(data_dir: Path) -> Optional[Path]:
+    combined_latest = data_dir / "combined_latest.csv"
+    if combined_latest.exists():
+        return combined_latest
+    return _find_latest_file(data_dir, "combined_nba_predictions_iso")
+
+
 def _find_latest_by_mtime(path: Path, pattern: str) -> Optional[Path]:
     if not path.exists():
         return None
@@ -1170,6 +1177,12 @@ def main() -> None:
         default=None,
         help="Optional public/data directory to load pre-copied artifacts from.",
     )
+    parser.add_argument(
+        "--combined-path",
+        type=str,
+        default=None,
+        help="Explicit path to a combined predictions CSV to use instead of auto-discovery.",
+    )
     args = parser.parse_args()
 
     repo_root = Path(__file__).resolve().parents[1]
@@ -1183,13 +1196,11 @@ def main() -> None:
     # Resolve sources
     # ----------------------------
     if data_dir:
-        combined_latest = data_dir / "combined_latest.csv"
-
         strategy_json = data_dir / "strategy_params.json"
         strategy_txt = data_dir / "strategy_params.txt"
 
         sources = SourcePaths(
-            combined_iso=combined_latest if combined_latest.exists() else None,
+            combined_iso=_resolve_combined_file_from_data_dir(data_dir),
             combined_acc=None,
             bet_log=None,
             bet_log_flat=(data_dir / "bet_log_flat_live.csv")
@@ -1209,7 +1220,13 @@ def main() -> None:
     else:
         sources = _resolve_sources(source_root, None)
 
-    if sources.combined_iso:
+    combined_override = Path(args.combined_path).expanduser().resolve() if args.combined_path else None
+    if combined_override and not combined_override.exists():
+        raise FileNotFoundError(f"--combined-path file does not exist: {combined_override}")
+
+    if combined_override:
+        combined_path = combined_override
+    elif sources.combined_iso:
         combined_path = sources.combined_iso
     elif sources.combined_acc:
         combined_path = sources.combined_acc

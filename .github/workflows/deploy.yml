@@ -118,13 +118,31 @@ jobs:
           git -C Basketball_prediction rev-parse HEAD
           git -C Basketball_prediction log -1 --oneline
 
+      - name: Copy custom predictions (optional)
+        shell: bash
+        run: |
+          set -euo pipefail
+          CUSTOM_FILE="$GITHUB_WORKSPACE/nba_games_predict_2025-01-05.csv"
+          TARGET_DIR="$GITHUB_WORKSPACE/Basketball_prediction/2026/output/LightGBM/Kelly"
+          TARGET_NAME="combined_nba_predictions_iso_2025-01-05.csv"
+          if [[ -f "$CUSTOM_FILE" ]]; then
+            mkdir -p "$TARGET_DIR"
+            cp "$CUSTOM_FILE" "$TARGET_DIR/$TARGET_NAME"
+            ln -sf "$TARGET_NAME" "$TARGET_DIR/combined_latest.csv"
+            echo "✔ Copied custom predictions to $TARGET_DIR/$TARGET_NAME"
+          else
+            echo "ℹ No custom prediction file found at $CUSTOM_FILE; skipping."
+          fi
+
       - name: Verify required Basketball_prediction outputs exist
         shell: bash
         run: |
           set -euo pipefail
           ROOT="$GITHUB_WORKSPACE/Basketball_prediction/2026/output/LightGBM"
+          KELLY_ROOT="$ROOT/Kelly"
 
           test -d "$ROOT" || (echo "ERROR: missing directory: $ROOT" && exit 1)
+          test -d "$KELLY_ROOT" || (echo "ERROR: missing directory: $KELLY_ROOT" && exit 1)
 
           METRICS="$ROOT/metrics_snapshot.json"
           STRATEGY_TXT="$ROOT/strategy_params.txt"
@@ -134,6 +152,8 @@ jobs:
 
           COMBINED_ACC="$(find "$ROOT" -maxdepth 1 -name "combined_nba_predictions_acc_*.csv" -type f -printf "%T@ %p\n" | sort -n | tail -n1 | cut -d' ' -f2- || true)"
           [[ -n "${COMBINED_ACC:-}" ]] || (echo "ERROR: no combined_nba_predictions_acc_*.csv under $ROOT" && exit 1)
+          COMBINED_ISO="$(find "$KELLY_ROOT" -maxdepth 1 -name "combined_nba_predictions_iso_*.csv" -type f -printf "%T@ %p\n" | sort -n | tail -n1 | cut -d' ' -f2- || true)"
+          [[ -n "${COMBINED_ISO:-}" ]] || (echo "ERROR: no combined_nba_predictions_iso_*.csv under $KELLY_ROOT" && exit 1)
 
           LOCAL_MATCHED="$(find "$ROOT" -maxdepth 1 -name "local_matched_games_*.csv" -type f -printf "%T@ %p\n" | sort -n | tail -n1 | cut -d' ' -f2- || true)"
           [[ -n "${LOCAL_MATCHED:-}" ]] || (echo "ERROR: no local_matched_games_*.csv under $ROOT" && exit 1)
@@ -151,6 +171,7 @@ jobs:
           echo "✔ Found metrics_snapshot: $METRICS"
           echo "✔ Found strategy_params.txt: $STRATEGY_TXT"
           echo "✔ Found combined (ACC): $COMBINED_ACC"
+          echo "✔ Found combined (ISO): $COMBINED_ISO"
           echo "✔ Found local_matched (dated): $LOCAL_MATCHED"
           echo "✔ Found wisdom CSV: $WISDOM_CSV"
           echo "✔ Found wisdom strategy_params.json: $WISDOM_STRATEGY"
@@ -162,13 +183,25 @@ jobs:
           set -euo pipefail
 
           ROOT="$GITHUB_WORKSPACE/Basketball_prediction/2026/output/LightGBM"
+          KELLY_ROOT="$ROOT/Kelly"
           OUT="$GITHUB_WORKSPACE/public/data"
           mkdir -p "$OUT"
 
-          COMBINED_ACC="$(find "$ROOT" -maxdepth 1 -name "combined_nba_predictions_acc_*.csv" -type f -printf "%T@ %p\n" | sort -n | tail -n1 | cut -d' ' -f2-)"
+          COMBINED_ISO="$(find "$KELLY_ROOT" -maxdepth 1 -name "combined_nba_predictions_iso_*.csv" -type f -printf "%T@ %p\n" | sort -n | tail -n1 | cut -d' ' -f2- || true)"
+          COMBINED_ACC="$(find "$ROOT" -maxdepth 1 -name "combined_nba_predictions_acc_*.csv" -type f -printf "%T@ %p\n" | sort -n | tail -n1 | cut -d' ' -f2- || true)"
           BET_LOG_FLAT="$ROOT/bet_log_flat_live.csv"
 
-          cp "$COMBINED_ACC" "$OUT/combined_latest.csv"
+          if [[ -n "${COMBINED_ISO:-}" ]]; then
+            cp "$COMBINED_ISO" "$OUT/combined_latest.csv"
+            cp "$COMBINED_ISO" "$OUT/$(basename "$COMBINED_ISO")"
+            echo "✔ Using combined ISO file: $COMBINED_ISO"
+          elif [[ -n "${COMBINED_ACC:-}" ]]; then
+            cp "$COMBINED_ACC" "$OUT/combined_latest.csv"
+            echo "✔ Using fallback combined ACC file: $COMBINED_ACC"
+          else
+            echo "ERROR: no combined predictions file found."
+            exit 1
+          fi
 
           # ✅ Always overwrite with the source-of-truth data
           WISDOM_DIR="$GITHUB_WORKSPACE/Basketball_prediction/web/public/data"
