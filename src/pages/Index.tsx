@@ -525,6 +525,20 @@ const Index = () => {
   const strategyMaxDrawdownDisplay =
     kpis.max_drawdown_eur !== null ? fmtCurrencyEUR(kpis.max_drawdown_eur as number, 0) : "—";
 
+  if (loadError && !payload && !dashboardState) {
+    return (
+      <section className="container mx-auto px-4 py-10">
+        <div className="glass-card p-6">
+          <h2 className="text-xl font-bold mb-3">Data unavailable</h2>
+          <p className="text-sm text-red-500">
+            {loadError}. The dashboard data could not be loaded. Ensure the data pipeline has been executed and that
+            files under <code>public/data/</code> are present.
+          </p>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <>
       {/* Context & Assumptions */}

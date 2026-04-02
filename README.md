@@ -22,8 +22,11 @@ npm install
 Configuration is centralized in `hoops_insight_config.toml` (repo root). Update paths/ports there, or override with env vars for one-off runs.
 
 ```sh
+npm run gen:data
 npm run dev
 ```
+
+> `npm run gen:data` is required before `npm run dev` or `npm run build` whenever your local `public/data` inputs have changed or are missing.
 
 ## Data pipeline (stats-only)
 
@@ -50,6 +53,7 @@ npm run dev
 ```
 
 The exporter reads defaults from `hoops_insight_config.toml` and writes to `public/data` by default.
+If `dashboard_payload.json`, `dashboard_state.json`, or `tables.json` are missing from `public/data`, the dashboard will show a data-unavailable message until data generation succeeds.
 
 Override source root with:
 
@@ -67,6 +71,12 @@ SOURCE_ROOT="/path/to/Basketball_prediction/2026" PORT=4173 ./scripts/run_pipeli
 ```
 
 Config keys are loaded from `hoops_insight_config.toml` (`paths.*`, `dashboard.*`). Environment variables with the same names still override config values when set.
+
+## Deployment data sync note
+
+The GitHub deployment workflow triggers the cross-repo `Basketball_prediction` pipeline, syncs source CSV/JSON artifacts into `public/data`, and runs `npm run gen:data` equivalent generation (`python scripts/generate_dashboard_data.py ...`) before building.
+
+If the upstream pipeline fails or required generated dashboard JSON files are missing, deployment is expected to fail in CI instead of publishing a blank dashboard.
 
 ## Tech stack
 

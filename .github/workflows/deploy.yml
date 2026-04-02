@@ -233,6 +233,18 @@ jobs:
           test -f public/data/local_matched_games_latest.csv
           python scripts/generate_dashboard_data.py --data-dir "$GITHUB_WORKSPACE/public/data"
 
+      - name: Verify generated dashboard data
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in dashboard_payload.json dashboard_state.json tables.json; do
+            if [[ ! -f "public/data/$file" ]]; then
+              echo "Missing $file after data generation." >&2
+              exit 1
+            fi
+          done
+          echo "✔ Required JSON files exist."
+
       - name: Validate dashboard payload
         shell: bash
         run: |
