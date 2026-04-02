@@ -368,6 +368,30 @@ const Index = () => {
 
   const summaryAsOfDate = dashboardState?.as_of_date ?? payload?.as_of_date ?? summary?.as_of_date ?? "—";
 
+  const activeParams = dashboardState?.active_params;
+
+  const readActiveParam = (key: keyof NonNullable<DashboardState["active_params"]>) => {
+    const value = activeParams?.[key];
+    return typeof value === "number" && Number.isFinite(value) ? value : null;
+  };
+
+  const activeParamKeys: Array<keyof NonNullable<DashboardState["active_params"]>> = [
+    "home_win_rate_min",
+    "odds_min",
+    "odds_max",
+    "prob_threshold",
+    "min_ev",
+    "window_size",
+  ];
+  const activeParamsComplete = activeParamKeys.every((key) => readActiveParam(key) !== null);
+
+  const homeWinRateMin = readActiveParam("home_win_rate_min");
+  const oddsMin = readActiveParam("odds_min");
+  const oddsMax = readActiveParam("odds_max");
+  const probThreshold = readActiveParam("prob_threshold");
+  const minEv = readActiveParam("min_ev");
+  const windowSizeFromParams = readActiveParam("window_size");
+
   const overallAccuracyValue = pickNumber(summaryStats.overall_accuracy, calibrationMetrics.actualWinPct);
   const overallAccuracyPct = formatPercentFromMaybeRatio(overallAccuracyValue, 2);
 
@@ -394,30 +418,6 @@ const Index = () => {
     "Historical";
 
   const paramsSourceLabel = dashboardState?.params_source_label ?? "strategy_params.json";
-
-  const activeParams = dashboardState?.active_params;
-
-  const readActiveParam = (key: keyof NonNullable<DashboardState["active_params"]>) => {
-    const value = activeParams?.[key];
-    return typeof value === "number" && Number.isFinite(value) ? value : null;
-  };
-
-  const activeParamKeys: Array<keyof NonNullable<DashboardState["active_params"]>> = [
-    "home_win_rate_min",
-    "odds_min",
-    "odds_max",
-    "prob_threshold",
-    "min_ev",
-    "window_size",
-  ];
-  const activeParamsComplete = activeParamKeys.every((key) => readActiveParam(key) !== null);
-
-  const homeWinRateMin = readActiveParam("home_win_rate_min");
-  const oddsMin = readActiveParam("odds_min");
-  const oddsMax = readActiveParam("odds_max");
-  const probThreshold = readActiveParam("prob_threshold");
-  const minEv = readActiveParam("min_ev");
-  const windowSizeFromParams = readActiveParam("window_size");
 
   const fallbackDetailsLabel =
     homeWinRateMin !== null && oddsMin !== null && oddsMax !== null && probThreshold !== null && minEv !== null
