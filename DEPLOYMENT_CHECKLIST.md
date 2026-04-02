@@ -20,8 +20,10 @@
 4. Monitor data flow for any disruptions or anomalies post-deployment.
 5. For local validation, run `npm run gen:data` (or `python scripts/generate_dashboard_data.py --data-dir public/data`) before `npm run dev` or `npm run build`.
 6. Confirm `public/data/dashboard_payload.json`, `public/data/dashboard_state.json`, and `public/data/tables.json` exist after generation.
-7. If typo files such as `dashoard_payload.json` or `dashoard_state.json` exist, rename/move them to `public/data/dashboard_payload.json` and `public/data/dashboard_state.json`, then regenerate.
-8. Verify GitHub Actions deploy run triggered and completed the upstream `Basketball_prediction` pipeline before the dashboard build step.
+7. Confirm deploy workflow `Prepare dashboard data files` ran and corrected legacy typo files (`dashoard_payload.json`, `dashoard_state.json`) into canonical `public/data` names.
+8. Confirm deploy workflow moved any root-level dashboard artifacts into `public/data` (`dashboard_payload.json`, `dashboard_state.json`, `tables.json`, optional `summary.json`, `last_run.json`).
+9. Verify GitHub Actions deploy run triggered and completed the upstream `Basketball_prediction` pipeline before the dashboard build step.
+10. Verify build artifacts contain `dist/data/dashboard_payload.json`, `dist/data/dashboard_state.json`, and `dist/data/tables.json` to prevent blank dashboards on Pages.
 
 ## Testing Procedures
 1. Conduct manual testing for major functionalities in the staging environment.
@@ -35,4 +37,4 @@
 3. Ensure that all services and integrations are functional,
 4. Monitor application logs for any unexpected behavior during the initial hours post-deployment.
 
-# Last Updated: 2026-03-26 21:01:07 UTC
+# Last Updated: 2026-04-02 00:00:00 UTC

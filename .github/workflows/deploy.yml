@@ -266,56 +266,43 @@ jobs:
           test -f public/data/local_matched_games_latest.csv
           python scripts/generate_dashboard_data.py --data-dir "$GITHUB_WORKSPACE/public/data"
 
-      - name: Move and verify dashboard JSON files
+      - name: Prepare dashboard data files
         shell: bash
         run: |
           set -euo pipefail
           DATA_DIR="$GITHUB_WORKSPACE/public/data"
           mkdir -p "$DATA_DIR"
-          REQUIRED_FILES=(
-            "dashboard_payload.json"
-            "dashboard_state.json"
-            "tables.json"
-          )
 
-          for file in "${REQUIRED_FILES[@]}"; do
-            root_path="$GITHUB_WORKSPACE/$file"
-            typo_root_path="$GITHUB_WORKSPACE/${file/dashboard/dashoard}"
-            data_path="$DATA_DIR/$file"
-            typo_data_path="$DATA_DIR/${file/dashboard/dashoard}"
+          # Correct legacy typo files if they exist.
+          if [[ -f "$DATA_DIR/dashoard_payload.json" ]]; then
+            mv "$DATA_DIR/dashoard_payload.json" "$DATA_DIR/dashboard_payload.json"
+          fi
+          if [[ -f "$DATA_DIR/dashoard_state.json" ]]; then
+            mv "$DATA_DIR/dashoard_state.json" "$DATA_DIR/dashboard_state.json"
+          fi
+          if [[ -f "$GITHUB_WORKSPACE/dashoard_payload.json" ]]; then
+            mv "$GITHUB_WORKSPACE/dashoard_payload.json" "$DATA_DIR/dashboard_payload.json"
+          fi
+          if [[ -f "$GITHUB_WORKSPACE/dashoard_state.json" ]]; then
+            mv "$GITHUB_WORKSPACE/dashoard_state.json" "$DATA_DIR/dashboard_state.json"
+          fi
 
-            if [[ -f "$root_path" ]]; then
-              echo "📂 Found $file at repository root; moving to public/data."
-              mv "$root_path" "$data_path"
-            fi
-
-            if [[ -f "$typo_root_path" ]]; then
-              echo "🔧 Found typo file $(basename "$typo_root_path"); renaming and moving to public/data/$file."
-              mv "$typo_root_path" "$data_path"
-            fi
-
-            if [[ -f "$typo_data_path" && "$typo_data_path" != "$data_path" ]]; then
-              echo "🔧 Found typo file $(basename "$typo_data_path") in public/data; renaming to $file."
-              mv "$typo_data_path" "$data_path"
+          # Move dashboard artifacts from repo root into public/data when needed.
+          for file in dashboard_payload.json dashboard_state.json tables.json last_run.json summary.json; do
+            if [[ -f "$GITHUB_WORKSPACE/$file" ]]; then
+              mv "$GITHUB_WORKSPACE/$file" "$DATA_DIR/$file"
             fi
           done
 
-          for file in "${REQUIRED_FILES[@]}"; do
+          # Verify required files exist for runtime and build copy to dist/data.
+          for file in dashboard_payload.json dashboard_state.json tables.json; do
             if [[ ! -f "$DATA_DIR/$file" ]]; then
-              echo "ERROR: Missing required dashboard artifact: $DATA_DIR/$file" >&2
+              echo "ERROR: missing $file after relocation" >&2
               exit 1
             fi
           done
 
-          for optional_file in summary.json last_run.json; do
-            root_optional="$GITHUB_WORKSPACE/$optional_file"
-            if [[ -f "$root_optional" ]]; then
-              echo "📂 Found optional $optional_file at repository root; moving to public/data."
-              mv "$root_optional" "$DATA_DIR/$optional_file"
-            fi
-          done
-
-          echo "✔ Dashboard JSON files verified in public/data."
+          echo "✔ Dashboard JSON files prepared in public/data."
 
       - name: Validate dashboard payload
         shell: bash

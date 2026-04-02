@@ -55,14 +55,13 @@ npm run dev
 The exporter reads defaults from `hoops_insight_config.toml` and writes to `public/data` by default.
 If `dashboard_payload.json`, `dashboard_state.json`, or `tables.json` are missing from `public/data`, the dashboard will show a data-unavailable message until data generation succeeds.
 
-If you ever find typo artifacts such as `dashoard_payload.json` in the repo root or in `public/data`, rename/move them to canonical paths before running the app:
+Legacy typo artifacts such as `dashoard_payload.json` and `dashoard_state.json` are automatically cleaned up by the exporter and deploy workflow. The canonical runtime paths are always:
 
-```sh
-mv dashoard_payload.json public/data/dashboard_payload.json
-mv dashoard_state.json public/data/dashboard_state.json
-```
+- `public/data/dashboard_payload.json`
+- `public/data/dashboard_state.json`
+- `public/data/tables.json`
 
-Then re-run `npm run gen:data` to regenerate canonical JSON outputs in `public/data`.
+If those files are missing, run `npm run gen:data` locally to regenerate canonical JSON outputs in `public/data`.
 
 Override source root with:
 
@@ -111,9 +110,13 @@ Config keys are loaded from `hoops_insight_config.toml` (`paths.*`, `dashboard.*
 
 ## Deployment data sync note
 
-The GitHub deployment workflow triggers the cross-repo `Basketball_prediction` pipeline, syncs source CSV/JSON artifacts into `public/data`, and runs `npm run gen:data` equivalent generation (`python scripts/generate_dashboard_data.py ...`) before building.
+The GitHub deployment workflow triggers the cross-repo `Basketball_prediction` pipeline, syncs source CSV/JSON artifacts into `public/data`, runs `python scripts/generate_dashboard_data.py ...`, and then executes a relocation step that:
 
-If the upstream pipeline fails or required generated dashboard JSON files are missing, deployment is expected to fail in CI instead of publishing a blank dashboard.
+- renames legacy typo files (`dashoard_*.json`) to canonical names,
+- moves any generated dashboard JSON left in the repo root into `public/data`, and
+- fails the build if `dashboard_payload.json`, `dashboard_state.json`, or `tables.json` are still missing.
+
+Vite copies `public/` into `dist/` during build, so successful deploys include `dist/data/dashboard_payload.json`, `dist/data/dashboard_state.json`, and `dist/data/tables.json`.
 
 ## Tech stack
 
