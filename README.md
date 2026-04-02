@@ -61,6 +61,34 @@ Override source root with:
 python3 scripts/generate_dashboard_data.py --source-root "/path/to/Basketball_prediction/2026"
 ```
 
+### Integrate custom prediction CSVs
+
+If you receive a one-off prediction file (for example `nba_games_predict_2025-01-05.csv`), rename it to the expected pattern so the generator can auto-discover it:
+
+```sh
+cp nba_games_predict_2025-01-05.csv public/data/combined_nba_predictions_iso_2025-01-05.csv
+npm run gen:data
+```
+
+`generate_dashboard_data.py` looks for either:
+
+- `combined_latest.csv` in `--data-dir`, or
+- the latest `combined_nba_predictions_iso_YYYY-MM-DD.csv` in that same directory.
+
+So local regeneration also works with:
+
+```sh
+python3 scripts/generate_dashboard_data.py --data-dir public/data
+```
+
+If you need to bypass naming conventions, pass an explicit file path:
+
+```sh
+python3 scripts/generate_dashboard_data.py \
+  --data-dir public/data \
+  --combined-path public/data/combined_nba_predictions_iso_2025-01-05.csv
+```
+
 ## Pipeline runner (path-agnostic)
 
 Use the repo script to run the full pipeline, export dashboard data, and preview the app.
