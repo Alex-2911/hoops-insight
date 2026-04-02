@@ -1,0 +1,21 @@
+{
+  "rows": [
+    {"date": "2026-01-16", "home_team": "HOU", "away_team": "MIN", "home_win_rate": 0.86, "prob_iso": 0.66, "prob_used": 0.66, "odds_1": 1.56, "ev_eur_per_100": 2.21, "win": 1, "pnl": 56.0},
+    {"date": "2026-01-11", "home_team": "GSW", "away_team": "ATL", "home_win_rate": 0.77, "prob_iso": 0.66, "prob_used": 0.66, "odds_1": 1.46, "ev_eur_per_100": -4.34, "win": 0, "pnl": -100.0},
+    {"date": "2026-01-11", "home_team": "MIN", "away_team": "SAS", "home_win_rate": 0.78, "prob_iso": 0.69, "prob_used": 0.69, "odds_1": 1.70, "ev_eur_per_100": 17.05, "win": 1, "pnl": 70.0},
+    {"date": "2026-01-10", "home_team": "DET", "away_team": "LAC", "home_win_rate": 0.82, "prob_iso": 0.66, "prob_used": 0.66, "odds_1": 1.51, "ev_eur_per_100": -1.07, "win": 0, "pnl": -100.0},
+    {"date": "2026-01-09", "home_team": "PHO", "away_team": "NYK", "home_win_rate": 0.86, "prob_iso": 0.69, "prob_used": 0.69, "odds_1": 1.98, "ev_eur_per_100": 36.33, "win": 1, "pnl": 98.0},
+    {"date": "2026-01-08", "home_team": "MIN", "away_team": "CLE", "home_win_rate": 0.78, "prob_iso": 0.71, "prob_used": 0.71, "odds_1": 1.80, "ev_eur_per_100": 28.57, "win": 1, "pnl": 80.0},
+    {"date": "2026-01-07", "home_team": "SAS", "away_team": "LAL", "home_win_rate": 0.67, "prob_iso": 0.69, "prob_used": 0.69, "odds_1": 1.41, "ev_eur_per_100": -2.92, "win": 1, "pnl": 41.0},
+    {"date": "2026-01-06", "home_team": "MIN", "away_team": "MIA", "home_win_rate": 0.78, "prob_iso": 0.69, "prob_used": 0.69, "odds_1": 1.46, "ev_eur_per_100": 0.52, "win": 1, "pnl": 46.0},
+    {"date": "2026-01-05", "home_team": "LAC", "away_team": "GSW", "home_win_rate": 0.80, "prob_iso": 0.60, "prob_used": 0.60, "odds_1": 1.83, "ev_eur_per_100": 9.80, "win": 1, "pnl": 83.0},
+    {"date": "2026-01-05", "home_team": "DET", "away_team": "NYK", "home_win_rate": 0.82, "prob_iso": 0.69, "prob_used": 0.69, "odds_1": 2.30, "ev_eur_per_100": 58.36, "win": 1, "pnl": 130.0},
+    {"date": "2026-01-03", "home_team": "LAC", "away_team": "BOS", "home_win_rate": 0.80, "prob_iso": 0.69, "prob_used": 0.69, "odds_1": 1.85, "ev_eur_per_100": 27.38, "win": 0, "pnl": -100.0},
+    {"date": "2025-12-31", "home_team": "SAS", "away_team": "NYK", "home_win_rate": 0.67, "prob_iso": 0.66, "prob_used": 0.66, "odds_1": 1.82, "ev_eur_per_100": 19.24, "win": 1, "pnl": 82.0},
+    {"date": "2025-12-29", "home_team": "SAS", "away_team": "CLE", "home_win_rate": 0.67, "prob_iso": 0.71, "prob_used": 0.71, "odds_1": 1.74, "ev_eur_per_100": 24.29, "win": 0, "pnl": -100.0},
+    {"date": "2025-12-28", "home_team": "LAC", "away_team": "DET", "home_win_rate": 0.80, "prob_iso": 0.69, "prob_used": 0.69, "odds_1": 2.36, "ev_eur_per_100": 62.49, "win": 1, "pnl": 136.0},
+    {"date": "2025-12-27", "home_team": "HOU", "away_team": "CLE", "home_win_rate": 0.86, "prob_iso": 0.66, "prob_used": 0.66, "odds_1": 1.57, "ev_eur_per_100": 2.86, "win": 1, "pnl": 57.0},
+    {"date": "2025-12-25", "home_team": "DEN", "away_team": "MIN", "home_win_rate": 0.78, "prob_iso": 0.69, "prob_used": 0.69, "odds_1": 1.80, "ev_eur_per_100": 23.93, "win": 1, "pnl": 80.0},
+    {"date": "2025-12-25", "home_team": "DEN", "away_team": "MIN", "home_win_rate": 0.78, "prob_iso": 0.69, "prob_used": 0.69, "odds_1": 1.60, "ev_eur_per_100": 10.16, "win": 1, "pnl": 60.0}
+  ]
+}
