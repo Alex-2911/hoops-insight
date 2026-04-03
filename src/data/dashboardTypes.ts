@@ -81,6 +81,7 @@ export interface DashboardPayload {
 
 export interface DashboardState {
   as_of_date: string;
+  snapshot_as_of_date?: string;
   window_size: number;
   window_start?: string | null;
   window_end?: string | null;
@@ -96,8 +97,18 @@ export interface DashboardState {
     window_size?: number;
   };
   params_source_label: string;
+  strategy_params_parse_status?: "ok" | "defaults" | "parse_error" | "missing";
+  strategy_params_parse_error?: string | null;
+  defaults_used?: boolean;
+  defaults_reason?: string | null;
   strategy_as_of_date?: string | null;
   strategy_matches_window?: number;
+  data_consistency_status?: "ok" | "out_of_sync";
+  data_consistency_issues?: string[];
+  combined_source_file?: string;
+  local_matched_source_file?: string;
+  strategy_params_source_file?: string;
+  metrics_snapshot_source_file?: string;
   last_update_utc: string;
   sources: {
     combined: string;

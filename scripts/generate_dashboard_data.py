@@ -66,6 +66,7 @@ class SourcePaths:
     bet_log_flat: Optional[Path]
     local_matched_games: Optional[Path]
     strategy_params: Optional[Path]
+    metrics_snapshot: Optional[Path]
 
 
 def _normalize_key(key: str) -> str:
@@ -107,6 +108,11 @@ def _safe_team(val: object) -> Optional[str]:
     if s == "":
         return None
     return re.sub(r"\s+", " ", s).upper()
+
+
+def _extract_date_from_name(name: str) -> Optional[str]:
+    match = re.search(r"(\d{4}-\d{2}-\d{2})", name)
+    return match.group(1) if match else None
 
 
 def compute_window_bounds(
@@ -211,6 +217,30 @@ def load_strategy_params(path: Path) -> Dict[str, object]:
             value = _coerce_value(match.group(2))
             params[key] = value
     return params
+
+
+def _extract_date_from_json(path: Optional[Path]) -> Optional[str]:
+    if path is None or not path.exists():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    for key in ("snapshot_as_of_date", "as_of_date", "asOfDate", "window_end"):
+        value = payload.get(key)
+        if isinstance(value, str) and re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+            return value
+    return None
+
+
+def _max_date_from_local_rows(rows: List[Dict[str, object]]) -> Optional[str]:
+    dates = [_safe_date(row.get("date")) for row in rows]
+    dates = [d for d in dates if d is not None]
+    if not dates:
+        return None
+    return max(dates).strftime(DATE_FMT)
 
 
 def load_local_matched_games_csv(path: Path) -> Tuple[List[Dict[str, object]], Dict[str, object]]:
@@ -366,6 +396,7 @@ def _resolve_sources(root: Optional[Path], as_of_date: Optional[str]) -> SourceP
             bet_log_flat=None,
             local_matched_games=None,
             strategy_params=None,
+            metrics_snapshot=None,
         )
 
     lightgbm_dir = root / "output" / "LightGBM"
@@ -384,6 +415,9 @@ def _resolve_sources(root: Optional[Path], as_of_date: Optional[str]) -> SourceP
 
     strategy_params = _find_strategy_params(lightgbm_dir, as_of_date)
     local_matched_games = _find_local_matched_games(lightgbm_dir, as_of_date)
+    metrics_snapshot = lightgbm_dir / "metrics_snapshot.json"
+    if not metrics_snapshot.exists():
+        metrics_snapshot = None
 
     return SourcePaths(
         combined_iso=combined_iso,
@@ -392,6 +426,7 @@ def _resolve_sources(root: Optional[Path], as_of_date: Optional[str]) -> SourceP
         bet_log_flat=bet_log_flat,
         local_matched_games=local_matched_games,
         strategy_params=strategy_params,
+        metrics_snapshot=metrics_snapshot,
     )
 
 
@@ -1237,6 +1272,9 @@ def main() -> None:
                 if strategy_txt.exists()
                 else None
             ),
+            metrics_snapshot=(data_dir / "metrics_snapshot.json")
+            if (data_dir / "metrics_snapshot.json").exists()
+            else None,
         )
     else:
         sources = _resolve_sources(source_root, None)
@@ -1321,10 +1359,18 @@ def main() -> None:
     if (not data_dir) and source_root and (source_root / "output" / "LightGBM").exists():
         sources = _resolve_sources(source_root, as_of_date)
 
+    snapshot_as_of_date = as_of_date
+    combined_source_file = combined_path.name
+    consistency_issues: List[str] = []
+
     # ----------------------------
     # Load versioned params (shared strategy module)
     # ----------------------------
     strategy_params_source = None
+    strategy_params_parse_status = "missing"
+    strategy_params_parse_error: Optional[str] = None
+    defaults_used = False
+    defaults_reason: Optional[str] = None
     params_payload_path = sources.strategy_params if (sources.strategy_params and sources.strategy_params.exists()) else None
     if params_payload_path is None:
         fallback_params = output_dir / "strategy_params.json"
@@ -1336,6 +1382,10 @@ def main() -> None:
         params_used = _normalize_params(strategy_params_obj.params)
         strategy_params_source = Path(strategy_params_obj.source) if strategy_params_obj.source != "defaults" else None
         params_used_label = f"v{strategy_params_obj.version}"
+        strategy_params_parse_status = "ok" if strategy_params_source else "defaults"
+        defaults_used = strategy_params_source is None
+        if defaults_used:
+            defaults_reason = "strategy_params_missing"
         if params_payload_path and params_payload_path.exists():
             raw_strategy_payload = load_strategy_params(params_payload_path)
             strategy_params_name = _extract_params_name(raw_strategy_payload) or strategy_params_name
@@ -1345,6 +1395,11 @@ def main() -> None:
         params_used = _normalize_params(strategy_params_obj.params)
         params_used_label = "fallback"
         strategy_params_source = None
+        strategy_params_parse_status = "parse_error"
+        strategy_params_parse_error = str(exc)
+        defaults_used = True
+        defaults_reason = "strategy_params_parse_error"
+        consistency_issues.append(f"strategy_params parse error: {exc}")
 
     active_params = _build_active_params(params_used, CALIBRATION_WINDOW)
     active_filters_label = _human_readable_filters(params_used)
@@ -1366,6 +1421,16 @@ def main() -> None:
 
     if local_matched_games_path and local_matched_games_path.exists():
         local_matched_games_rows_all, _local_summary = load_local_matched_games_csv(local_matched_games_path)
+    else:
+        consistency_issues.append("local_matched_games source file missing")
+
+    local_rows_max_date = _max_date_from_local_rows(local_matched_games_rows_all)
+    if local_rows_max_date and snapshot_as_of_date != "—" and local_rows_max_date != snapshot_as_of_date:
+        consistency_issues.append(
+            f"local_matched_games max date {local_rows_max_date} does not match combined snapshot {snapshot_as_of_date}"
+        )
+    elif local_rows_max_date is None:
+        consistency_issues.append("local_matched_games has no valid date rows")
 
     def _in_window(row: Dict[str, object]) -> bool:
         d = _safe_date(row.get("date"))
@@ -1447,9 +1512,27 @@ def main() -> None:
     active_filters_text = f"{active_filters_label} | window {window_size_label} ({window_start_display} → {window_end_display})"
 
     bet_log_flat_path = sources.bet_log_flat if sources.bet_log_flat and sources.bet_log_flat.exists() else None
+    strategy_date_from_source = _extract_date_from_name(strategy_params_source.name) if strategy_params_source else None
+    if strategy_date_from_source is None and strategy_params_source:
+        strategy_date_from_source = _extract_date_from_json(strategy_params_source)
+    if strategy_date_from_source and snapshot_as_of_date != "—" and strategy_date_from_source != snapshot_as_of_date:
+        consistency_issues.append(
+            f"strategy_params date {strategy_date_from_source} does not match combined snapshot {snapshot_as_of_date}"
+        )
+
+    metrics_snapshot_date = _extract_date_from_json(sources.metrics_snapshot) or (
+        _extract_date_from_name(sources.metrics_snapshot.name) if sources.metrics_snapshot else None
+    )
+    if metrics_snapshot_date and snapshot_as_of_date != "—" and metrics_snapshot_date != snapshot_as_of_date:
+        consistency_issues.append(
+            f"metrics_snapshot date {metrics_snapshot_date} does not match combined snapshot {snapshot_as_of_date}"
+        )
+
+    data_consistency_status = "ok" if not consistency_issues else "out_of_sync"
 
     dashboard_state = {
         "as_of_date": as_of_date,
+        "snapshot_as_of_date": snapshot_as_of_date,
         "window_size": int(window_size_label),
         "window_start": window_start_label,
         "window_end": window_end_label,
@@ -1458,8 +1541,18 @@ def main() -> None:
         "params_used": strategy_params_name,
         "active_params": active_params,
         "params_source_label": _label_path(strategy_params_source),
+        "strategy_params_parse_status": strategy_params_parse_status,
+        "strategy_params_parse_error": strategy_params_parse_error,
+        "defaults_used": defaults_used,
+        "defaults_reason": defaults_reason,
         "strategy_as_of_date": (window_end_dt.strftime(DATE_FMT) if window_end_dt else None),
         "strategy_matches_window": strategy_matches_window,
+        "data_consistency_status": data_consistency_status,
+        "data_consistency_issues": consistency_issues,
+        "combined_source_file": combined_source_file,
+        "local_matched_source_file": _label_path(local_matched_games_path),
+        "strategy_params_source_file": _label_path(strategy_params_source),
+        "metrics_snapshot_source_file": _label_path(sources.metrics_snapshot),
         "last_update_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "sources": {
             "combined": _label_path(combined_path),
@@ -1523,8 +1616,17 @@ def main() -> None:
     last_run_payload = {
         "lastUpdateUtc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "asOfDate": as_of_date,
+        "snapshotAsOfDate": snapshot_as_of_date,
         "windowStart": window_start_label,
         "windowEnd": window_end_label,
+        "dataConsistencyStatus": data_consistency_status,
+        "dataConsistencyIssues": consistency_issues,
+        "sources": {
+            "combined": _label_path(combined_path),
+            "local_matched": _label_path(local_matched_games_path),
+            "strategy_params": _label_path(strategy_params_source),
+            "metrics_snapshot": _label_path(sources.metrics_snapshot),
+        },
     }
 
     copied_sources = copy_sources(

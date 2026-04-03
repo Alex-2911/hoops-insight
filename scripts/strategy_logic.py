@@ -61,12 +61,22 @@ def load_strategy_params(path: Path | None) -> StrategyParams:
     raw_params = payload.get("params", payload.get("params_used", {}))
     if not isinstance(raw_params, dict):
         raw_params = {}
+    # Backward compatibility: some producers store params flat at the top-level.
+    if not raw_params:
+        raw_params = {
+            k: v
+            for k, v in payload.items()
+            if _normalize_key(str(k)) in {"home_win_rate_threshold", "odds_min", "odds_max", "prob_threshold", "min_ev", "min_ev_per_100"}
+        }
 
     normalized: Dict[str, float] = DEFAULT_PARAMS.copy()
     for key, value in raw_params.items():
         coerced = _coerce_float(value)
         if coerced is not None:
-            normalized[_normalize_key(str(key))] = coerced
+            normalized_key = _normalize_key(str(key))
+            if normalized_key == "min_ev_per_100":
+                normalized_key = "min_ev"
+            normalized[normalized_key] = coerced
 
     return StrategyParams(version=version, params=normalized, source=str(path))
 
