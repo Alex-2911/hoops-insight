@@ -1417,10 +1417,15 @@ def main() -> None:
     strategy_params_parse_error: Optional[str] = None
     defaults_used = False
     defaults_reason: Optional[str] = None
-    params_payload_path = sources.strategy_params if (sources.strategy_params and sources.strategy_params.exists()) else None
-    if params_payload_path is None:
+    params_payload_path: Optional[Path] = None
+    if sources.strategy_params and sources.strategy_params.exists() and sources.strategy_params.suffix.lower() == ".json":
+        params_payload_path = sources.strategy_params
+    else:
         fallback_params = output_dir / "strategy_params.json"
-        params_payload_path = fallback_params if fallback_params.exists() else None
+        if fallback_params.exists():
+            params_payload_path = fallback_params
+        elif sources.strategy_params and sources.strategy_params.exists():
+            params_payload_path = sources.strategy_params
 
     strategy_params_name = "fallback"
     try:
@@ -1472,9 +1477,9 @@ def main() -> None:
 
     local_rows_max_date = _max_date_from_local_rows(local_matched_games_rows_all)
     canonical_snapshot_date = selection_metadata.get("snapshot_as_of_date") or snapshot_as_of_date
-    if local_rows_max_date and canonical_snapshot_date != "—" and local_rows_max_date != canonical_snapshot_date:
+    if local_rows_max_date and canonical_snapshot_date != "—" and local_rows_max_date > canonical_snapshot_date:
         consistency_issues.append(
-            f"local_matched_games max date {local_rows_max_date} does not match combined snapshot {canonical_snapshot_date}"
+            f"local_matched_games max date {local_rows_max_date} is after combined snapshot {canonical_snapshot_date}"
         )
     elif local_rows_max_date is None:
         consistency_issues.append("local_matched_games has no valid date rows")
@@ -1562,9 +1567,9 @@ def main() -> None:
     strategy_date_from_source = _extract_date_from_name(strategy_params_source.name) if strategy_params_source else None
     if strategy_date_from_source is None and strategy_params_source:
         strategy_date_from_source = _extract_date_from_json(strategy_params_source)
-    if strategy_date_from_source and canonical_snapshot_date != "—" and strategy_date_from_source != canonical_snapshot_date:
+    if strategy_date_from_source and canonical_snapshot_date != "—" and strategy_date_from_source > canonical_snapshot_date:
         consistency_issues.append(
-            f"strategy_params date {strategy_date_from_source} does not match combined snapshot {canonical_snapshot_date}"
+            f"strategy_params date {strategy_date_from_source} is after combined snapshot {canonical_snapshot_date}"
         )
 
     metrics_snapshot_date = _extract_date_from_json(sources.metrics_snapshot) or (
