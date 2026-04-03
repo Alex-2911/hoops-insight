@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Iterable, Optional
 
 DATE_RE = re.compile(r"(\d{4}-\d{2}-\d{2})")
+PARAM_KEYS = {"home_win_rate_threshold", "odds_min", "odds_max", "prob_threshold", "min_ev", "min_ev_per_100"}
 
 
 @dataclass
@@ -88,6 +89,53 @@ def _dated_for_snapshot(base_dir: Path, prefix: str, snapshot_date: str, suffix:
 
 def _first_existing(paths: Iterable[Optional[Path]]) -> Optional[Path]:
     return next((path for path in paths if path is not None and path.exists()), None)
+
+
+def _normalize_param_key(key: str) -> str:
+    normalized = re.sub(r"[\s\-]+", "_", key.strip().lower())
+    normalized = re.sub(r"[^a-z0-9_]", "", normalized)
+    return re.sub(r"_+", "_", normalized)
+
+
+def _coerce_scalar(value: str) -> object:
+    raw = value.strip()
+    if not raw:
+        return ""
+    lower = raw.lower()
+    if lower in {"true", "false"}:
+        return lower == "true"
+    try:
+        number = float(raw)
+    except ValueError:
+        return raw
+    if number.is_integer():
+        return int(number)
+    return number
+
+
+def _strategy_txt_to_json_payload(path: Path) -> dict[str, object]:
+    payload: dict[str, object] = {"version": 1, "params": {}}
+    params: dict[str, object] = {}
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        normalized = _normalize_param_key(key)
+        coerced = _coerce_scalar(value)
+        payload[normalized] = coerced
+        if normalized in PARAM_KEYS:
+            params["min_ev" if normalized == "min_ev_per_100" else normalized] = coerced
+    payload["params"] = params
+    return payload
+
+
+def _copy_strategy_alias(strategy_params_path: Path, output_path: Path) -> None:
+    if strategy_params_path.suffix.lower() == ".json":
+        shutil.copy2(strategy_params_path, output_path)
+        return
+    payload = _strategy_txt_to_json_payload(strategy_params_path)
+    output_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 
 def _validate_date_match(path: Path, expected: str, label: str) -> None:
@@ -199,7 +247,7 @@ def copy_selection_aliases(selection: SnapshotSelection, output_dir: Path) -> No
     output_dir.mkdir(parents=True, exist_ok=True)
     shutil.copy2(selection.combined_path, output_dir / "combined_latest.csv")
     shutil.copy2(selection.local_matched_path, output_dir / "local_matched_games_latest.csv")
-    shutil.copy2(selection.strategy_params_path, output_dir / "strategy_params.json")
+    _copy_strategy_alias(selection.strategy_params_path, output_dir / "strategy_params.json")
     shutil.copy2(selection.metrics_path, output_dir / "metrics_snapshot.json")
     if selection.bet_log_path and selection.bet_log_path.exists():
         shutil.copy2(selection.bet_log_path, output_dir / "bet_log_flat_live.csv")

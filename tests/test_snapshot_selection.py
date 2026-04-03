@@ -4,6 +4,7 @@ from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
+from scripts.snapshot_selection import copy_selection_aliases, resolve_snapshot_selection
 from scripts.snapshot_selection import resolve_snapshot_selection
 
 
@@ -28,6 +29,7 @@ def test_resolve_snapshot_selection_ignores_missing_optional_candidates(tmp_path
     )
     _write(
         lightgbm / "strategy_params.txt",
+        f"as_of_date={snapshot_date}\nhome_win_rate_threshold=0.65",
         "home_win_rate_threshold=0.65",
     )
     (lightgbm / "metrics_snapshot.json").write_text(
@@ -40,3 +42,11 @@ def test_resolve_snapshot_selection_ignores_missing_optional_candidates(tmp_path
     assert selection.snapshot_as_of_date == snapshot_date
     assert selection.strategy_params_source_file == "strategy_params.txt"
     assert selection.metrics_source_file == "metrics_snapshot.json"
+
+    output_dir = tmp_path / "output_aliases"
+    copy_selection_aliases(selection, output_dir)
+
+    alias_payload = json.loads((output_dir / "strategy_params.json").read_text(encoding="utf-8"))
+    assert alias_payload["version"] == 1
+    assert alias_payload["as_of_date"] == snapshot_date
+    assert alias_payload["params"]["home_win_rate_threshold"] == 0.65
