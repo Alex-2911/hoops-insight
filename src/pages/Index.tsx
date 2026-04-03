@@ -16,6 +16,8 @@ const Index = () => {
   const [localMatchedLatestRows, setLocalMatchedLatestRows] = useState<LocalMatchedGameRow[]>([]);
   const [tablesFallback, setTablesFallback] = useState<TablesPayload | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [fetchStarted, setFetchStarted] = useState(false);
   const baseUrl = import.meta.env.BASE_URL ?? "/";
   const staleMessage = dashboardState?.last_update_utc
     ? `Last update: ${dashboardState.last_update_utc}`
@@ -113,6 +115,7 @@ const Index = () => {
     let alive = true;
 
     const load = async () => {
+      setFetchStarted(true);
       try {
         const [payloadRes, stateRes, tablesRes] = await Promise.all([
           fetch(`${baseUrl}data/dashboard_payload.json`),
@@ -154,6 +157,8 @@ const Index = () => {
         if (alive) {
           setLoadError(err instanceof Error ? err.message : "Failed to load data.");
         }
+      } finally {
+        if (alive) setIsLoading(false);
       }
     };
 
@@ -525,6 +530,21 @@ const Index = () => {
   const strategyMaxDrawdownDisplay =
     kpis.max_drawdown_eur !== null ? fmtCurrencyEUR(kpis.max_drawdown_eur as number, 0) : "—";
 
+
+  if (isLoading && !payload && !dashboardState) {
+    return (
+      <section className="container mx-auto px-4 py-10">
+        <div className="glass-card p-6">
+          <p className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">INDEX LOADED</p>
+          <h2 className="text-xl font-bold mb-3">Loading dashboard data...</h2>
+          <p className="text-sm text-muted-foreground">
+            Fetch status: {fetchStarted ? "started" : "pending"}. Waiting for dashboard payload files.
+          </p>
+        </div>
+      </section>
+    );
+  }
+
   if (loadError && !payload && !dashboardState) {
     return (
       <section className="container mx-auto px-4 py-10">
@@ -541,6 +561,9 @@ const Index = () => {
 
   return (
     <>
+      <section className="container mx-auto px-4 pt-4">
+        <p className="text-xs uppercase tracking-wide text-muted-foreground">INDEX LOADED</p>
+      </section>
       {/* Context & Assumptions */}
       <section className="container mx-auto px-4 py-6">
         <div className="glass-card p-6">

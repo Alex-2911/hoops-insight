@@ -1,13 +1,17 @@
-// Temporarily remove Navigation component to fix circular dependency issue
+import type { ReactNode } from "react";
+import { Navigation } from "./Navigation";
 
-// import Navigation from './Navigation';
+interface LayoutProps {
+  children: ReactNode;
+}
 
-const Layout = () => {
-    return (
-        <>  
-            {/* Navigation component replaced with empty fragment for now */}
-        </>
-    );
+const Layout = ({ children }: LayoutProps) => {
+  return (
+    <div className="min-h-screen bg-background text-foreground">
+      <Navigation />
+      <main className="pt-16">{children}</main>
+    </div>
+  );
 };
 
 export default Layout;
