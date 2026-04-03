@@ -158,26 +158,13 @@ jobs:
           LOCAL_MATCHED="$(find "$ROOT" -maxdepth 1 -name "local_matched_games_*.csv" -type f -printf "%T@ %p\n" | sort -n | tail -n1 | cut -d' ' -f2- || true)"
           [[ -n "${LOCAL_MATCHED:-}" ]] || (echo "ERROR: no local_matched_games_*.csv under $ROOT" && exit 1)
 
-          # ✅ Source-of-truth data (wisdom)
-          WISDOM_DIR="$GITHUB_WORKSPACE/Basketball_prediction/web/public/data"
-          WISDOM_CSV="$WISDOM_DIR/local_matched_games_latest.csv"
-          WISDOM_STRATEGY="$WISDOM_DIR/strategy_params.json"
-          WISDOM_METRICS="$WISDOM_DIR/metrics_snapshot.json"
-
-          [[ -f "$WISDOM_CSV" ]] || (echo "ERROR: missing $WISDOM_CSV" && exit 1)
-          [[ -f "$WISDOM_STRATEGY" ]] || (echo "ERROR: missing $WISDOM_STRATEGY" && exit 1)
-          [[ -f "$WISDOM_METRICS" ]] || (echo "ERROR: missing $WISDOM_METRICS" && exit 1)
-
           echo "✔ Found metrics_snapshot: $METRICS"
           echo "✔ Found strategy_params.txt: $STRATEGY_TXT"
           echo "✔ Found combined (ACC): $COMBINED_ACC"
           echo "✔ Found combined (ISO): $COMBINED_ISO"
           echo "✔ Found local_matched (dated): $LOCAL_MATCHED"
-          echo "✔ Found wisdom CSV: $WISDOM_CSV"
-          echo "✔ Found wisdom strategy_params.json: $WISDOM_STRATEGY"
-          echo "✔ Found wisdom metrics_snapshot.json: $WISDOM_METRICS"
 
-      - name: Copy dashboard sources into public/data (sync wisdom data)
+      - name: Copy dashboard sources into public/data (single snapshot only)
         shell: bash
         run: |
           set -euo pipefail
@@ -187,35 +174,102 @@ jobs:
           OUT="$GITHUB_WORKSPACE/public/data"
           mkdir -p "$OUT"
 
-          COMBINED_ISO="$(find "$KELLY_ROOT" -maxdepth 1 -name "combined_nba_predictions_iso_*.csv" -type f -printf "%T@ %p\n" | sort -n | tail -n1 | cut -d' ' -f2- || true)"
-          COMBINED_ACC="$(find "$ROOT" -maxdepth 1 -name "combined_nba_predictions_acc_*.csv" -type f -printf "%T@ %p\n" | sort -n | tail -n1 | cut -d' ' -f2- || true)"
+          COMBINED_ISO="$(find "$KELLY_ROOT" -maxdepth 1 -name "combined_nba_predictions_iso_*.csv" -type f -printf "%p\n" | sort || true)"
+          COMBINED_ACC="$(find "$ROOT" -maxdepth 1 -name "combined_nba_predictions_acc_*.csv" -type f -printf "%p\n" | sort || true)"
           BET_LOG_FLAT="$ROOT/bet_log_flat_live.csv"
 
-          if [[ -n "${COMBINED_ISO:-}" ]]; then
-            cp "$COMBINED_ISO" "$OUT/combined_latest.csv"
-            cp "$COMBINED_ISO" "$OUT/$(basename "$COMBINED_ISO")"
-            echo "✔ Using combined ISO file: $COMBINED_ISO"
-          elif [[ -n "${COMBINED_ACC:-}" ]]; then
-            cp "$COMBINED_ACC" "$OUT/combined_latest.csv"
-            echo "✔ Using fallback combined ACC file: $COMBINED_ACC"
-          else
-            echo "ERROR: no combined predictions file found."
-            exit 1
-          fi
+          python - "$ROOT" "$KELLY_ROOT" "$OUT" <<'PY'
+          import json
+          import re
+          import shutil
+          import sys
+          from pathlib import Path
 
-          # ✅ Always overwrite with the source-of-truth data
-          WISDOM_DIR="$GITHUB_WORKSPACE/Basketball_prediction/web/public/data"
-          WISDOM_CSV="$WISDOM_DIR/local_matched_games_latest.csv"
-          WISDOM_STRATEGY="$WISDOM_DIR/strategy_params.json"
-          WISDOM_METRICS="$WISDOM_DIR/metrics_snapshot.json"
+          root = Path(sys.argv[1])
+          kelly = Path(sys.argv[2])
+          out = Path(sys.argv[3])
 
-          cp "$WISDOM_METRICS" "$OUT/metrics_snapshot.json"
-          cp "$WISDOM_STRATEGY" "$OUT/strategy_params.json"
-          cp "$WISDOM_CSV" "$OUT/local_matched_games_latest.csv"
-          echo "✔ Synced metrics_snapshot.json from Basketball_prediction (wisdom)."
-          echo "✔ Synced strategy_params.json from Basketball_prediction (wisdom)."
-          echo "✔ Synced local_matched_games_latest.csv from Basketball_prediction (wisdom)."
-          echo "  Rows: $(($(wc -l < "$OUT/local_matched_games_latest.csv") - 1)) (excluding header)"
+          def extract_date(name: str) -> str | None:
+              m = re.search(r"(\d{4}-\d{2}-\d{2})", name)
+              return m.group(1) if m else None
+
+          def latest_dated(pattern: str, base: Path) -> tuple[str, Path] | None:
+              candidates = []
+              for p in base.glob(pattern):
+                  dt = extract_date(p.name)
+                  if dt:
+                      candidates.append((dt, p))
+              if not candidates:
+                  return None
+              return sorted(candidates, key=lambda x: x[0])[-1]
+
+          def read_json_date(path: Path) -> str | None:
+              if not path.exists():
+                  return None
+              try:
+                  payload = json.loads(path.read_text(encoding="utf-8"))
+              except Exception:
+                  return None
+              for key in ("as_of_date", "asOfDate", "snapshot_as_of_date", "window_end"):
+                  value = payload.get(key) if isinstance(payload, dict) else None
+                  if isinstance(value, str) and re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+                      return value
+              return None
+
+          # Canonical snapshot date comes from combined file (ISO preferred, ACC fallback)
+          combined_candidate = latest_dated("combined_nba_predictions_iso_*.csv", kelly)
+          if combined_candidate is None:
+              combined_candidate = latest_dated("combined_nba_predictions_acc_*.csv", root)
+          if combined_candidate is None:
+              raise SystemExit("ERROR: No dated combined predictions file found.")
+
+          snapshot_date, combined_path = combined_candidate
+
+          local_matched = root / f"local_matched_games_{snapshot_date}.csv"
+          if not local_matched.exists():
+              raise SystemExit(
+                  f"ERROR: Inconsistent snapshot. Missing local_matched_games_{snapshot_date}.csv for {combined_path.name}."
+              )
+
+          strategy_candidates = [
+              root / f"strategy_params_{snapshot_date}.json",
+              root / f"strategy_params_{snapshot_date}.txt",
+              root / "strategy_params.json",
+              root / "strategy_params.txt",
+          ]
+          strategy_path = next((p for p in strategy_candidates if p.exists()), None)
+          if strategy_path is None:
+              raise SystemExit(f"ERROR: No strategy params file found for snapshot {snapshot_date}.")
+          if strategy_path.name in {"strategy_params.json", "metrics_snapshot.json"}:
+              strategy_date = read_json_date(strategy_path)
+              if strategy_date and strategy_date != snapshot_date:
+                  raise SystemExit(
+                      f"ERROR: strategy_params.json date {strategy_date} does not match snapshot {snapshot_date}."
+                  )
+
+          metrics_candidates = [root / f"metrics_snapshot_{snapshot_date}.json", root / "metrics_snapshot.json"]
+          metrics_path = next((p for p in metrics_candidates if p.exists()), None)
+          if metrics_path is None:
+              raise SystemExit(f"ERROR: No metrics snapshot file found for snapshot {snapshot_date}.")
+          metrics_date = read_json_date(metrics_path)
+          if metrics_date and metrics_date != snapshot_date:
+              raise SystemExit(
+                  f"ERROR: metrics snapshot date {metrics_date} does not match canonical snapshot {snapshot_date}."
+              )
+
+          shutil.copy2(combined_path, out / "combined_latest.csv")
+          shutil.copy2(combined_path, out / combined_path.name)
+          shutil.copy2(local_matched, out / "local_matched_games_latest.csv")
+          shutil.copy2(strategy_path, out / "strategy_params.json")
+          shutil.copy2(metrics_path, out / "metrics_snapshot.json")
+
+          print(f"✔ Canonical snapshot_as_of_date: {snapshot_date}")
+          print(f"✔ combined source: {combined_path}")
+          print(f"✔ local_matched source: {local_matched}")
+          print(f"✔ strategy_params source: {strategy_path}")
+          print(f"✔ metrics source: {metrics_path}")
+          print(f"  local_matched rows: {sum(1 for _ in (out / 'local_matched_games_latest.csv').open(encoding='utf-8')) - 1}")
+          PY
 
           # Bring back Placed Bets (Real)
           if [[ -f "$BET_LOG_FLAT" ]]; then

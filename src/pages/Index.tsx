@@ -423,6 +423,10 @@ const Index = () => {
     "Historical";
 
   const paramsSourceLabel = dashboardState?.params_source_label ?? "strategy_params.json";
+  const dataConsistencyStatus = dashboardState?.data_consistency_status ?? "ok";
+  const dataConsistencyIssues = dashboardState?.data_consistency_issues ?? [];
+  const strategyParamsParseStatus = dashboardState?.strategy_params_parse_status ?? "ok";
+  const strategyParamsParseError = dashboardState?.strategy_params_parse_error;
 
   const fallbackDetailsLabel =
     homeWinRateMin !== null && oddsMin !== null && oddsMax !== null && probThreshold !== null && minEv !== null
@@ -586,6 +590,23 @@ const Index = () => {
               </p>
             )}
             <div className="text-foreground">Params source: {paramsSourceLabel}</div>
+            {strategyParamsParseStatus === "parse_error" && (
+              <p className="text-xs text-red-300">
+                strategy_params.json was found but could not be parsed. Defaults were applied. Error: {strategyParamsParseError ?? "unknown"}
+              </p>
+            )}
+            {dataConsistencyStatus !== "ok" && (
+              <div className="rounded border border-red-400/50 bg-red-500/10 p-2 text-xs text-red-200">
+                <p className="font-semibold">Dashboard data sources are out of sync.</p>
+                <ul className="list-disc pl-4">
+                  {dataConsistencyIssues.length > 0 ? (
+                    dataConsistencyIssues.map((issue) => <li key={issue}>{issue}</li>)
+                  ) : (
+                    <li>combined_latest.csv and local_matched_games_latest.csv refer to different snapshots.</li>
+                  )}
+                </ul>
+              </div>
+            )}
             <p>Historical results and statistical summaries only; no future predictions are shown.</p>
           </div>
         </div>

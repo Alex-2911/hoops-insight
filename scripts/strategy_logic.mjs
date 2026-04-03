@@ -40,11 +40,25 @@ export const loadStrategyParamsVersioned = (filePath) => {
   if (version !== 1) {
     throw new Error(`Unsupported strategy params version ${version} in ${filePath}; expected 1`);
   }
-  const raw = payload?.params ?? payload?.params_used ?? {};
+  let raw = payload?.params ?? payload?.params_used ?? {};
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    raw = {};
+  }
+  if (Object.keys(raw).length === 0) {
+    raw = Object.fromEntries(
+      Object.entries(payload ?? {}).filter(([k]) => {
+        const nk = normalizeKey(k);
+        return ["home_win_rate_threshold", "odds_min", "odds_max", "prob_threshold", "min_ev", "min_ev_per_100"].includes(nk);
+      }),
+    );
+  }
   const params = { ...DEFAULT_PARAMS };
   Object.entries(raw).forEach(([k, v]) => {
     const n = coerceNumber(v);
-    if (n !== null) params[normalizeKey(k)] = n;
+    if (n !== null) {
+      const nk = normalizeKey(k) === "min_ev_per_100" ? "min_ev" : normalizeKey(k);
+      params[nk] = n;
+    }
   });
   return { version, params, source: filePath };
 };
