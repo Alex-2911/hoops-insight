@@ -37,6 +37,7 @@ from typing import Dict, Iterable, List, Optional, Tuple
 import pandas as pd
 
 from config_loader import load_config
+from snapshot_selection import copy_selection_aliases, resolve_snapshot_selection
 from strategy_logic import apply_strategy_filters, load_strategy_params as load_versioned_strategy_params, required_columns
 
 
@@ -1251,6 +1252,19 @@ def main() -> None:
     # ----------------------------
     # Resolve sources
     # ----------------------------
+    selection_metadata = {
+        "snapshot_as_of_date": None,
+        "run_date": None,
+        "combined_source_file": None,
+        "local_matched_source_file": None,
+        "bet_log_source_file": None,
+        "metrics_source_file": None,
+        "strategy_params_source_file": None,
+        "params_source_type": "unknown",
+        "fallback_used": False,
+        "fallback_reason": "",
+    }
+
     if data_dir:
         strategy_json = data_dir / "strategy_params.json"
         strategy_txt = data_dir / "strategy_params.txt"
@@ -1276,8 +1290,44 @@ def main() -> None:
             if (data_dir / "metrics_snapshot.json").exists()
             else None,
         )
+        if sources.combined_iso:
+            selection_metadata["combined_source_file"] = sources.combined_iso.name
+            selection_metadata["snapshot_as_of_date"] = _extract_date_from_name(sources.combined_iso.name)
+            selection_metadata["run_date"] = selection_metadata["snapshot_as_of_date"]
+        if sources.local_matched_games:
+            selection_metadata["local_matched_source_file"] = sources.local_matched_games.name
+        if sources.bet_log_flat:
+            selection_metadata["bet_log_source_file"] = sources.bet_log_flat.name
+        if sources.metrics_snapshot:
+            selection_metadata["metrics_source_file"] = sources.metrics_snapshot.name
+        if sources.strategy_params:
+            selection_metadata["strategy_params_source_file"] = sources.strategy_params.name
     else:
-        sources = _resolve_sources(source_root, None)
+        if source_root is None:
+            raise FileNotFoundError("Could not resolve SOURCE_ROOT for snapshot selection.")
+        selection = resolve_snapshot_selection(source_root)
+        copy_selection_aliases(selection, output_dir)
+        selection_metadata = {
+            "snapshot_as_of_date": selection.snapshot_as_of_date,
+            "run_date": selection.run_date,
+            "combined_source_file": selection.combined_source_file,
+            "local_matched_source_file": selection.local_matched_source_file,
+            "bet_log_source_file": selection.bet_log_source_file,
+            "metrics_source_file": selection.metrics_source_file,
+            "strategy_params_source_file": selection.strategy_params_source_file,
+            "params_source_type": selection.params_source_type,
+            "fallback_used": selection.fallback_used,
+            "fallback_reason": selection.fallback_reason,
+        }
+        sources = SourcePaths(
+            combined_iso=selection.combined_path,
+            combined_acc=None,
+            bet_log=None,
+            bet_log_flat=selection.bet_log_path,
+            local_matched_games=selection.local_matched_path,
+            strategy_params=selection.strategy_params_path,
+            metrics_snapshot=selection.metrics_path,
+        )
 
     combined_override = Path(args.combined_path).expanduser().resolve() if args.combined_path else None
     if combined_override and not combined_override.exists():
@@ -1355,10 +1405,6 @@ def main() -> None:
     window_start_label = window_start_dt.strftime(DATE_FMT) if window_start_dt else None
     window_end_label = window_end_dt.strftime(DATE_FMT) if window_end_dt else None
 
-    # Re-resolve sources now that we know as_of_date (prefer dated params/local files)
-    if (not data_dir) and source_root and (source_root / "output" / "LightGBM").exists():
-        sources = _resolve_sources(source_root, as_of_date)
-
     snapshot_as_of_date = as_of_date
     combined_source_file = combined_path.name
     consistency_issues: List[str] = []
@@ -1425,9 +1471,10 @@ def main() -> None:
         consistency_issues.append("local_matched_games source file missing")
 
     local_rows_max_date = _max_date_from_local_rows(local_matched_games_rows_all)
-    if local_rows_max_date and snapshot_as_of_date != "—" and local_rows_max_date != snapshot_as_of_date:
+    canonical_snapshot_date = selection_metadata.get("snapshot_as_of_date") or snapshot_as_of_date
+    if local_rows_max_date and canonical_snapshot_date != "—" and local_rows_max_date != canonical_snapshot_date:
         consistency_issues.append(
-            f"local_matched_games max date {local_rows_max_date} does not match combined snapshot {snapshot_as_of_date}"
+            f"local_matched_games max date {local_rows_max_date} does not match combined snapshot {canonical_snapshot_date}"
         )
     elif local_rows_max_date is None:
         consistency_issues.append("local_matched_games has no valid date rows")
@@ -1515,17 +1562,17 @@ def main() -> None:
     strategy_date_from_source = _extract_date_from_name(strategy_params_source.name) if strategy_params_source else None
     if strategy_date_from_source is None and strategy_params_source:
         strategy_date_from_source = _extract_date_from_json(strategy_params_source)
-    if strategy_date_from_source and snapshot_as_of_date != "—" and strategy_date_from_source != snapshot_as_of_date:
+    if strategy_date_from_source and canonical_snapshot_date != "—" and strategy_date_from_source != canonical_snapshot_date:
         consistency_issues.append(
-            f"strategy_params date {strategy_date_from_source} does not match combined snapshot {snapshot_as_of_date}"
+            f"strategy_params date {strategy_date_from_source} does not match combined snapshot {canonical_snapshot_date}"
         )
 
     metrics_snapshot_date = _extract_date_from_json(sources.metrics_snapshot) or (
         _extract_date_from_name(sources.metrics_snapshot.name) if sources.metrics_snapshot else None
     )
-    if metrics_snapshot_date and snapshot_as_of_date != "—" and metrics_snapshot_date != snapshot_as_of_date:
+    if metrics_snapshot_date and canonical_snapshot_date != "—" and metrics_snapshot_date != canonical_snapshot_date:
         consistency_issues.append(
-            f"metrics_snapshot date {metrics_snapshot_date} does not match combined snapshot {snapshot_as_of_date}"
+            f"metrics_snapshot date {metrics_snapshot_date} does not match combined snapshot {canonical_snapshot_date}"
         )
 
     data_consistency_status = "ok" if not consistency_issues else "out_of_sync"
@@ -1551,8 +1598,13 @@ def main() -> None:
         "data_consistency_issues": consistency_issues,
         "combined_source_file": combined_source_file,
         "local_matched_source_file": _label_path(local_matched_games_path),
-        "strategy_params_source_file": _label_path(strategy_params_source),
-        "metrics_snapshot_source_file": _label_path(sources.metrics_snapshot),
+        "bet_log_source_file": _label_path(bet_log_flat_path),
+        "strategy_params_source_file": selection_metadata.get("strategy_params_source_file") or _label_path(strategy_params_source),
+        "metrics_snapshot_source_file": selection_metadata.get("metrics_source_file") or _label_path(sources.metrics_snapshot),
+        "run_date": selection_metadata.get("run_date") or as_of_date,
+        "params_source_type": selection_metadata.get("params_source_type"),
+        "fallback_used": bool(selection_metadata.get("fallback_used")),
+        "fallback_reason": selection_metadata.get("fallback_reason"),
         "last_update_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "sources": {
             "combined": _label_path(combined_path),
@@ -1624,8 +1676,21 @@ def main() -> None:
         "sources": {
             "combined": _label_path(combined_path),
             "local_matched": _label_path(local_matched_games_path),
+            "bet_log_flat": _label_path(bet_log_flat_path),
             "strategy_params": _label_path(strategy_params_source),
             "metrics_snapshot": _label_path(sources.metrics_snapshot),
+        },
+        "selection": {
+            "snapshot_as_of_date": selection_metadata.get("snapshot_as_of_date") or as_of_date,
+            "run_date": selection_metadata.get("run_date") or as_of_date,
+            "combined_source_file": selection_metadata.get("combined_source_file") or combined_path.name,
+            "local_matched_source_file": selection_metadata.get("local_matched_source_file") or _label_path(local_matched_games_path),
+            "bet_log_source_file": selection_metadata.get("bet_log_source_file") or _label_path(bet_log_flat_path),
+            "metrics_source_file": selection_metadata.get("metrics_source_file") or _label_path(sources.metrics_snapshot),
+            "strategy_params_source_file": selection_metadata.get("strategy_params_source_file") or _label_path(strategy_params_source),
+            "params_source_type": selection_metadata.get("params_source_type"),
+            "fallback_used": bool(selection_metadata.get("fallback_used")),
+            "fallback_reason": selection_metadata.get("fallback_reason"),
         },
     }
 
