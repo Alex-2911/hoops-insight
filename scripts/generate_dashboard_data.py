@@ -610,6 +610,48 @@ def load_played_games(path: Path) -> List[Dict[str, object]]:
     return rows
 
 
+def load_played_games_with_history(path: Path) -> List[Dict[str, object]]:
+    """Load played games from `path` and, when possible, stitch dated snapshot history.
+
+    Some combined snapshot files contain only one slate/day. If `path` follows the
+    `...YYYY-MM-DD.csv` naming pattern, this function also loads older sibling snapshots
+    with the same prefix and merges them (deduplicated by date/home/away).
+    """
+    name_match = re.match(r"^(?P<prefix>.*?)(?P<date>\d{4}-\d{2}-\d{2})(?P<suffix>\.csv)$", path.name)
+    if not name_match:
+        return load_played_games(path)
+
+    snapshot_date = name_match.group("date")
+    prefix = name_match.group("prefix")
+    suffix = name_match.group("suffix")
+
+    candidates: List[Tuple[str, Path]] = []
+    for candidate in path.parent.glob(f"{prefix}*{suffix}"):
+        if not candidate.is_file():
+            continue
+        candidate_date = _extract_date_from_name(candidate.name)
+        if candidate_date and candidate_date <= snapshot_date:
+            candidates.append((candidate_date, candidate))
+
+    if not candidates:
+        return load_played_games(path)
+
+    merged: Dict[Tuple[str, str, str], Dict[str, object]] = {}
+    for _, candidate_path in sorted(candidates, key=lambda item: item[0]):
+        for row in load_played_games(candidate_path):
+            date_val = row.get("date")
+            home_team = row.get("home_team")
+            away_team = row.get("away_team")
+            if not isinstance(date_val, datetime):
+                continue
+            if not isinstance(home_team, str) or not isinstance(away_team, str):
+                continue
+            key = (date_val.strftime(DATE_FMT), home_team, away_team)
+            merged[key] = row
+
+    return sorted(merged.values(), key=lambda row: row["date"])
+
+
 def build_historical_stats(rows: List[Dict[str, object]]) -> List[Dict[str, object]]:
     per_day = defaultdict(lambda: {"total": 0, "correct": 0})
 
@@ -1342,7 +1384,7 @@ def main() -> None:
     else:
         raise FileNotFoundError("No combined predictions file found in source output directories.")
 
-    played_rows = load_played_games(combined_path)
+    played_rows = load_played_games_with_history(combined_path)
     if not played_rows:
         raise RuntimeError("No played games found in combined predictions file.")
 

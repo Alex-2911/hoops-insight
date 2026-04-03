@@ -744,7 +744,7 @@ const Index = () => {
                 ? `n=${localMatchedDisplayCount} • Wins=${localMatchedDisplayWins} • P/L ${formatSigned(
                     localMatchedDisplayProfitSum,
                   )}`
-                : "No local matched games available."}
+                : "—"}
             </div>
           </div>
 
