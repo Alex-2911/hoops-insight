@@ -86,8 +86,8 @@ def _dated_for_snapshot(base_dir: Path, prefix: str, snapshot_date: str, suffix:
     return sorted(fallback_candidates, key=lambda item: item[0])[-1][1]
 
 
-def _first_existing(paths: Iterable[Path]) -> Optional[Path]:
-    return next((path for path in paths if path.exists()), None)
+def _first_existing(paths: Iterable[Optional[Path]]) -> Optional[Path]:
+    return next((path for path in paths if path is not None and path.exists()), None)
 
 
 def _validate_date_match(path: Path, expected: str, label: str) -> None:
