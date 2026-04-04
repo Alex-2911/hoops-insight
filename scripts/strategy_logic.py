@@ -45,6 +45,60 @@ def _coerce_float(value: Any) -> float | None:
         return None
 
 
+def _extract_param_dict(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Extract strategy threshold keys from common payload shapes."""
+    candidate_dicts: list[Dict[str, Any]] = []
+    for key in (
+        "params",
+        "params_used",
+        "active_params",
+        "thresholds",
+        "strategy",
+        "filters",
+    ):
+        value = payload.get(key)
+        if isinstance(value, dict):
+            candidate_dicts.append(value)
+
+    meta = payload.get("meta")
+    if isinstance(meta, dict):
+        for key in ("params", "params_used", "active_params", "thresholds", "strategy"):
+            value = meta.get(key)
+            if isinstance(value, dict):
+                candidate_dicts.append(value)
+
+    for candidate in candidate_dicts:
+        normalized = {
+            _normalize_key(str(key)): value
+            for key, value in candidate.items()
+        }
+        if any(k in normalized for k in {"home_win_rate_threshold", "odds_min", "odds_max", "prob_threshold", "min_ev", "min_ev_per_100"}):
+            return candidate
+
+    # Backward compatibility: some producers store params flat at the top-level.
+    return {
+        k: v
+        for k, v in payload.items()
+        if _normalize_key(str(k)) in {
+            "home_win_rate_threshold",
+            "min_home_win_rate",
+            "odds_min",
+            "min_odds_1",
+            "min_odds",
+            "odds_max",
+            "max_odds_1",
+            "max_odds",
+            "prob_threshold",
+            "min_prob_used",
+            "min_prob",
+            "min_prob_iso",
+            "min_ev",
+            "min_ev_per_100",
+            "min_ev_eur_per_100",
+        }
+    }
+
+
 def load_strategy_params(path: Path | None) -> StrategyParams:
     """Load versioned strategy parameters with default fallback."""
     if path is None or not path.exists():
@@ -55,27 +109,23 @@ def load_strategy_params(path: Path | None) -> StrategyParams:
         raise ValueError(f"Invalid strategy params format in {path}")
 
     version = int(payload.get("version", SUPPORTED_VERSION))
-    if version != SUPPORTED_VERSION:
-        raise ValueError(f"Unsupported strategy params version {version} in {path}; expected {SUPPORTED_VERSION}")
-
-    raw_params = payload.get("params", payload.get("params_used", {}))
-    if not isinstance(raw_params, dict):
-        raw_params = {}
-    # Backward compatibility: some producers store params flat at the top-level.
-    if not raw_params:
-        raw_params = {
-            k: v
-            for k, v in payload.items()
-            if _normalize_key(str(k)) in {"home_win_rate_threshold", "odds_min", "odds_max", "prob_threshold", "min_ev", "min_ev_per_100"}
-        }
+    raw_params = _extract_param_dict(payload)
 
     normalized: Dict[str, float] = DEFAULT_PARAMS.copy()
     for key, value in raw_params.items():
         coerced = _coerce_float(value)
         if coerced is not None:
             normalized_key = _normalize_key(str(key))
-            if normalized_key == "min_ev_per_100":
+            if normalized_key in {"min_ev_per_100", "min_ev_eur_per_100"}:
                 normalized_key = "min_ev"
+            elif normalized_key in {"min_home_win_rate", "home_win_rate_min"}:
+                normalized_key = "home_win_rate_threshold"
+            elif normalized_key in {"min_odds_1", "min_odds"}:
+                normalized_key = "odds_min"
+            elif normalized_key in {"max_odds_1", "max_odds"}:
+                normalized_key = "odds_max"
+            elif normalized_key in {"min_prob", "min_prob_iso", "min_prob_used"}:
+                normalized_key = "prob_threshold"
             normalized[normalized_key] = coerced
 
     return StrategyParams(version=version, params=normalized, source=str(path))

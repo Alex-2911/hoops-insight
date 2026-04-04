@@ -108,7 +108,14 @@ export interface DashboardState {
   combined_source_file?: string;
   local_matched_source_file?: string;
   strategy_params_source_file?: string;
+  strategy_params_source_type?: string;
+  strategy_params_parsed_ok?: boolean;
   metrics_snapshot_source_file?: string;
+  bet_log_source_file?: string;
+  bet_log_latest_date_in_file?: string | null;
+  params_source_type?: string;
+  fallback_used?: boolean;
+  fallback_reason?: string | null;
   last_update_utc: string;
   sources: {
     combined: string;

@@ -427,13 +427,14 @@ const Index = () => {
   const dataConsistencyIssues = dashboardState?.data_consistency_issues ?? [];
   const strategyParamsParseStatus = dashboardState?.strategy_params_parse_status ?? "ok";
   const strategyParamsParseError = dashboardState?.strategy_params_parse_error;
+  const fallbackUsed = Boolean(dashboardState?.fallback_used);
 
   const fallbackDetailsLabel =
     homeWinRateMin !== null && oddsMin !== null && oddsMax !== null && probThreshold !== null && minEv !== null
       ? `Fallback (HW ≥ ${fmtNumber(homeWinRateMin, 2)} • odds ${fmtNumber(oddsMin, 2)}–${fmtNumber(oddsMax, 2)} • p ≥ ${fmtNumber(probThreshold, 2)} • EV ≥ ${fmtNumber(minEv, 2)})`
       : "Fallback (threshold details unavailable)";
 
-  const paramsUsedDisplay = dashboardState?.params_used === "fallback"
+  const paramsUsedDisplay = fallbackUsed
     ? fallbackDetailsLabel
     : `Params used: ${dashboardState?.params_used ?? paramsUsedLabel}`;
 
@@ -579,7 +580,7 @@ const Index = () => {
               <div className="text-foreground">{activeFiltersDisplay}</div>
             </div>
             <div className="text-foreground">{paramsUsedDisplay}</div>
-            {dashboardState?.params_used === "fallback" && (
+            {fallbackUsed && (
               <p className="text-xs text-amber-300">
                 Fallback thresholds are hard-coded defaults and may differ from the live ledger when the strategy parameter file is missing.
               </p>
