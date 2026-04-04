@@ -1185,6 +1185,13 @@ def load_bet_log(path: Path) -> List[Dict[str, object]]:
     return rows
 
 
+def trim_bet_log_to_snapshot(rows: List[Dict[str, object]], snapshot_date: Optional[str]) -> List[Dict[str, object]]:
+    snapshot_dt = _safe_date(snapshot_date)
+    if snapshot_dt is None:
+        return rows
+    return [row for row in rows if isinstance(row.get("date"), datetime) and row["date"] <= snapshot_dt]
+
+
 def build_bet_log_summary(rows: List[Dict[str, object]]) -> Dict[str, object]:
     if not rows:
         return {
@@ -1303,6 +1310,8 @@ def main() -> None:
         "metrics_source_file": None,
         "strategy_params_source_file": None,
         "params_source_type": "unknown",
+        "bet_log_latest_date_in_file": None,
+        "bet_log_trimmed_to_snapshot": False,
         "fallback_used": False,
         "fallback_reason": "",
     }
@@ -1358,6 +1367,8 @@ def main() -> None:
             "metrics_source_file": selection.metrics_source_file,
             "strategy_params_source_file": selection.strategy_params_source_file,
             "params_source_type": selection.params_source_type,
+            "bet_log_latest_date_in_file": selection.bet_log_latest_date,
+            "bet_log_trimmed_to_snapshot": selection.bet_log_will_be_trimmed_to_snapshot,
             "fallback_used": selection.fallback_used,
             "fallback_reason": selection.fallback_reason,
         }
@@ -1414,6 +1425,13 @@ def main() -> None:
 
     if bet_log_path:
         bet_log_rows = load_bet_log(bet_log_path)
+        if selection_metadata.get("bet_log_latest_date_in_file") is None and bet_log_rows:
+            selection_metadata["bet_log_latest_date_in_file"] = max(row["date"] for row in bet_log_rows).strftime(DATE_FMT)
+        original_bet_log_count = len(bet_log_rows)
+        bet_log_rows = trim_bet_log_to_snapshot(bet_log_rows, selection_metadata.get("snapshot_as_of_date"))
+        selection_metadata["bet_log_trimmed_to_snapshot"] = (
+            bool(selection_metadata.get("snapshot_as_of_date")) and len(bet_log_rows) != original_bet_log_count
+        )
 
     bet_log_summary = build_bet_log_summary(bet_log_rows)
     bankroll_history = build_bankroll_history(bet_log_rows)
@@ -1646,6 +1664,8 @@ def main() -> None:
         "combined_source_file": combined_source_file,
         "local_matched_source_file": _label_path(local_matched_games_path),
         "bet_log_source_file": _label_path(bet_log_flat_path),
+        "bet_log_latest_date_in_file": selection_metadata.get("bet_log_latest_date_in_file"),
+        "bet_log_trimmed_to_snapshot": bool(selection_metadata.get("bet_log_trimmed_to_snapshot")),
         "strategy_params_source_file": selection_metadata.get("strategy_params_source_file") or _label_path(strategy_params_source),
         "metrics_snapshot_source_file": selection_metadata.get("metrics_source_file") or _label_path(sources.metrics_snapshot),
         "run_date": selection_metadata.get("run_date") or as_of_date,
@@ -1733,6 +1753,8 @@ def main() -> None:
             "combined_source_file": selection_metadata.get("combined_source_file") or combined_path.name,
             "local_matched_source_file": selection_metadata.get("local_matched_source_file") or _label_path(local_matched_games_path),
             "bet_log_source_file": selection_metadata.get("bet_log_source_file") or _label_path(bet_log_flat_path),
+            "bet_log_latest_date_in_file": selection_metadata.get("bet_log_latest_date_in_file"),
+            "bet_log_trimmed_to_snapshot": bool(selection_metadata.get("bet_log_trimmed_to_snapshot")),
             "metrics_source_file": selection_metadata.get("metrics_source_file") or _label_path(sources.metrics_snapshot),
             "strategy_params_source_file": selection_metadata.get("strategy_params_source_file") or _label_path(strategy_params_source),
             "params_source_type": selection_metadata.get("params_source_type"),

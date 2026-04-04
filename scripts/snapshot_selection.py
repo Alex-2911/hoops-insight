@@ -28,6 +28,8 @@ class SnapshotSelection:
     strategy_params_source_file: str
     params_source_type: str
     bet_log_latest_date: Optional[str]
+    bet_log_contains_future_rows: bool
+    bet_log_will_be_trimmed_to_snapshot: bool
     bet_log_lags_snapshot: bool
     bet_log_lag_days: Optional[int]
     fallback_used: bool
@@ -280,6 +282,8 @@ def resolve_snapshot_selection(source_root: Path) -> SnapshotSelection:
         if bet_log_path is None:
             candidate_reasons.append(f"missing bet_log_flat_live_{snapshot_date}.csv and bet_log_flat_live.csv")
             bet_log_latest_date = None
+            bet_log_contains_future_rows = False
+            bet_log_will_be_trimmed_to_snapshot = False
             bet_log_lags_snapshot = False
             bet_log_lag_days = None
         else:
@@ -289,18 +293,17 @@ def resolve_snapshot_selection(source_root: Path) -> SnapshotSelection:
                     f"unable to determine bet_log_flat_live date from {bet_log_path.name}"
                 )
                 bet_log_latest_date = None
-                bet_log_lags_snapshot = False
-                bet_log_lag_days = None
-            elif bet_log_date > snapshot_date:
-                candidate_reasons.append(
-                    f"bet_log_flat_live date ahead of snapshot in {bet_log_path.name}: snapshot={snapshot_date}, latest={bet_log_date}"
-                )
-                bet_log_latest_date = bet_log_date
+                bet_log_contains_future_rows = False
+                bet_log_will_be_trimmed_to_snapshot = False
                 bet_log_lags_snapshot = False
                 bet_log_lag_days = None
             else:
                 bet_log_latest_date = bet_log_date
+                bet_log_contains_future_rows = bet_log_date > snapshot_date
+                bet_log_will_be_trimmed_to_snapshot = bet_log_contains_future_rows
                 bet_log_lags_snapshot = bet_log_date < snapshot_date
+                if bet_log_contains_future_rows:
+                    candidate_fallback_reasons.append("bet_log_contains_future_rows_trimmed_to_snapshot")
                 if bet_log_lags_snapshot:
                     lag_days = (
                         datetime.strptime(snapshot_date, "%Y-%m-%d")
@@ -316,25 +319,27 @@ def resolve_snapshot_selection(source_root: Path) -> SnapshotSelection:
             continue
 
         return SnapshotSelection(
-        snapshot_as_of_date=snapshot_date,
-        run_date=snapshot_date,
-        combined_source_file=combined.name,
-        local_matched_source_file=local_matched.name,
-        bet_log_source_file=bet_log_path.name if bet_log_path else "missing",
-        metrics_source_file=metrics_path.name,
-        strategy_params_source_file=strategy_path.name,
-        params_source_type=params_source_type,
-        bet_log_latest_date=bet_log_latest_date,
-        bet_log_lags_snapshot=bet_log_lags_snapshot,
-        bet_log_lag_days=bet_log_lag_days,
-        fallback_used=bool(candidate_fallback_reasons),
-        fallback_reason="; ".join(candidate_fallback_reasons),
-        combined_path=combined,
-        local_matched_path=local_matched,
-        bet_log_path=bet_log_path,
-        metrics_path=metrics_path,
-        strategy_params_path=strategy_path,
-    )
+            snapshot_as_of_date=snapshot_date,
+            run_date=snapshot_date,
+            combined_source_file=combined.name,
+            local_matched_source_file=local_matched.name,
+            bet_log_source_file=bet_log_path.name if bet_log_path else "missing",
+            metrics_source_file=metrics_path.name,
+            strategy_params_source_file=strategy_path.name,
+            params_source_type=params_source_type,
+            bet_log_latest_date=bet_log_latest_date,
+            bet_log_contains_future_rows=bet_log_contains_future_rows,
+            bet_log_will_be_trimmed_to_snapshot=bet_log_will_be_trimmed_to_snapshot,
+            bet_log_lags_snapshot=bet_log_lags_snapshot,
+            bet_log_lag_days=bet_log_lag_days,
+            fallback_used=bool(candidate_fallback_reasons),
+            fallback_reason="; ".join(candidate_fallback_reasons),
+            combined_path=combined,
+            local_matched_path=local_matched,
+            bet_log_path=bet_log_path,
+            metrics_path=metrics_path,
+            strategy_params_path=strategy_path,
+        )
 
     failure_lines = [
         f"- {date}: " + "; ".join(reasons)
