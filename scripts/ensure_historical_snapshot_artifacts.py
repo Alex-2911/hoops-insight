@@ -101,7 +101,7 @@ def _normalize_local_matched_csv(source: Path, target: Path) -> dict[str, object
         if not fieldnames:
             raise RuntimeError(f"{source.name} has no CSV header")
 
-        for candidate in ("date", "game_date", "as_of_date", "snapshot_as_of_date"):
+        for candidate in ("date", "game_date", "GAME_DATE", "event_date", "date_x", "as_of_date", "snapshot_as_of_date"):
             if candidate in fieldnames:
                 source_date_col = candidate
                 break

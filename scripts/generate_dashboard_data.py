@@ -253,9 +253,18 @@ def load_local_matched_games_csv(path: Path) -> Tuple[List[Dict[str, object]], D
     - DO NOT fill missing numeric values with 0.0 (JS coerceNumber(null) -> null, not 0)
     - Convert NaN/NA -> None in output dicts
     """
+    df = pd.read_csv(path)
+    original_row_count = int(len(df))
     required_cols = list(required_columns())
 
-    df = pd.read_csv(path)
+    # Accept common date aliases produced by upstream exports and normalize to `date`.
+    date_aliases = ("date", "game_date", "GAME_DATE", "event_date", "date_x")
+    if "date" not in df.columns:
+        source_date_col = next((c for c in date_aliases if c in df.columns), None)
+        if source_date_col:
+            df = df.copy()
+            df["date"] = df[source_date_col]
+
     missing = [col for col in required_cols if col not in df.columns]
     if missing:
         raise ValueError(f"{path.name} is missing required columns: {', '.join(missing)}")
@@ -305,7 +314,11 @@ def load_local_matched_games_csv(path: Path) -> Tuple[List[Dict[str, object]], D
     df = df.where(pd.notna(df), None)
 
     rows = df.to_dict(orient="records")
-    summary = {"rows_count": int(len(df)), "profit_sum_table": float(df["pnl"].sum())}
+    summary = {
+        "rows_count": int(len(df)),
+        "profit_sum_table": float(df["pnl"].sum()),
+        "source_rows_count": original_row_count,
+    }
     return rows, summary
 
 
@@ -1530,8 +1543,10 @@ def main() -> None:
     elif sources.local_matched_games and sources.local_matched_games.exists():
         local_matched_games_path = sources.local_matched_games
 
+    local_summary: Dict[str, object] = {}
     if local_matched_games_path and local_matched_games_path.exists():
         local_matched_games_rows_all, _local_summary = load_local_matched_games_csv(local_matched_games_path)
+        local_summary = _local_summary
     else:
         consistency_issues.append("local_matched_games source file missing")
 
@@ -1541,7 +1556,7 @@ def main() -> None:
         consistency_issues.append(
             f"local_matched_games max date {local_rows_max_date} is after combined snapshot {canonical_snapshot_date}"
         )
-    elif local_rows_max_date is None:
+    elif local_rows_max_date is None and int(local_summary.get("source_rows_count", 0)) > 0:
         consistency_issues.append("local_matched_games has no valid date rows")
 
     def _in_window(row: Dict[str, object]) -> bool:
