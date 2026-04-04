@@ -1041,6 +1041,114 @@ def _extract_params_label(raw_params: Dict[str, object]) -> Optional[str]:
     return None
 
 
+def _extract_threshold_params(payload: Dict[str, object]) -> Dict[str, object]:
+    if not isinstance(payload, dict):
+        return {}
+    candidate_maps: List[Dict[str, object]] = [payload]
+    for key in ("params", "params_used", "active_params", "thresholds", "filters", "strategy_params"):
+        value = payload.get(key)
+        if isinstance(value, dict):
+            candidate_maps.append(value)
+    meta = payload.get("meta")
+    if isinstance(meta, dict):
+        candidate_maps.append(meta)
+        for key in ("params", "params_used", "active_params", "thresholds", "filters", "strategy_params"):
+            value = meta.get(key)
+            if isinstance(value, dict):
+                candidate_maps.append(value)
+
+    best: Dict[str, object] = {}
+    best_count = -1
+    for candidate in candidate_maps:
+        normalized = _normalize_params(candidate)
+        found = {
+            "home_win_rate_threshold": _get_param(normalized, "home_win_rate_threshold", "min_home_win_rate"),
+            "odds_min": _get_param(normalized, "odds_min", "min_odds_1", "min_odds"),
+            "odds_max": _get_param(normalized, "odds_max", "max_odds_1", "max_odds"),
+            "prob_threshold": _get_param(normalized, "prob_threshold", "min_prob_used", "min_prob", "min_prob_iso"),
+            "min_ev": _get_param(normalized, "min_ev", "min_ev_eur_per_100", "min_ev_per_100"),
+        }
+        count = sum(value is not None for value in found.values())
+        if count > best_count:
+            best_count = count
+            best = {k: v for k, v in found.items() if v is not None}
+    return best
+
+
+def _resolve_canonical_threshold_params(
+    metrics_snapshot_path: Optional[Path],
+    strategy_params: Dict[str, object],
+    strategy_params_path: Optional[Path],
+) -> Tuple[Dict[str, object], Dict[str, object]]:
+    strategy_thresholds = {
+        key: value
+        for key, value in {
+            "home_win_rate_threshold": _get_param(strategy_params, "home_win_rate_threshold", "min_home_win_rate"),
+            "odds_min": _get_param(strategy_params, "odds_min", "min_odds_1", "min_odds"),
+            "odds_max": _get_param(strategy_params, "odds_max", "max_odds_1", "max_odds"),
+            "prob_threshold": _get_param(strategy_params, "prob_threshold", "min_prob_used", "min_prob", "min_prob_iso"),
+            "min_ev": _get_param(strategy_params, "min_ev", "min_ev_eur_per_100", "min_ev_per_100"),
+        }.items()
+        if value is not None
+    }
+    metrics_thresholds: Dict[str, object] = {}
+    if metrics_snapshot_path and metrics_snapshot_path.exists():
+        try:
+            payload = json.loads(metrics_snapshot_path.read_text(encoding="utf-8"))
+            if isinstance(payload, dict):
+                metrics_thresholds = _extract_threshold_params(payload)
+        except (json.JSONDecodeError, OSError):
+            metrics_thresholds = {}
+
+    canonical = dict(strategy_thresholds)
+    canonical.update(metrics_thresholds)
+    missing = [
+        key
+        for key in ("home_win_rate_threshold", "odds_min", "odds_max", "prob_threshold", "min_ev")
+        if key not in canonical
+    ]
+    metadata = {
+        "params_source_file": _metadata_path(metrics_snapshot_path) if metrics_thresholds else _metadata_path(strategy_params_path),
+        "params_source_type": (
+            "metrics_snapshot"
+            if metrics_thresholds
+            else "strategy_params_dated"
+            if strategy_params_path and re.search(r"strategy_params_\d{4}-\d{2}-\d{2}\.(json|txt)$", strategy_params_path.name)
+            else "strategy_params"
+            if strategy_params_path
+            else "default"
+        ),
+        "params_used": (
+            "from_metrics_snapshot"
+            if metrics_thresholds and not missing
+            else "from_metrics_snapshot_with_strategy_fallback"
+            if metrics_thresholds
+            else "from_file"
+            if strategy_params_path
+            else "fallback"
+        ),
+        "fallback_used": bool(missing),
+        "fallback_reason": "" if not missing else f"missing_threshold_keys:{','.join(missing)}",
+    }
+    return canonical, metadata
+
+
+def _extract_max_date_from_csv(path: Path) -> Optional[str]:
+    if not path.exists():
+        return None
+    candidates: List[str] = []
+    for row in _read_csv_normalized(path):
+        for key in ("date", "game_date", "as_of_date", "snapshot_as_of_date", "settled_date", "bet_date", "placed_date"):
+            value = row.get(key)
+            if not isinstance(value, str):
+                continue
+            match = re.search(r"(\d{4}-\d{2}-\d{2})", value.strip())
+            if match:
+                candidates.append(match.group(1))
+                break
+    return sorted(candidates)[-1] if candidates else None
+
+
 def _build_active_params(params: Dict[str, object], window_size: int) -> Dict[str, float]:
     home_win_rate_min = _get_param(params, "home_win_rate_threshold", "min_home_win_rate")
     odds_min = _get_param(params, "odds_min", "min_odds_1", "min_odds")
@@ -1056,6 +1164,47 @@ def _build_active_params(params: Dict[str, object], window_size: int) -> Dict[st
         "min_ev": float(min_ev) if min_ev is not None else 0.0,
         "window_size": float(window_size),
     }
+
+
+def _choose_canonical_bet_log(
+    lightgbm_bet_log: Optional[Path],
+    source_root: Optional[Path],
+) -> Tuple[Optional[Path], Optional[str], str, List[str]]:
+    candidates: List[Tuple[Path, str]] = []
+    if lightgbm_bet_log and lightgbm_bet_log.exists():
+        candidates.append((lightgbm_bet_log, "lightgbm_live"))
+    if source_root:
+        root_bet_log = source_root / "bet_log" / "bet_log_flat_live.csv"
+        if root_bet_log.exists():
+            candidates.append((root_bet_log, "root_bet_log_live"))
+
+    best_path: Optional[Path] = None
+    best_type = "missing"
+    best_date: Optional[str] = None
+    issues: List[str] = []
+    latest_by_candidate: Dict[Path, Optional[str]] = {}
+    for path, source_type in candidates:
+        latest = _extract_date_from_name(path.name) or _extract_max_date_from_csv(path)
+        latest_by_candidate[path] = latest
+        if latest is None:
+            continue
+        if best_date is None or latest > best_date:
+            best_path = path
+            best_type = source_type
+            best_date = latest
+    if best_path is None and candidates:
+        best_path, best_type = candidates[0]
+        issues.append("canonical bet_log selected without parsable date; freshness comparison unavailable")
+    if best_path is not None:
+        selected_date = latest_by_candidate.get(best_path)
+        for candidate, latest in latest_by_candidate.items():
+            if candidate == best_path or latest is None or selected_date is None:
+                continue
+            if latest > selected_date:
+                issues.append(
+                    f"newer bet_log candidate exists ({candidate.name}: {latest}) than selected {best_path.name}: {selected_date}"
+                )
+    return best_path, best_date, best_type, issues
 
 
 def _compute_local_bankroll(rows: List[Dict[str, object]], start: float, stake: float) -> Dict[str, float]:
@@ -1343,9 +1492,12 @@ def main() -> None:
         "combined_source_file": None,
         "local_matched_source_file": None,
         "bet_log_source_file": None,
+        "bet_log_source_type": "missing",
         "metrics_source_file": None,
         "strategy_params_source_file": None,
+        "params_source_file": None,
         "params_source_type": "unknown",
+        "params_used": "fallback",
         "bet_log_latest_date_in_file": None,
         "bet_log_trimmed_to_snapshot": False,
         "fallback_used": False,
@@ -1385,6 +1537,7 @@ def main() -> None:
             selection_metadata["local_matched_source_file"] = sources.local_matched_games.name
         if sources.bet_log_flat:
             selection_metadata["bet_log_source_file"] = sources.bet_log_flat.name
+            selection_metadata["bet_log_source_type"] = "lightgbm_live"
         if sources.metrics_snapshot:
             selection_metadata["metrics_source_file"] = sources.metrics_snapshot.name
         if sources.strategy_params:
@@ -1400,9 +1553,12 @@ def main() -> None:
             "combined_source_file": selection.combined_source_file,
             "local_matched_source_file": selection.local_matched_source_file,
             "bet_log_source_file": selection.bet_log_source_file,
+            "bet_log_source_type": "snapshot_selection",
             "metrics_source_file": selection.metrics_source_file,
             "strategy_params_source_file": selection.strategy_params_source_file,
+            "params_source_file": None,
             "params_source_type": selection.params_source_type,
+            "params_used": "from_file",
             "bet_log_latest_date_in_file": selection.bet_log_latest_date,
             "bet_log_trimmed_to_snapshot": selection.bet_log_will_be_trimmed_to_snapshot,
             "fallback_used": selection.fallback_used,
@@ -1454,10 +1610,18 @@ def main() -> None:
     bet_log_rows: List[Dict[str, object]] = []
     bet_log_path = None
 
-    if sources.bet_log_flat and sources.bet_log_flat.exists():
-        bet_log_path = sources.bet_log_flat
-    elif sources.bet_log and sources.bet_log.exists():
+    bet_log_path, canonical_bet_log_date, canonical_bet_log_type, bet_log_source_issues = _choose_canonical_bet_log(
+        sources.bet_log_flat if sources.bet_log_flat and sources.bet_log_flat.exists() else None,
+        source_root,
+    )
+    if bet_log_path is None and sources.bet_log and sources.bet_log.exists():
         bet_log_path = sources.bet_log
+        canonical_bet_log_type = "lightgbm_raw"
+    selection_metadata["bet_log_source_file"] = _metadata_path(bet_log_path)
+    selection_metadata["bet_log_source_type"] = canonical_bet_log_type
+    if canonical_bet_log_date:
+        selection_metadata["bet_log_latest_date_in_file"] = canonical_bet_log_date
+    consistency_issues: List[str] = list(bet_log_source_issues)
 
     if bet_log_path:
         bet_log_rows = load_bet_log(bet_log_path)
@@ -1503,7 +1667,6 @@ def main() -> None:
 
     snapshot_as_of_date = as_of_date
     combined_source_file = combined_path.name
-    consistency_issues: List[str] = []
 
     # ----------------------------
     # Load versioned params (shared strategy module)
@@ -1558,17 +1721,32 @@ def main() -> None:
         defaults_reason = "strategy_params_parse_error"
         consistency_issues.append(f"strategy_params parse error: {exc}")
 
-    active_params = _build_active_params(params_used, CALIBRATION_WINDOW)
-    active_filters_label = _human_readable_filters(params_used)
-    if defaults_used:
+    canonical_params, params_resolution = _resolve_canonical_threshold_params(
+        sources.metrics_snapshot,
+        params_used,
+        strategy_params_source,
+    )
+    params_for_display = dict(params_used)
+    params_for_display.update(canonical_params)
+    active_params = _build_active_params(params_for_display, CALIBRATION_WINDOW)
+    active_filters_label = _human_readable_filters(params_for_display)
+    selection_metadata["params_source_file"] = params_resolution["params_source_file"]
+    selection_metadata["params_source_type"] = params_resolution["params_source_type"]
+    selection_metadata["params_used"] = params_resolution["params_used"]
+    if defaults_used and params_resolution["params_source_type"] == "default":
         strategy_params_name = "fallback"
+    if params_resolution["fallback_used"]:
+        selection_metadata["fallback_used"] = True
+        selection_metadata["fallback_reason"] = (
+            f"{selection_metadata.get('fallback_reason')}; {params_resolution['fallback_reason']}".strip("; ")
+        )
 
     expected_active_params = {
-        "home_win_rate_min": float(params_used.get("home_win_rate_threshold", 0.0)),
-        "odds_min": float(params_used.get("odds_min", 1.0)),
-        "odds_max": float(params_used.get("odds_max", DEFAULT_MAX_ODDS_FALLBACK)),
-        "prob_threshold": float(params_used.get("prob_threshold", 0.5)),
-        "min_ev": float(params_used.get("min_ev", 0.0)),
+        "home_win_rate_min": float(params_for_display.get("home_win_rate_threshold", 0.0)),
+        "odds_min": float(params_for_display.get("odds_min", 1.0)),
+        "odds_max": float(params_for_display.get("odds_max", DEFAULT_MAX_ODDS_FALLBACK)),
+        "prob_threshold": float(params_for_display.get("prob_threshold", 0.5)),
+        "min_ev": float(params_for_display.get("min_ev", 0.0)),
     }
     for key, expected in expected_active_params.items():
         got = float(active_params.get(key, expected))
@@ -1621,6 +1799,7 @@ def main() -> None:
 
     # Params filter from shared strategy module
     window_local_df = pd.DataFrame(window_filtered_local_rows)
+    strategy_params_obj.params.update({k: float(v) for k, v in canonical_params.items() if isinstance(v, (int, float))})
     filtered_local_df, shared_params = apply_strategy_filters(window_local_df, strategy_params_obj)
     local_matched_games_rows = filtered_local_df.where(pd.notna(filtered_local_df), None).to_dict(orient="records")
     local_matched_games_count = int(len(local_matched_games_rows))
@@ -1690,7 +1869,7 @@ def main() -> None:
     window_end_display = window_end_label or "—"
     active_filters_text = f"{active_filters_label} | window {window_size_label} ({window_start_display} → {window_end_display})"
 
-    bet_log_flat_path = sources.bet_log_flat if sources.bet_log_flat and sources.bet_log_flat.exists() else None
+    bet_log_flat_path = bet_log_path
     strategy_date_from_source = _extract_date_from_name(strategy_params_source.name) if strategy_params_source else None
     if strategy_date_from_source is None and strategy_params_source:
         strategy_date_from_source = _extract_date_from_json(strategy_params_source)
@@ -1723,9 +1902,8 @@ def main() -> None:
         "window_end": window_end_label,
         "active_filters_text": active_filters_text,
         "params_used_label": params_used_label,
-        "params_used": strategy_params_name,
         "active_params": active_params,
-        "params_source_label": _label_path(strategy_params_source),
+        "params_source_label": selection_metadata.get("params_source_file") or _label_path(strategy_params_source),
         "strategy_params_parse_status": strategy_params_parse_status,
         "strategy_params_parse_error": strategy_params_parse_error,
         "defaults_used": defaults_used,
@@ -1739,6 +1917,7 @@ def main() -> None:
         "combined_source_file": combined_source_file,
         "local_matched_source_file": _label_path(local_matched_games_path),
         "bet_log_source_file": _metadata_path(bet_log_path),
+        "bet_log_source_type": selection_metadata.get("bet_log_source_type"),
         "bet_log_latest_date_in_file": selection_metadata.get("bet_log_latest_date_in_file"),
         "bet_log_trimmed_to_snapshot": bool(selection_metadata.get("bet_log_trimmed_to_snapshot")),
         "strategy_params_source_file": _metadata_path(strategy_params_source),
@@ -1746,9 +1925,11 @@ def main() -> None:
         "run_date": selection_metadata.get("run_date") or as_of_date,
         "strategy_params_source_type": strategy_params_source_type,
         "strategy_params_parsed_ok": strategy_params_parsed_ok,
+        "params_source_file": selection_metadata.get("params_source_file"),
         "params_source_type": selection_metadata.get("params_source_type") or strategy_params_source_type,
-        "fallback_used": bool(defaults_used),
-        "fallback_reason": defaults_reason or "",
+        "params_used": selection_metadata.get("params_used") or strategy_params_name,
+        "fallback_used": bool(selection_metadata.get("fallback_used") or defaults_used),
+        "fallback_reason": selection_metadata.get("fallback_reason") or defaults_reason or "",
         "snapshot_fallback_used": bool(selection_metadata.get("fallback_used")),
         "snapshot_fallback_reason": selection_metadata.get("fallback_reason"),
         "last_update_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -1832,15 +2013,18 @@ def main() -> None:
             "combined_source_file": selection_metadata.get("combined_source_file") or combined_path.name,
             "local_matched_source_file": selection_metadata.get("local_matched_source_file") or _label_path(local_matched_games_path),
             "bet_log_source_file": _metadata_path(bet_log_path),
+            "bet_log_source_type": selection_metadata.get("bet_log_source_type"),
             "bet_log_latest_date_in_file": selection_metadata.get("bet_log_latest_date_in_file"),
             "bet_log_trimmed_to_snapshot": bool(selection_metadata.get("bet_log_trimmed_to_snapshot")),
             "metrics_source_file": selection_metadata.get("metrics_source_file") or _label_path(sources.metrics_snapshot),
             "strategy_params_source_file": _metadata_path(strategy_params_source),
             "strategy_params_source_type": strategy_params_source_type,
             "strategy_params_parsed_ok": strategy_params_parsed_ok,
+            "params_source_file": selection_metadata.get("params_source_file"),
             "params_source_type": selection_metadata.get("params_source_type") or strategy_params_source_type,
-            "fallback_used": bool(defaults_used),
-            "fallback_reason": defaults_reason or "",
+            "params_used": selection_metadata.get("params_used") or strategy_params_name,
+            "fallback_used": bool(selection_metadata.get("fallback_used") or defaults_used),
+            "fallback_reason": selection_metadata.get("fallback_reason") or defaults_reason or "",
             "snapshot_fallback_used": bool(selection_metadata.get("fallback_used")),
             "snapshot_fallback_reason": selection_metadata.get("fallback_reason"),
         },
