@@ -112,6 +112,8 @@ Config keys are loaded from `hoops_insight_config.toml` (`paths.*`, `dashboard.*
 
 The GitHub deployment workflow triggers the cross-repo `Basketball_prediction` pipeline, syncs source CSV/JSON artifacts into `public/data`, runs `python scripts/generate_dashboard_data.py ...`, and then executes a relocation step that:
 
+- materializes dated snapshot artifacts from safe aliases when possible (`local_matched_games_latest.csv` and `strategy_params.{json,txt}`),
+- prints the latest available dated sets (combined, local_matched, strategy_params) for CI visibility,
 - renames legacy typo files (`dashoard_*.json`) to canonical names,
 - moves any generated dashboard JSON left in the repo root into `public/data`, and
 - fails the build if `dashboard_payload.json`, `dashboard_state.json`, or `tables.json` are still missing.
