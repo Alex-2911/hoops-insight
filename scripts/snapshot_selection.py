@@ -57,6 +57,20 @@ def _extract_date_from_json(path: Path) -> Optional[str]:
     return None
 
 
+def _extract_date_from_text(path: Path) -> Optional[str]:
+    if not path.exists() or path.suffix.lower() != ".txt":
+        return None
+    try:
+        content = path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    for key in ("as_of_date", "snapshot_as_of_date", "window_end"):
+        match = re.search(rf"(?im)^\s*{re.escape(key)}\s*[:=]\s*(\d{{4}}-\d{{2}}-\d{{2}})\s*$", content)
+        if match:
+            return match.group(1)
+    return None
+
+
 def _latest_dated(pattern: str, base_dir: Path) -> Optional[Path]:
     candidates: list[tuple[str, Path]] = []
     for path in base_dir.glob(pattern):
@@ -182,18 +196,30 @@ def resolve_snapshot_selection(source_root: Path) -> SnapshotSelection:
     if not lightgbm.exists():
         raise FileNotFoundError(f"Missing LightGBM directory: {lightgbm}")
 
-    combined = _latest_dated("combined_nba_predictions_iso_*.csv", kelly)
+    combined_candidates: list[tuple[str, Path]] = []
+    for path in kelly.glob("combined_nba_predictions_iso_*.csv"):
+        if not path.is_file():
+            continue
+        date = _extract_date_from_name(path.name)
+        if date:
+            combined_candidates.append((date, path))
+
     fallback_reasons: list[str] = []
-    if combined is None:
-        combined = _latest_dated("combined_nba_predictions_acc_*.csv", lightgbm)
-        if combined is not None:
+    if not combined_candidates:
+        for path in lightgbm.glob("combined_nba_predictions_acc_*.csv"):
+            if not path.is_file():
+                continue
+            date = _extract_date_from_name(path.name)
+            if date:
+                combined_candidates.append((date, path))
+        if combined_candidates:
             fallback_reasons.append("combined_iso_missing_used_acc")
-    if combined is None:
+
+    if not combined_candidates:
         raise FileNotFoundError("No dated combined predictions file found in source root.")
 
-    snapshot_date = _extract_date_from_name(combined.name)
-    if snapshot_date is None:
-        raise RuntimeError(f"Unable to extract snapshot date from {combined.name}")
+    selection_errors: list[str] = []
+    selected: Optional[tuple[str, Path, Path, Path, Path, Path, list[str], str]] = None
 
     local_matched = _exact_dated(lightgbm, "local_matched_games_", snapshot_date, ".csv")
     if local_matched is None:
