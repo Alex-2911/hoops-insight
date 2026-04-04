@@ -9,6 +9,7 @@ import json
 import re
 import shutil
 from dataclasses import asdict, dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Iterable, Optional
 
@@ -26,6 +27,9 @@ class SnapshotSelection:
     metrics_source_file: str
     strategy_params_source_file: str
     params_source_type: str
+    bet_log_latest_date: Optional[str]
+    bet_log_lags_snapshot: bool
+    bet_log_lag_days: Optional[int]
     fallback_used: bool
     fallback_reason: str
 
@@ -275,16 +279,37 @@ def resolve_snapshot_selection(source_root: Path) -> SnapshotSelection:
         )
         if bet_log_path is None:
             candidate_reasons.append(f"missing bet_log_flat_live_{snapshot_date}.csv and bet_log_flat_live.csv")
+            bet_log_latest_date = None
+            bet_log_lags_snapshot = False
+            bet_log_lag_days = None
         else:
             bet_log_date = _extract_date_from_name(bet_log_path.name) or _extract_max_date_from_csv(bet_log_path)
             if bet_log_date is None:
                 candidate_reasons.append(
                     f"unable to determine bet_log_flat_live date from {bet_log_path.name}"
                 )
-            elif bet_log_date != snapshot_date:
+                bet_log_latest_date = None
+                bet_log_lags_snapshot = False
+                bet_log_lag_days = None
+            elif bet_log_date > snapshot_date:
                 candidate_reasons.append(
-                    f"bet_log_flat_live date mismatch in {bet_log_path.name}: expected {snapshot_date}, got {bet_log_date}"
+                    f"bet_log_flat_live date ahead of snapshot in {bet_log_path.name}: snapshot={snapshot_date}, latest={bet_log_date}"
                 )
+                bet_log_latest_date = bet_log_date
+                bet_log_lags_snapshot = False
+                bet_log_lag_days = None
+            else:
+                bet_log_latest_date = bet_log_date
+                bet_log_lags_snapshot = bet_log_date < snapshot_date
+                if bet_log_lags_snapshot:
+                    lag_days = (
+                        datetime.strptime(snapshot_date, "%Y-%m-%d")
+                        - datetime.strptime(bet_log_date, "%Y-%m-%d")
+                    ).days
+                    bet_log_lag_days = lag_days
+                    candidate_fallback_reasons.append("bet_log_lags_snapshot")
+                else:
+                    bet_log_lag_days = 0
 
         if candidate_reasons:
             candidate_failures.append((snapshot_date, candidate_reasons))
@@ -299,6 +324,9 @@ def resolve_snapshot_selection(source_root: Path) -> SnapshotSelection:
         metrics_source_file=metrics_path.name,
         strategy_params_source_file=strategy_path.name,
         params_source_type=params_source_type,
+        bet_log_latest_date=bet_log_latest_date,
+        bet_log_lags_snapshot=bet_log_lags_snapshot,
+        bet_log_lag_days=bet_log_lag_days,
         fallback_used=bool(candidate_fallback_reasons),
         fallback_reason="; ".join(candidate_fallback_reasons),
         combined_path=combined,
