@@ -140,3 +140,64 @@ def test_dashboard_state_uses_converted_strategy_txt_alias_for_source_root(tmp_p
 
     assert dashboard_state["strategy_params_parse_status"] == "ok"
     assert dashboard_state["data_consistency_status"] == "ok"
+
+
+def test_local_matched_accepts_game_date_alias(tmp_path: Path) -> None:
+    data_dir = tmp_path / "data"
+    out_dir = tmp_path / "out"
+
+    _write(
+        data_dir / "combined_latest.csv",
+        "date,home_team,away_team,result,pred_home_win_proba,prob_iso,closing_home_odds,home_win_rate\n"
+        "2026-01-02,LAL,BOS,HOME,0.61,0.62,2.20,0.66\n",
+    )
+    _write(
+        data_dir / "local_matched_games_latest.csv",
+        "game_date,home_team,away_team,home_win_rate,prob_iso,prob_used,odds_1,ev_eur_per_100,win,pnl\n"
+        "2026-01-02,LAL,BOS,0.66,0.62,0.62,2.2,4.0,1,120\n",
+    )
+
+    subprocess.run(
+        [
+            sys.executable,
+            "scripts/generate_dashboard_data.py",
+            "--data-dir",
+            str(data_dir),
+            "--output-dir",
+            str(out_dir),
+        ],
+        check=True,
+    )
+
+    dashboard_state = json.loads((out_dir / "dashboard_state.json").read_text(encoding="utf-8"))
+    assert dashboard_state["data_consistency_status"] == "ok"
+
+
+def test_empty_local_matched_does_not_raise_invalid_date_issue(tmp_path: Path) -> None:
+    data_dir = tmp_path / "data"
+    out_dir = tmp_path / "out"
+
+    _write(
+        data_dir / "combined_latest.csv",
+        "date,home_team,away_team,result,pred_home_win_proba,prob_iso,closing_home_odds,home_win_rate\n"
+        "2026-01-02,LAL,BOS,HOME,0.61,0.62,2.20,0.66\n",
+    )
+    _write(
+        data_dir / "local_matched_games_latest.csv",
+        "date,home_team,away_team,home_win_rate,prob_iso,prob_used,odds_1,ev_eur_per_100,win,pnl\n",
+    )
+
+    subprocess.run(
+        [
+            sys.executable,
+            "scripts/generate_dashboard_data.py",
+            "--data-dir",
+            str(data_dir),
+            "--output-dir",
+            str(out_dir),
+        ],
+        check=True,
+    )
+
+    dashboard_state = json.loads((out_dir / "dashboard_state.json").read_text(encoding="utf-8"))
+    assert "local_matched_games has no valid date rows" not in dashboard_state["data_consistency_issues"]
