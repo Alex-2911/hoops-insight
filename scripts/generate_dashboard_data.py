@@ -1012,7 +1012,7 @@ def _human_readable_filters(params: Dict[str, object]) -> str:
         parts.append(f"p ≥ {min_prob_used:.2f}")
 
     if min_ev is not None:
-        parts.append(f"EV > {_format_signed(float(min_ev))}")
+        parts.append(f"EV ≥ {_format_signed(float(min_ev))}")
 
     if prefer_lower_odds:
         parts.append("Prefer lower odds")
@@ -1030,6 +1030,14 @@ def _extract_params_name(raw_params: Dict[str, object]) -> Optional[str]:
                 nested_value = value.get(nested_key)
                 if isinstance(nested_value, str) and nested_value.strip():
                     return nested_value.strip()
+    return None
+
+
+def _extract_params_label(raw_params: Dict[str, object]) -> Optional[str]:
+    for key in ("params_used_label", "label"):
+        value = raw_params.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
     return None
 
 
@@ -1146,11 +1154,26 @@ def _label_path(path: Optional[Path]) -> str:
     return path.name
 
 
+def _metadata_path(path: Optional[Path]) -> Optional[str]:
+    if not path:
+        return None
+    try:
+        return str(path.resolve())
+    except OSError:
+        return str(path)
+
+
 def load_bet_log(path: Path) -> List[Dict[str, object]]:
     rows: List[Dict[str, object]] = []
 
     for row in _read_csv_normalized(path):
-        date = _safe_date(row.get("date") or row.get("game_date"))
+        date = _safe_date(
+            row.get("date")
+            or row.get("game_date")
+            or row.get("settled_date")
+            or row.get("bet_date")
+            or row.get("placed_date")
+        )
         if date is None:
             continue
 
@@ -1503,6 +1526,7 @@ def main() -> None:
             params_payload_path = sources.strategy_params
 
     strategy_params_name = "fallback"
+    params_used_label = "fallback"
     try:
         strategy_params_obj = load_versioned_strategy_params(params_payload_path)
         params_used = _normalize_params(strategy_params_obj.params)
@@ -1516,7 +1540,10 @@ def main() -> None:
             defaults_reason = "strategy_params_missing"
         if params_payload_path and params_payload_path.exists():
             raw_strategy_payload = load_strategy_params(params_payload_path)
-            strategy_params_name = _extract_params_name(raw_strategy_payload) or strategy_params_name
+            strategy_params_name = _extract_params_name(raw_strategy_payload) or (
+                "from_file" if strategy_params_source else strategy_params_name
+            )
+            params_used_label = _extract_params_label(raw_strategy_payload) or params_used_label
     except (ValueError, json.JSONDecodeError, TypeError) as exc:
         LOGGER.warning("Unable to parse strategy params at %s: %s. Falling back to defaults.", params_payload_path, exc)
         strategy_params_obj = load_versioned_strategy_params(None)
@@ -1533,7 +1560,7 @@ def main() -> None:
 
     active_params = _build_active_params(params_used, CALIBRATION_WINDOW)
     active_filters_label = _human_readable_filters(params_used)
-    if strategy_params_source is None:
+    if defaults_used:
         strategy_params_name = "fallback"
 
     expected_active_params = {
@@ -1562,9 +1589,16 @@ def main() -> None:
         local_matched_games_path = sources.local_matched_games
 
     local_summary: Dict[str, object] = {}
+    local_matched_schema_valid = False
+    local_matched_parse_error: Optional[str] = None
     if local_matched_games_path and local_matched_games_path.exists():
-        local_matched_games_rows_all, _local_summary = load_local_matched_games_csv(local_matched_games_path)
-        local_summary = _local_summary
+        try:
+            local_matched_games_rows_all, _local_summary = load_local_matched_games_csv(local_matched_games_path)
+            local_summary = _local_summary
+            local_matched_schema_valid = True
+        except Exception as exc:
+            local_matched_parse_error = str(exc)
+            consistency_issues.append(f"local_matched_games parse error: {exc}")
     else:
         consistency_issues.append("local_matched_games source file missing")
 
@@ -1664,6 +1698,12 @@ def main() -> None:
         consistency_issues.append(
             f"strategy_params date {strategy_date_from_source} is after combined snapshot {canonical_snapshot_date}"
         )
+    if strategy_params_source and defaults_used:
+        consistency_issues.append("strategy params source exists but defaults were used")
+    if not defaults_used and not strategy_params_parsed_ok:
+        consistency_issues.append("strategy params parsed state inconsistent")
+    if bet_log_path and not selection_metadata.get("bet_log_latest_date_in_file"):
+        consistency_issues.append("bet_log source selected but latest date could not be determined")
 
     metrics_snapshot_date = _extract_date_from_json(sources.metrics_snapshot) or (
         _extract_date_from_name(sources.metrics_snapshot.name) if sources.metrics_snapshot else None
@@ -1692,14 +1732,16 @@ def main() -> None:
         "defaults_reason": defaults_reason,
         "strategy_as_of_date": (window_end_dt.strftime(DATE_FMT) if window_end_dt else None),
         "strategy_matches_window": strategy_matches_window,
+        "local_matched_schema_valid": local_matched_schema_valid,
+        "local_matched_parse_error": local_matched_parse_error,
         "data_consistency_status": data_consistency_status,
         "data_consistency_issues": consistency_issues,
         "combined_source_file": combined_source_file,
         "local_matched_source_file": _label_path(local_matched_games_path),
-        "bet_log_source_file": _label_path(bet_log_flat_path),
+        "bet_log_source_file": _metadata_path(bet_log_path),
         "bet_log_latest_date_in_file": selection_metadata.get("bet_log_latest_date_in_file"),
         "bet_log_trimmed_to_snapshot": bool(selection_metadata.get("bet_log_trimmed_to_snapshot")),
-        "strategy_params_source_file": selection_metadata.get("strategy_params_source_file") or _label_path(strategy_params_source),
+        "strategy_params_source_file": _metadata_path(strategy_params_source),
         "metrics_snapshot_source_file": selection_metadata.get("metrics_source_file") or _label_path(sources.metrics_snapshot),
         "run_date": selection_metadata.get("run_date") or as_of_date,
         "strategy_params_source_type": strategy_params_source_type,
@@ -1789,11 +1831,11 @@ def main() -> None:
             "run_date": selection_metadata.get("run_date") or as_of_date,
             "combined_source_file": selection_metadata.get("combined_source_file") or combined_path.name,
             "local_matched_source_file": selection_metadata.get("local_matched_source_file") or _label_path(local_matched_games_path),
-            "bet_log_source_file": selection_metadata.get("bet_log_source_file") or _label_path(bet_log_flat_path),
+            "bet_log_source_file": _metadata_path(bet_log_path),
             "bet_log_latest_date_in_file": selection_metadata.get("bet_log_latest_date_in_file"),
             "bet_log_trimmed_to_snapshot": bool(selection_metadata.get("bet_log_trimmed_to_snapshot")),
             "metrics_source_file": selection_metadata.get("metrics_source_file") or _label_path(sources.metrics_snapshot),
-            "strategy_params_source_file": selection_metadata.get("strategy_params_source_file") or _label_path(strategy_params_source),
+            "strategy_params_source_file": _metadata_path(strategy_params_source),
             "strategy_params_source_type": strategy_params_source_type,
             "strategy_params_parsed_ok": strategy_params_parsed_ok,
             "params_source_type": selection_metadata.get("params_source_type") or strategy_params_source_type,
