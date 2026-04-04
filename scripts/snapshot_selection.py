@@ -218,68 +218,79 @@ def resolve_snapshot_selection(source_root: Path) -> SnapshotSelection:
     if not combined_candidates:
         raise FileNotFoundError("No dated combined predictions file found in source root.")
 
-    snapshot_date, combined = sorted(combined_candidates, key=lambda item: item[0])[-1]
+    candidate_failures: list[tuple[str, list[str]]] = []
+    sorted_candidates = sorted(combined_candidates, key=lambda item: item[0], reverse=True)
 
-    local_matched = _exact_dated(lightgbm, "local_matched_games_", snapshot_date, ".csv")
-    if local_matched is None:
-        raise FileNotFoundError(
-            f"No local_matched_games_YYYY-MM-DD.csv available for exact snapshot {snapshot_date}."
-        )
+    for snapshot_date, combined in sorted_candidates:
+        candidate_reasons: list[str] = []
+        candidate_fallback_reasons = list(fallback_reasons)
 
-    strategy_path = _first_existing(
-        [
-            _exact_dated(lightgbm, "strategy_params_", snapshot_date, ".json"),
-            _exact_dated(lightgbm, "strategy_params_", snapshot_date, ".txt"),
-            lightgbm / "strategy_params.json",
-            lightgbm / "strategy_params.txt",
-        ]
-    )
-    if strategy_path is None:
-        raise FileNotFoundError(f"No strategy params file found for snapshot {snapshot_date}")
-    strategy_date = _extract_date_from_name(strategy_path.name) or _extract_date_from_json(strategy_path)
-    if strategy_date and strategy_date != snapshot_date:
-        raise RuntimeError(
-            f"strategy_params date mismatch: expected {snapshot_date}, got {strategy_date} from {strategy_path.name}"
-        )
-    params_source_type = "dated" if _extract_date_from_name(strategy_path.name) else "undated"
-    if params_source_type == "undated":
-        fallback_reasons.append("used_undated_strategy_params")
+        local_matched = _exact_dated(lightgbm, "local_matched_games_", snapshot_date, ".csv")
+        if local_matched is None:
+            candidate_reasons.append(f"missing local_matched_games_{snapshot_date}.csv")
 
-    metrics_path = _first_existing(
-        [
-            _exact_dated(lightgbm, "metrics_snapshot_", snapshot_date, ".json"),
-            lightgbm / "metrics_snapshot.json",
-        ]
-    )
-    if metrics_path is None:
-        raise FileNotFoundError(f"No metrics snapshot file found for snapshot {snapshot_date}")
-    metrics_date = _extract_date_from_name(metrics_path.name) or _extract_date_from_json(metrics_path)
-    if metrics_date and metrics_date != snapshot_date:
-        raise RuntimeError(
-            f"metrics_snapshot date mismatch: expected {snapshot_date}, got {metrics_date} from {metrics_path.name}"
+        strategy_path = _first_existing(
+            [
+                _exact_dated(lightgbm, "strategy_params_", snapshot_date, ".json"),
+                _exact_dated(lightgbm, "strategy_params_", snapshot_date, ".txt"),
+                lightgbm / "strategy_params.json",
+                lightgbm / "strategy_params.txt",
+            ]
         )
-    if _extract_date_from_name(metrics_path.name) is None:
-        fallback_reasons.append("used_undated_metrics_snapshot")
+        if strategy_path is None:
+            candidate_reasons.append("missing strategy_params_[YYYY-MM-DD].json/.txt and undated fallback")
+            params_source_type = "missing"
+        else:
+            strategy_date = _extract_date_from_name(strategy_path.name) or _extract_date_from_json(strategy_path)
+            if strategy_date and strategy_date != snapshot_date:
+                candidate_reasons.append(
+                    f"strategy_params date mismatch in {strategy_path.name}: expected {snapshot_date}, got {strategy_date}"
+                )
+            params_source_type = "dated" if _extract_date_from_name(strategy_path.name) else "undated"
+            if params_source_type == "undated":
+                candidate_fallback_reasons.append("used_undated_strategy_params")
 
-    bet_log_path = _first_existing(
-        [
-            lightgbm / f"bet_log_flat_live_{snapshot_date}.csv",
-            lightgbm / "bet_log_flat_live.csv",
-        ]
-    )
-    if bet_log_path is None:
-        raise FileNotFoundError(f"No bet_log_flat_live.csv available for snapshot {snapshot_date}")
-    bet_log_date = _extract_date_from_name(bet_log_path.name) or _extract_max_date_from_csv(bet_log_path)
-    if bet_log_date and bet_log_date != snapshot_date:
-        raise RuntimeError(
-            f"bet_log_flat_live date mismatch: expected {snapshot_date}, got {bet_log_date} from {bet_log_path.name}"
+        metrics_path = _first_existing(
+            [
+                _exact_dated(lightgbm, "metrics_snapshot_", snapshot_date, ".json"),
+                lightgbm / "metrics_snapshot.json",
+            ]
         )
-    if bet_log_date is None:
-        raise RuntimeError(
-            f"Unable to determine bet_log_flat_live date for snapshot {snapshot_date} from {bet_log_path.name}"
-        )
+        if metrics_path is None:
+            candidate_reasons.append("missing metrics_snapshot_[YYYY-MM-DD].json and metrics_snapshot.json")
+        else:
+            metrics_date = _extract_date_from_name(metrics_path.name) or _extract_date_from_json(metrics_path)
+            if metrics_date and metrics_date != snapshot_date:
+                candidate_reasons.append(
+                    f"metrics_snapshot date mismatch in {metrics_path.name}: expected {snapshot_date}, got {metrics_date}"
+                )
+            if _extract_date_from_name(metrics_path.name) is None:
+                candidate_fallback_reasons.append("used_undated_metrics_snapshot")
 
-    return SnapshotSelection(
+        bet_log_path = _first_existing(
+            [
+                lightgbm / f"bet_log_flat_live_{snapshot_date}.csv",
+                lightgbm / "bet_log_flat_live.csv",
+            ]
+        )
+        if bet_log_path is None:
+            candidate_reasons.append(f"missing bet_log_flat_live_{snapshot_date}.csv and bet_log_flat_live.csv")
+        else:
+            bet_log_date = _extract_date_from_name(bet_log_path.name) or _extract_max_date_from_csv(bet_log_path)
+            if bet_log_date is None:
+                candidate_reasons.append(
+                    f"unable to determine bet_log_flat_live date from {bet_log_path.name}"
+                )
+            elif bet_log_date != snapshot_date:
+                candidate_reasons.append(
+                    f"bet_log_flat_live date mismatch in {bet_log_path.name}: expected {snapshot_date}, got {bet_log_date}"
+                )
+
+        if candidate_reasons:
+            candidate_failures.append((snapshot_date, candidate_reasons))
+            continue
+
+        return SnapshotSelection(
         snapshot_as_of_date=snapshot_date,
         run_date=snapshot_date,
         combined_source_file=combined.name,
@@ -288,13 +299,23 @@ def resolve_snapshot_selection(source_root: Path) -> SnapshotSelection:
         metrics_source_file=metrics_path.name,
         strategy_params_source_file=strategy_path.name,
         params_source_type=params_source_type,
-        fallback_used=bool(fallback_reasons),
-        fallback_reason="; ".join(fallback_reasons),
+        fallback_used=bool(candidate_fallback_reasons),
+        fallback_reason="; ".join(candidate_fallback_reasons),
         combined_path=combined,
         local_matched_path=local_matched,
         bet_log_path=bet_log_path,
         metrics_path=metrics_path,
         strategy_params_path=strategy_path,
+    )
+
+    failure_lines = [
+        f"- {date}: " + "; ".join(reasons)
+        for date, reasons in candidate_failures
+    ]
+    detail = "\n".join(failure_lines) if failure_lines else "- no candidate dates found"
+    raise FileNotFoundError(
+        "No complete dated snapshot could be resolved. Checked candidate dates (newest first):\n"
+        f"{detail}"
     )
 
 
