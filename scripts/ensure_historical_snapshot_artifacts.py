@@ -8,10 +8,12 @@ import csv
 import json
 import re
 import shutil
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
 DATE_RE = re.compile(r"(\d{4}-\d{2}-\d{2})")
+DATE_FMT = "%Y-%m-%d"
 
 
 def _extract_date_from_name(name: str) -> Optional[str]:
@@ -88,6 +90,61 @@ def _sorted_dates(base_dir: Path, pattern: str) -> list[str]:
     return sorted(date for date in dates if date)
 
 
+def _normalize_local_matched_csv(source: Path, target: Path) -> dict[str, object]:
+    rows_before = 0
+    normalized_rows: list[dict[str, str]] = []
+    source_date_col: Optional[str] = None
+
+    with source.open("r", encoding="utf-8", newline="") as in_handle:
+        reader = csv.DictReader(in_handle)
+        fieldnames = list(reader.fieldnames or [])
+        if not fieldnames:
+            raise RuntimeError(f"{source.name} has no CSV header")
+
+        for candidate in ("date", "game_date", "as_of_date", "snapshot_as_of_date"):
+            if candidate in fieldnames:
+                source_date_col = candidate
+                break
+        if source_date_col is None:
+            raise RuntimeError(f"{source.name} missing date source column (expected date or game_date)")
+
+        if "date" not in fieldnames:
+            fieldnames = [*fieldnames, "date"]
+
+        for row in reader:
+            rows_before += 1
+            value = row.get(source_date_col)
+            parsed: Optional[datetime] = None
+            if isinstance(value, str) and value.strip():
+                raw = value.strip()
+                match = DATE_RE.search(raw)
+                if match:
+                    raw = match.group(1)
+                try:
+                    parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+                except ValueError:
+                    parsed = None
+            if parsed is None:
+                continue
+            row["date"] = parsed.strftime(DATE_FMT)
+            normalized_rows.append(row)
+
+    if not normalized_rows:
+        raise RuntimeError("local_matched_games export has no valid date rows after normalization")
+
+    with target.open("w", encoding="utf-8", newline="") as out_handle:
+        writer = csv.DictWriter(out_handle, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(normalized_rows)
+
+    return {
+        "rows_before": rows_before,
+        "rows_after": len(normalized_rows),
+        "source_date_column": source_date_col,
+        "dropped_rows": rows_before - len(normalized_rows),
+    }
+
+
 def ensure_historical_snapshot_artifacts(source_root: Path) -> dict[str, object]:
     root = source_root.expanduser().resolve()
     lightgbm = root / "output" / "LightGBM"
@@ -109,8 +166,17 @@ def ensure_historical_snapshot_artifacts(source_root: Path) -> dict[str, object]
     if not local_dated.exists() and local_latest.exists():
         local_max_date = _max_date_from_csv(local_latest)
         if local_max_date == snapshot_date:
-            shutil.copy2(local_latest, local_dated)
-            actions.append(f"created {local_dated.name} from local_matched_games_latest.csv")
+            details = _normalize_local_matched_csv(local_latest, local_dated)
+            shutil.copy2(local_dated, local_latest)
+            actions.append(
+                f"created {local_dated.name} from local_matched_games_latest.csv "
+                f"(date_source={details['source_date_column']}, rows={details['rows_before']}->{details['rows_after']})"
+            )
+            if details["dropped_rows"]:
+                warnings.append(
+                    f"dropped {details['dropped_rows']} local_matched rows with invalid dates during normalization"
+                )
+            actions.append("synced local_matched_games_latest.csv to normalized dated artifact")
         else:
             warnings.append(
                 "skipped local_matched backfill because local_matched_games_latest.csv "
