@@ -218,8 +218,7 @@ def resolve_snapshot_selection(source_root: Path) -> SnapshotSelection:
     if not combined_candidates:
         raise FileNotFoundError("No dated combined predictions file found in source root.")
 
-    selection_errors: list[str] = []
-    selected: Optional[tuple[str, Path, Path, Path, Path, Path, list[str], str]] = None
+    snapshot_date, combined = sorted(combined_candidates, key=lambda item: item[0])[-1]
 
     local_matched = _exact_dated(lightgbm, "local_matched_games_", snapshot_date, ".csv")
     if local_matched is None:
