@@ -236,7 +236,15 @@ def _resolve_strategy_params_for_snapshot(lightgbm: Path, snapshot_date: str) ->
 def _extract_max_date_from_csv(path: Path) -> Optional[str]:
     if not path.exists() or path.suffix.lower() != ".csv":
         return None
-    date_columns = ("date", "game_date", "as_of_date", "snapshot_as_of_date")
+    date_columns = (
+        "date",
+        "game_date",
+        "as_of_date",
+        "snapshot_as_of_date",
+        "settled_date",
+        "bet_date",
+        "placed_date",
+    )
     found_dates: list[str] = []
     try:
         with path.open("r", encoding="utf-8") as handle:
