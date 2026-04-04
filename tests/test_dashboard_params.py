@@ -9,7 +9,7 @@ def _write(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
 
 
-def test_dashboard_state_uses_strategy_params(tmp_path: Path) -> None:
+def test_dashboard_state_uses_strategy_params_when_metrics_missing(tmp_path: Path) -> None:
     data_dir = tmp_path / "data"
     out_dir = tmp_path / "out"
 
@@ -51,13 +51,84 @@ def test_dashboard_state_uses_strategy_params(tmp_path: Path) -> None:
 
     dashboard_state = json.loads((out_dir / "dashboard_state.json").read_text(encoding="utf-8"))
 
-    assert dashboard_state["params_used"] == "p_high_hw_65_odds_2-3"
+    assert dashboard_state["params_used"] == "from_file"
+    assert dashboard_state["params_source_type"] in {"strategy_params", "strategy_params_dated"}
+    assert dashboard_state["fallback_used"] is False
     assert dashboard_state["active_params"] == {
         "home_win_rate_min": 0.65,
         "odds_min": 2.0,
         "odds_max": 3.0,
         "prob_threshold": 0.6,
         "min_ev": 1.5,
+        "window_size": 200.0,
+    }
+
+
+def test_dashboard_state_prefers_metrics_snapshot_thresholds(tmp_path: Path) -> None:
+    data_dir = tmp_path / "data"
+    out_dir = tmp_path / "out"
+
+    _write(
+        data_dir / "combined_latest.csv",
+        "date,home_team,away_team,result,pred_home_win_proba,prob_iso,closing_home_odds,home_win_rate\n"
+        "2026-01-02,LAL,BOS,HOME,0.61,0.62,2.20,0.66\n",
+    )
+    _write(
+        data_dir / "local_matched_games_latest.csv",
+        "date,home_team,away_team,home_win_rate,prob_iso,prob_used,odds_1,ev_eur_per_100,win,pnl\n"
+        "2026-01-02,LAL,BOS,0.66,0.62,0.62,2.2,4.0,1,120\n",
+    )
+    (data_dir / "strategy_params.json").write_text(
+        json.dumps(
+            {
+                "params": {
+                    "home_win_rate_threshold": 0.5,
+                    "odds_min": 2.3,
+                    "odds_max": 3.2,
+                    "prob_threshold": 0.45,
+                    "min_ev": -5.0,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    (data_dir / "metrics_snapshot.json").write_text(
+        json.dumps(
+            {
+                "params": {
+                    "home_win_rate_threshold": 0.55,
+                    "odds_min": 1.7,
+                    "odds_max": 2.6,
+                    "prob_threshold": 0.55,
+                    "min_ev": 0.0,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    subprocess.run(
+        [
+            sys.executable,
+            "scripts/generate_dashboard_data.py",
+            "--data-dir",
+            str(data_dir),
+            "--output-dir",
+            str(out_dir),
+        ],
+        check=True,
+    )
+
+    dashboard_state = json.loads((out_dir / "dashboard_state.json").read_text(encoding="utf-8"))
+    assert dashboard_state["params_source_type"] == "metrics_snapshot"
+    assert dashboard_state["params_used"] == "from_metrics_snapshot"
+    assert dashboard_state["params_source_file"].endswith("metrics_snapshot.json")
+    assert dashboard_state["active_params"] == {
+        "home_win_rate_min": 0.55,
+        "odds_min": 1.7,
+        "odds_max": 2.6,
+        "prob_threshold": 0.55,
+        "min_ev": 0.0,
         "window_size": 200.0,
     }
 
@@ -101,7 +172,7 @@ def test_dashboard_state_uses_nested_params_used_schema_without_fallback_label(t
     )
 
     dashboard_state = json.loads((out_dir / "dashboard_state.json").read_text(encoding="utf-8"))
-    assert dashboard_state["params_used"] != "fallback"
+    assert dashboard_state["params_used"] == "from_file"
     assert dashboard_state["params_used_label"] == "Historical"
     assert dashboard_state["fallback_used"] is False
     assert dashboard_state["active_params"] == {
