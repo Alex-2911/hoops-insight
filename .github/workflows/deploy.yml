@@ -161,6 +161,12 @@ jobs:
             echo "No requirements.txt in hoops-insight; skipping."
           fi
 
+      - name: Materialize dated snapshot artifacts and list availability
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/ensure_historical_snapshot_artifacts.py --source-root "$GITHUB_WORKSPACE/Basketball_prediction/2026"
+
       - name: Generate dashboard data via shared snapshot selection
         shell: bash
         run: |

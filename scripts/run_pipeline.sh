@@ -167,6 +167,7 @@ trap cleanup EXIT INT TERM
 run_nba_pipeline
 check_predictions
 
+run_cmd bash -lc "cd \"$HOOPS_DIR\" && python3 scripts/ensure_historical_snapshot_artifacts.py --source-root \"$SOURCE_ROOT\""
 run_cmd bash -lc "cd \"$HOOPS_DIR\" && python3 scripts/generate_dashboard_data.py --source-root \"$SOURCE_ROOT\""
 
 ensure_port_free
