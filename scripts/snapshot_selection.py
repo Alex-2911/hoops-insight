@@ -172,6 +172,67 @@ def _validate_date_match(path: Path, expected: str, label: str) -> None:
         )
 
 
+
+
+def _resolve_strategy_params_for_snapshot(lightgbm: Path, snapshot_date: str) -> tuple[Optional[Path], str, list[str], list[str]]:
+    candidate_reasons: list[str] = []
+    fallback_reasons: list[str] = []
+
+    exact_json = _exact_dated(lightgbm, "strategy_params_", snapshot_date, ".json")
+    if exact_json:
+        return exact_json, "dated_exact", candidate_reasons, fallback_reasons
+
+    exact_txt = _exact_dated(lightgbm, "strategy_params_", snapshot_date, ".txt")
+    if exact_txt:
+        return exact_txt, "dated_exact", candidate_reasons, fallback_reasons
+
+    dated_candidates: list[tuple[str, Path]] = []
+    rejected_future = False
+    for path in lightgbm.glob("strategy_params_*"):
+        if not path.is_file() or path.suffix.lower() not in {".json", ".txt"}:
+            continue
+        extracted = _extract_date_from_name(path.name)
+        if not extracted:
+            continue
+        if extracted > snapshot_date:
+            rejected_future = True
+            continue
+        dated_candidates.append((extracted, path))
+
+    if rejected_future:
+        fallback_reasons.append("rejected_future_dated_strategy_params")
+
+    if dated_candidates:
+        chosen = sorted(dated_candidates, key=lambda item: item[0])[-1][1]
+        chosen_date = _extract_date_from_name(chosen.name) or _extract_date_from_json(chosen) or _extract_date_from_text(chosen)
+        if chosen_date and chosen_date > snapshot_date:
+            candidate_reasons.append(
+                f"strategy_params date mismatch in {chosen.name}: snapshot {snapshot_date}, got {chosen_date}"
+            )
+        else:
+            fallback_reasons.append("used_older_dated_strategy_params")
+            return chosen, "dated_fallback_lte_snapshot", candidate_reasons, fallback_reasons
+
+    for undated_path in (lightgbm / "strategy_params.json", lightgbm / "strategy_params.txt"):
+        if not undated_path.exists():
+            continue
+        undated_date = _extract_date_from_json(undated_path) or _extract_date_from_text(undated_path)
+        if undated_date and undated_date > snapshot_date:
+            fallback_reasons.append("rejected_future_dated_strategy_params")
+            candidate_reasons.append(
+                f"undated strategy params {undated_path.name} has future date {undated_date} for snapshot {snapshot_date}"
+            )
+            continue
+        fallback_reasons.append("used_undated_strategy_params")
+        return undated_path, "undated_fallback", candidate_reasons, fallback_reasons
+
+    if not candidate_reasons:
+        candidate_reasons.append(
+            f"missing acceptable strategy_params for snapshot {snapshot_date}; expected exact or <= snapshot dated file"
+        )
+    return None, "missing", candidate_reasons, fallback_reasons
+
+
 def _extract_max_date_from_csv(path: Path) -> Optional[str]:
     if not path.exists() or path.suffix.lower() != ".csv":
         return None
@@ -235,26 +296,11 @@ def resolve_snapshot_selection(source_root: Path) -> SnapshotSelection:
         if local_matched is None:
             candidate_reasons.append(f"missing local_matched_games_{snapshot_date}.csv")
 
-        strategy_path = _first_existing(
-            [
-                _exact_dated(lightgbm, "strategy_params_", snapshot_date, ".json"),
-                _exact_dated(lightgbm, "strategy_params_", snapshot_date, ".txt"),
-                lightgbm / "strategy_params.json",
-                lightgbm / "strategy_params.txt",
-            ]
+        strategy_path, params_source_type, strategy_reasons, strategy_fallbacks = _resolve_strategy_params_for_snapshot(
+            lightgbm, snapshot_date
         )
-        if strategy_path is None:
-            candidate_reasons.append("missing strategy_params_[YYYY-MM-DD].json/.txt and undated fallback")
-            params_source_type = "missing"
-        else:
-            strategy_date = _extract_date_from_name(strategy_path.name) or _extract_date_from_json(strategy_path)
-            if strategy_date and strategy_date != snapshot_date:
-                candidate_reasons.append(
-                    f"strategy_params date mismatch in {strategy_path.name}: expected {snapshot_date}, got {strategy_date}"
-                )
-            params_source_type = "dated" if _extract_date_from_name(strategy_path.name) else "undated"
-            if params_source_type == "undated":
-                candidate_fallback_reasons.append("used_undated_strategy_params")
+        candidate_reasons.extend(strategy_reasons)
+        candidate_fallback_reasons.extend(strategy_fallbacks)
 
         metrics_path = _first_existing(
             [
