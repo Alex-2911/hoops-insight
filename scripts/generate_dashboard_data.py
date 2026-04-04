@@ -1486,6 +1486,8 @@ def main() -> None:
     # Load versioned params (shared strategy module)
     # ----------------------------
     strategy_params_source = None
+    strategy_params_source_type = "missing"
+    strategy_params_parsed_ok = False
     strategy_params_parse_status = "missing"
     strategy_params_parse_error: Optional[str] = None
     defaults_used = False
@@ -1505,9 +1507,11 @@ def main() -> None:
         strategy_params_obj = load_versioned_strategy_params(params_payload_path)
         params_used = _normalize_params(strategy_params_obj.params)
         strategy_params_source = Path(strategy_params_obj.source) if strategy_params_obj.source != "defaults" else None
+        strategy_params_source_type = "file" if strategy_params_source else "defaults"
         params_used_label = f"v{strategy_params_obj.version}"
         strategy_params_parse_status = "ok" if strategy_params_source else "defaults"
         defaults_used = strategy_params_source is None
+        strategy_params_parsed_ok = strategy_params_source is not None
         if defaults_used:
             defaults_reason = "strategy_params_missing"
         if params_payload_path and params_payload_path.exists():
@@ -1519,9 +1523,11 @@ def main() -> None:
         params_used = _normalize_params(strategy_params_obj.params)
         params_used_label = "fallback"
         strategy_params_source = None
+        strategy_params_source_type = "parse_error"
         strategy_params_parse_status = "parse_error"
         strategy_params_parse_error = str(exc)
         defaults_used = True
+        strategy_params_parsed_ok = False
         defaults_reason = "strategy_params_parse_error"
         consistency_issues.append(f"strategy_params parse error: {exc}")
 
@@ -1529,6 +1535,18 @@ def main() -> None:
     active_filters_label = _human_readable_filters(params_used)
     if strategy_params_source is None:
         strategy_params_name = "fallback"
+
+    expected_active_params = {
+        "home_win_rate_min": float(params_used.get("home_win_rate_threshold", 0.0)),
+        "odds_min": float(params_used.get("odds_min", 1.0)),
+        "odds_max": float(params_used.get("odds_max", DEFAULT_MAX_ODDS_FALLBACK)),
+        "prob_threshold": float(params_used.get("prob_threshold", 0.5)),
+        "min_ev": float(params_used.get("min_ev", 0.0)),
+    }
+    for key, expected in expected_active_params.items():
+        got = float(active_params.get(key, expected))
+        if not math.isclose(got, expected, rel_tol=1e-9, abs_tol=1e-9):
+            consistency_issues.append(f"active_params mismatch for {key}: expected {expected}, got {got}")
 
     # ----------------------------
     # Strategy matches (MUST match validate_dashboard_state.mjs)
@@ -1684,9 +1702,13 @@ def main() -> None:
         "strategy_params_source_file": selection_metadata.get("strategy_params_source_file") or _label_path(strategy_params_source),
         "metrics_snapshot_source_file": selection_metadata.get("metrics_source_file") or _label_path(sources.metrics_snapshot),
         "run_date": selection_metadata.get("run_date") or as_of_date,
-        "params_source_type": selection_metadata.get("params_source_type"),
-        "fallback_used": bool(selection_metadata.get("fallback_used")),
-        "fallback_reason": selection_metadata.get("fallback_reason"),
+        "strategy_params_source_type": strategy_params_source_type,
+        "strategy_params_parsed_ok": strategy_params_parsed_ok,
+        "params_source_type": selection_metadata.get("params_source_type") or strategy_params_source_type,
+        "fallback_used": bool(defaults_used),
+        "fallback_reason": defaults_reason or "",
+        "snapshot_fallback_used": bool(selection_metadata.get("fallback_used")),
+        "snapshot_fallback_reason": selection_metadata.get("fallback_reason"),
         "last_update_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "sources": {
             "combined": _label_path(combined_path),
@@ -1772,9 +1794,13 @@ def main() -> None:
             "bet_log_trimmed_to_snapshot": bool(selection_metadata.get("bet_log_trimmed_to_snapshot")),
             "metrics_source_file": selection_metadata.get("metrics_source_file") or _label_path(sources.metrics_snapshot),
             "strategy_params_source_file": selection_metadata.get("strategy_params_source_file") or _label_path(strategy_params_source),
-            "params_source_type": selection_metadata.get("params_source_type"),
-            "fallback_used": bool(selection_metadata.get("fallback_used")),
-            "fallback_reason": selection_metadata.get("fallback_reason"),
+            "strategy_params_source_type": strategy_params_source_type,
+            "strategy_params_parsed_ok": strategy_params_parsed_ok,
+            "params_source_type": selection_metadata.get("params_source_type") or strategy_params_source_type,
+            "fallback_used": bool(defaults_used),
+            "fallback_reason": defaults_reason or "",
+            "snapshot_fallback_used": bool(selection_metadata.get("fallback_used")),
+            "snapshot_fallback_reason": selection_metadata.get("fallback_reason"),
         },
     }
 

@@ -256,6 +256,64 @@ def _extract_max_date_from_csv(path: Path) -> Optional[str]:
     return sorted(found_dates)[-1]
 
 
+def _select_bet_log_for_snapshot(lightgbm: Path, source_root: Path, snapshot_date: str) -> tuple[Optional[Path], Optional[str], bool, bool, bool, Optional[int], list[str], list[str]]:
+    candidate_reasons: list[str] = []
+    fallback_reasons: list[str] = []
+
+    candidates: list[tuple[str, Path, str]] = []
+    exact = lightgbm / f"bet_log_flat_live_{snapshot_date}.csv"
+    if exact.exists():
+        candidates.append(("exact", exact, "lightgbm_exact"))
+
+    for path, label in (
+        (lightgbm / "bet_log_flat_live.csv", "lightgbm_live"),
+        (source_root / "bet_log" / "bet_log_flat_live.csv", "root_bet_log_live"),
+    ):
+        if path.exists():
+            candidates.append(("dated", path, label))
+
+    if not candidates:
+        candidate_reasons.append(f"missing bet_log_flat_live_{snapshot_date}.csv and live bet_log sources")
+        return None, None, False, False, False, None, candidate_reasons, fallback_reasons
+
+    best: tuple[Path, str, str] | None = None
+    saw_future_only = False
+    for mode, path, label in candidates:
+        if mode == "exact":
+            return path, snapshot_date, False, False, False, 0, candidate_reasons, fallback_reasons
+
+        latest_date = _extract_date_from_name(path.name) or _extract_max_date_from_csv(path)
+        if latest_date is None:
+            continue
+        if latest_date > snapshot_date:
+            saw_future_only = True
+            fallback_reasons.append(f"bet_log_{label}_contains_future_rows_trimmed_to_snapshot")
+            continue
+        if best is None or latest_date > best[1]:
+            best = (path, latest_date, label)
+
+    if best is None:
+        if saw_future_only:
+            candidate_reasons.append("bet_log date ahead of snapshot")
+        else:
+            candidate_reasons.append("unable to select bet_log source with date <= snapshot")
+        return None, None, False, False, False, None, candidate_reasons, fallback_reasons
+
+    selected_path, latest_date, selected_label = best
+    bet_log_lags_snapshot = latest_date < snapshot_date
+    bet_log_lag_days = (
+        (datetime.strptime(snapshot_date, "%Y-%m-%d") - datetime.strptime(latest_date, "%Y-%m-%d")).days
+        if bet_log_lags_snapshot
+        else 0
+    )
+    if selected_label != "lightgbm_live":
+        fallback_reasons.append(f"used_{selected_label}")
+    if bet_log_lags_snapshot:
+        fallback_reasons.append("bet_log_lags_snapshot")
+
+    return selected_path, latest_date, False, False, bet_log_lags_snapshot, bet_log_lag_days, candidate_reasons, fallback_reasons
+
+
 def resolve_snapshot_selection(source_root: Path) -> SnapshotSelection:
     root = source_root.expanduser().resolve()
     lightgbm = root / "output" / "LightGBM"
@@ -319,46 +377,18 @@ def resolve_snapshot_selection(source_root: Path) -> SnapshotSelection:
             if _extract_date_from_name(metrics_path.name) is None:
                 candidate_fallback_reasons.append("used_undated_metrics_snapshot")
 
-        bet_log_path = _first_existing(
-            [
-                lightgbm / f"bet_log_flat_live_{snapshot_date}.csv",
-                lightgbm / "bet_log_flat_live.csv",
-            ]
-        )
-        if bet_log_path is None:
-            candidate_reasons.append(f"missing bet_log_flat_live_{snapshot_date}.csv and bet_log_flat_live.csv")
-            bet_log_latest_date = None
-            bet_log_contains_future_rows = False
-            bet_log_will_be_trimmed_to_snapshot = False
-            bet_log_lags_snapshot = False
-            bet_log_lag_days = None
-        else:
-            bet_log_date = _extract_date_from_name(bet_log_path.name) or _extract_max_date_from_csv(bet_log_path)
-            if bet_log_date is None:
-                candidate_reasons.append(
-                    f"unable to determine bet_log_flat_live date from {bet_log_path.name}"
-                )
-                bet_log_latest_date = None
-                bet_log_contains_future_rows = False
-                bet_log_will_be_trimmed_to_snapshot = False
-                bet_log_lags_snapshot = False
-                bet_log_lag_days = None
-            else:
-                bet_log_latest_date = bet_log_date
-                bet_log_contains_future_rows = bet_log_date > snapshot_date
-                bet_log_will_be_trimmed_to_snapshot = bet_log_contains_future_rows
-                bet_log_lags_snapshot = bet_log_date < snapshot_date
-                if bet_log_contains_future_rows:
-                    candidate_fallback_reasons.append("bet_log_contains_future_rows_trimmed_to_snapshot")
-                if bet_log_lags_snapshot:
-                    lag_days = (
-                        datetime.strptime(snapshot_date, "%Y-%m-%d")
-                        - datetime.strptime(bet_log_date, "%Y-%m-%d")
-                    ).days
-                    bet_log_lag_days = lag_days
-                    candidate_fallback_reasons.append("bet_log_lags_snapshot")
-                else:
-                    bet_log_lag_days = 0
+        (
+            bet_log_path,
+            bet_log_latest_date,
+            bet_log_contains_future_rows,
+            bet_log_will_be_trimmed_to_snapshot,
+            bet_log_lags_snapshot,
+            bet_log_lag_days,
+            bet_log_reasons,
+            bet_log_fallbacks,
+        ) = _select_bet_log_for_snapshot(lightgbm, root, snapshot_date)
+        candidate_reasons.extend(bet_log_reasons)
+        candidate_fallback_reasons.extend(bet_log_fallbacks)
 
         if candidate_reasons:
             candidate_failures.append((snapshot_date, candidate_reasons))
