@@ -313,6 +313,9 @@ def load_local_matched_games_csv(path: Path) -> Tuple[List[Dict[str, object]], D
     # Convert NaN/NA -> None so filtering matches JS coerceNumber(null)
     df = df.where(pd.notna(df), None)
 
+    # Keep-first dedupe by identity key
+    df = df.drop_duplicates(subset=["date", "home_team", "away_team"], keep="first")
+
     rows = df.to_dict(orient="records")
     summary = {
         "rows_count": int(len(df)),
@@ -1367,7 +1370,22 @@ def load_bet_log(path: Path) -> List[Dict[str, object]]:
                 "bankroll_after": _safe_float(row.get("bankroll_after")),
             }
         )
-    return rows
+    deduped: List[Dict[str, object]] = []
+    seen: set[Tuple[str, Optional[str], Optional[str]]] = set()
+    for row in rows:
+        date = row.get("date")
+        if not isinstance(date, datetime):
+            continue
+        key = (
+            date.strftime(DATE_FMT),
+            row.get("home_team") if isinstance(row.get("home_team"), str) else None,
+            row.get("away_team") if isinstance(row.get("away_team"), str) else None,
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(row)
+    return deduped
 
 
 def trim_bet_log_to_snapshot(rows: List[Dict[str, object]], snapshot_date: Optional[str]) -> List[Dict[str, object]]:
@@ -1944,12 +1962,72 @@ def main() -> None:
     # Payloads (keep simple + stable)
     # ----------------------------
 
-    # Tables expected by validate_dashboard_payload.py
+    # Tables expected by validate_dashboard_payload.py + SPEC.md
     local_rows_out = local_matched_games_rows[:2000]  # cap ok
+    settled_bets_summary = {
+        "count": int(len(settled_bets_rows)),
+        "wins": int(sum(1 for row in settled_bets_rows if int(row.get("win", 0)) == 1)),
+        "profit_eur": float(sum(float(row.get("pnl", 0.0)) for row in settled_bets_rows)),
+        "roi_pct": float(
+            _safe_div(
+                sum(float(row.get("pnl", 0.0)) for row in settled_bets_rows),
+                sum(float(row.get("stake", 0.0)) for row in settled_bets_rows),
+            )
+            * 100.0
+            if settled_bets_rows
+            else 0.0
+        ),
+        "avg_odds": float(
+            _safe_div(
+                sum(float(row.get("odds", 0.0)) for row in settled_bets_rows),
+                len(settled_bets_rows),
+            )
+            if settled_bets_rows
+            else 0.0
+        ),
+    }
+    local_matched_games_note = "Rows reflect strategy-subset simulated local matched games in the active window."
+    local_matched_games_mismatch = bool(
+        int(local_summary.get("rows_count", 0)) > 0
+        and int(local_summary.get("rows_count", 0)) != int(local_matched_games_count)
+    )
     tables_payload = {
+        "historical_stats": historical_stats,
+        "accuracy_threshold_stats": accuracy_thresholds,
+        "calibration_metrics": calibration,
+        "calibration_quality": {
+            "ece": float(calibration.get("ece", 0.0)),
+            "calibrationSlope": float(calibration.get("calibrationSlope", 0.0)),
+            "calibrationIntercept": float(calibration.get("calibrationIntercept", 0.0)),
+        },
+        "home_win_rate_threshold": float(params_for_display.get("home_win_rate_threshold", 0.0)),
+        "home_win_rate_shown_count": int(len(home_win_rates_window)),
+        "strategy_filter_stats": {
+            "window_size": int(window_size_label),
+            "matched_games_count": int(local_matched_games_count),
+            "window_start": window_start_label,
+            "window_end": window_end_label,
+            "filters": [
+                {"label": "Home win rate min", "value": float(params_for_display.get("home_win_rate_threshold", 0.0))},
+                {"label": "Odds min", "value": float(params_for_display.get("odds_min", 1.0))},
+                {"label": "Odds max", "value": float(params_for_display.get("odds_max", DEFAULT_MAX_ODDS_FALLBACK))},
+                {"label": "Prob min", "value": float(params_for_display.get("prob_threshold", 0.5))},
+                {"label": "Min EV", "value": float(params_for_display.get("min_ev", 0.0))},
+            ],
+        },
+        "strategy_summary": strategy_summary,
+        "bankroll_history": bankroll_history,
         "local_matched_games_rows": local_rows_out,
+        "local_matched_games_count": int(local_matched_games_count),
+        "local_matched_games_mismatch": local_matched_games_mismatch,
+        "local_matched_games_note": local_matched_games_note,
+        "bets_2026_settled_rows": settled_bets_rows,
+        "bets_2026_settled_count": int(len(settled_bets_rows)),
+        "bets_2026_settled_summary": settled_bets_summary,
+
+        # Legacy keys retained for backward compatibility
         "settled_bets_rows": settled_bets_rows,
-        "settled_bets_summary": {"count": int(len(settled_bets_rows))},
+        "settled_bets_summary": settled_bets_summary,
         "home_win_rates_window": home_win_rates_window,
         "home_win_rates_last20": home_win_rates,
     }
@@ -1963,8 +2041,46 @@ def main() -> None:
         if max_dd_out is None:
             max_dd_out = 0.0
 
-    # Summary expected by validate_dashboard_payload.py (extra fields are fine)
+    # Summary expected by validate_dashboard_payload.py + SPEC.md
+    summary_stats = {
+        "total_games": int(len(window_played_rows)),
+        "overall_accuracy": float(
+            _safe_div(
+                sum(1 for row in window_played_rows if ((row.get("prob_iso") or row.get("prob_raw") or 0.0) >= 0.5) == (int(row.get("home_team_won", 0)) == 1)),
+                len(window_played_rows),
+            )
+            if window_played_rows
+            else 0.0
+        ),
+        "as_of_date": as_of_date,
+    }
+    bets_2026_settled_overview = {
+        "count": int(len(settled_bets_rows)),
+        "wins": int(settled_bets_summary["wins"]),
+        "profit_eur": float(settled_bets_summary["profit_eur"]),
+        "roi_pct": float(settled_bets_summary["roi_pct"]),
+    }
     summary_payload = {
+        "last_run": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "as_of_date": as_of_date,
+        "summary_stats": summary_stats,
+        "active_filters": active_filters_text,
+        "active_filters_human": active_filters_label,
+        "params_used_type": selection_metadata.get("params_source_type") or strategy_params_source_type,
+        "ytd_source": _label_path(bet_log_flat_path),
+        "ytd_note": "Based on settled rows from bet_log_flat_live.csv trimmed to snapshot date.",
+        "bets_2026_settled_overview": bets_2026_settled_overview,
+        "strategy_subset_in_window": {
+            "count": int(local_matched_games_count),
+            "window_start": window_start_label,
+            "window_end": window_end_label,
+            "note": local_matched_games_note,
+        },
+        "bankroll": {
+            "strategy_subset": bankroll_last_200,
+            "ytd_2026": bankroll_ytd_2026,
+            "placed_bets_history_points": int(len(bankroll_history)),
+        },
         "strategy_counts": {
             "settled_bets_count": int(len(tables_payload["local_matched_games_rows"])),
         },
@@ -1974,6 +2090,18 @@ def main() -> None:
         "kpis": {
             "max_drawdown_eur": max_dd_out,
             "roi_pct": float(strategy_roi_pct),
+        },
+        "risk_metrics": {
+            "strategy_sharpe_style": sharpe_out,
+            "strategy_max_drawdown_eur": max_dd_out,
+            "strategy_max_drawdown_pct": local_max_dd_pct,
+        },
+        "source": {
+            "combined_file": _label_path(combined_path),
+            "local_matched_file": _label_path(local_matched_games_path),
+            "bet_log_file": _label_path(bet_log_flat_path),
+            "strategy_params_file": _label_path(strategy_params_source),
+            "metrics_snapshot_file": _label_path(sources.metrics_snapshot),
         },
 
         # --- keep your app stuff (optional, extra fields are fine) ---
@@ -1993,6 +2121,14 @@ def main() -> None:
     }
 
     last_run_payload = {
+        "last_run": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "as_of_date": as_of_date,
+        "records": {
+            "played_games": int(len(played_rows)),
+            "strategy_subset_rows": int(local_matched_games_count),
+            "settled_bets_2026": int(len(settled_bets_rows)),
+        },
+        # legacy fields retained
         "lastUpdateUtc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "asOfDate": as_of_date,
         "snapshotAsOfDate": snapshot_as_of_date,

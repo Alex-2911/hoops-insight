@@ -117,24 +117,56 @@ const Index = () => {
     const load = async () => {
       setFetchStarted(true);
       try {
-        const [payloadRes, stateRes, tablesRes] = await Promise.all([
-          fetch(`${baseUrl}data/dashboard_payload.json`),
-          fetch(`${baseUrl}data/dashboard_state.json`),
+        const [summaryRes, tablesRes, lastRunRes] = await Promise.all([
+          fetch(`${baseUrl}data/summary.json`),
           fetch(`${baseUrl}data/tables.json`),
+          fetch(`${baseUrl}data/last_run.json`),
         ]);
 
-        if (!payloadRes.ok || !stateRes.ok) {
+        if (!summaryRes.ok || !tablesRes.ok) {
           throw new Error("Failed to load dashboard data.");
         }
 
-        const payloadJson = (await payloadRes.json()) as DashboardPayload;
-        const stateJson = (await stateRes.json()) as DashboardState;
-        const tablesJson = tablesRes.ok ? ((await tablesRes.json()) as TablesPayload) : null;
+        const summaryJson = (await summaryRes.json()) as Record<string, any>;
+        const tablesJson = (await tablesRes.json()) as TablesPayload;
+        const lastRunJson = lastRunRes.ok ? ((await lastRunRes.json()) as Record<string, any>) : null;
+
+        const normalizedPayload = {
+          as_of_date: summaryJson.as_of_date ?? summaryJson.asOfDate ?? "—",
+          window: {
+            size: 200,
+            start: summaryJson.window_start ?? null,
+            end: summaryJson.window_end ?? summaryJson.as_of_date ?? null,
+            games_count: summaryJson.summary_stats?.total_games ?? 0,
+          },
+          active_filters_effective: summaryJson.active_filters_human ?? summaryJson.active_filters ?? "No active filters.",
+          summary: summaryJson,
+          tables: tablesJson,
+          last_run: lastRunJson,
+        } as DashboardPayload;
+        const normalizedState = {
+          as_of_date: normalizedPayload.as_of_date,
+          window_size: normalizedPayload.window.size,
+          window_start: normalizedPayload.window.start,
+          window_end: normalizedPayload.window.end,
+          active_filters_text: summaryJson.active_filters ?? normalizedPayload.active_filters_effective,
+          params_used_label: summaryJson.params_used_type ?? "metrics_snapshot",
+          params_source_label: summaryJson.source?.metrics_snapshot_file ?? "metrics_snapshot",
+          last_update_utc: summaryJson.last_run ?? new Date().toISOString(),
+          sources: {
+            combined: summaryJson.source?.combined_file ?? "combined_latest.csv",
+            local_matched: summaryJson.source?.local_matched_file ?? "local_matched_games_latest.csv",
+            bet_log: summaryJson.source?.bet_log_file ?? "bet_log_flat_live.csv",
+          },
+          strategy_matches_window: tablesJson.local_matched_games_count ?? 0,
+          data_consistency_status: "ok",
+          data_consistency_issues: [],
+        } as DashboardState;
 
         if (alive) {
-          setPayload(payloadJson);
-          setDashboardState(stateJson);
-          if (tablesJson) setTablesFallback(tablesJson);
+          setPayload(normalizedPayload);
+          setDashboardState(normalizedState);
+          setTablesFallback(tablesJson);
         }
 
         const localMatchedJsonRes = await fetch(`${baseUrl}data/local_matched_games_latest.json`);
@@ -144,7 +176,7 @@ const Index = () => {
             setLocalMatchedLatestRows(localMatchedJson.rows);
           }
         } else {
-          const localMatchedSource = stateJson.sources?.local_matched ?? "local_matched_games_latest.csv";
+          const localMatchedSource = normalizedState.sources?.local_matched ?? "local_matched_games_latest.csv";
           const localMatchedRes = await fetch(`${baseUrl}data/${localMatchedSource}`);
           if (alive && localMatchedRes.ok) {
             const localMatchedText = await localMatchedRes.text();

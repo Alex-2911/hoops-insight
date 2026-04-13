@@ -248,8 +248,23 @@ export interface TablesPayload {
   historical_stats: HistoricalStat[];
   accuracy_threshold_stats: AccuracyThresholdStat[];
   calibration_metrics: CalibrationMetrics;
+  calibration_quality?: {
+    ece: number;
+    calibrationSlope: number;
+    calibrationIntercept: number;
+  };
   home_win_rates_last20: HomeWinRate[];
   home_win_rates_window?: HomeWinRateWindowRow[];
+  home_win_rate_threshold?: number;
+  home_win_rate_shown_count?: number;
+  strategy_filter_stats?: {
+    window_size: number;
+    matched_games_count: number;
+    window_start?: string | null;
+    window_end?: string | null;
+    filters?: Array<{ label: string; value: number }>;
+  };
+  strategy_summary?: Record<string, unknown>;
   bet_log_summary: BetLogSummary;
   bankroll_history: BankrollEntry[];
   bankroll_ytd_2026: BankrollSummary;
@@ -266,4 +281,13 @@ export interface TablesPayload {
   local_matched_games_profit_sum_table?: number;
   local_matched_games_note?: string;
   local_matched_games_mismatch?: boolean;
+  bets_2026_settled_rows?: SettledBet[];
+  bets_2026_settled_count?: number;
+  bets_2026_settled_summary?: {
+    count: number;
+    wins: number;
+    profit_eur: number;
+    roi_pct: number;
+    avg_odds: number;
+  };
 }
