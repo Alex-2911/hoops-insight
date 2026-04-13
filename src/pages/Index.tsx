@@ -248,6 +248,7 @@ const Index = () => {
     tables?.home_win_rates_last20 && tables.home_win_rates_last20.length > 0
       ? tables.home_win_rates_last20
       : summary?.model?.homeWinRatesLast20 ?? [];
+  const homeWinRatesWindow = tables?.home_win_rates_window ?? [];
   const localMatchedGamesRows = tables?.local_matched_games_rows ?? [];
   const localMatchedRowsDisplay = localMatchedLatestRows.length > 0 ? localMatchedLatestRows : localMatchedGamesRows;
   const settledBetsRows = tables?.settled_bets_rows ?? [];
@@ -535,6 +536,41 @@ const Index = () => {
   const strategyMaxDrawdownDisplay =
     kpis.max_drawdown_eur !== null ? fmtCurrencyEUR(kpis.max_drawdown_eur as number, 0) : "—";
 
+  const liveStrategyLabel = "none";
+  const historicalFilterSource =
+    dashboardState?.metrics_snapshot_source_file ??
+    dashboardState?.strategy_params_source_file ??
+    dashboardState?.params_source_label ??
+    "strategy_params.json";
+
+  const todayShortlist = (payload?.last_run as any)?.today_shortlist;
+  const todayQualifyingGamesCountRaw = (payload?.last_run as any)?.qualifying_games_today;
+  const todayQualifyingGamesCount =
+    typeof todayQualifyingGamesCountRaw === "number" && Number.isFinite(todayQualifyingGamesCountRaw)
+      ? todayQualifyingGamesCountRaw
+      : Array.isArray(todayShortlist)
+        ? todayShortlist.length
+        : 0;
+  const hasTodayQualifyingGames = todayQualifyingGamesCount > 0;
+
+  const homeWinRatesDiagnosticRows = useMemo(() => {
+    if (homeWinRatesWindow.length > 0) {
+      return [...homeWinRatesWindow]
+        .filter((row) => row.homeWinRate > 0.5)
+        .sort((a, b) => b.homeWinRate - a.homeWinRate);
+    }
+    return [...homeWinRatesLast20]
+      .filter((row) => row.homeWinRate > 0.5)
+      .sort((a, b) => b.homeWinRate - a.homeWinRate)
+      .map((row) => ({
+        team: row.team,
+        homeWinRate: row.homeWinRate,
+        homeWins: row.homeWins,
+        homeGames: row.totalHomeGames,
+        windowGames: row.totalLast20Games,
+      }));
+  }, [homeWinRatesLast20, homeWinRatesWindow]);
+
 
   if (isLoading && !payload && !dashboardState) {
     return (
@@ -566,23 +602,51 @@ const Index = () => {
 
   return (
     <>
-      <section className="container mx-auto px-4 pt-4">
-        <p className="text-xs uppercase tracking-wide text-muted-foreground">INDEX LOADED</p>
+      <section className="container mx-auto px-4 pt-6">
+        <div className="glass-card p-6 space-y-2">
+          <h1 className="text-3xl font-bold">Hoops Insight</h1>
+          <p className="text-sm text-muted-foreground">Latest settled: {summaryAsOfDate}</p>
+          <p className="text-sm text-muted-foreground">Run: {windowEndLabel}</p>
+          <p className="text-sm text-muted-foreground">Window: {windowSize} games</p>
+          <p className="text-sm text-muted-foreground">Live strategy: {liveStrategyLabel}</p>
+          <p className="text-sm text-muted-foreground">Historical filter source: {historicalFilterSource}</p>
+        </div>
       </section>
-      {/* Context & Assumptions */}
+
+      {/* Today status */}
       <section className="container mx-auto px-4 py-6">
         <div className="glass-card p-6">
-          <h2 className="text-xl font-bold mb-3">Context &amp; Assumptions</h2>
+          <h2 className="text-xl font-bold mb-3">Today Status</h2>
+          {hasTodayQualifyingGames ? (
+            <div className="space-y-2 text-sm">
+              <p className="text-foreground">{todayQualifyingGamesCount} qualifying games today</p>
+              <p className="text-muted-foreground">Shortlist is available for the current run.</p>
+            </div>
+          ) : (
+            <div className="space-y-2 text-sm">
+              <p className="text-foreground">No qualifying games today</p>
+              <p className="text-muted-foreground">No games qualify for today under the current live constraints.</p>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Context / Assumptions */}
+      <section className="container mx-auto px-4 py-6">
+        <div className="glass-card p-6">
+          <h2 className="text-xl font-bold mb-3">Context / Assumptions</h2>
           {loadError && <p className="text-sm text-red-400 mb-3">Data unavailable: {loadError}{staleMessage ? ` (${staleMessage})` : ""}</p>}
           <div className="text-sm text-muted-foreground space-y-3">
             <div>
               <span className="font-medium text-foreground">Active Filters (effective)</span>
               <div className="text-foreground">{activeFiltersDisplay}</div>
             </div>
+            <div className="text-foreground">Live strategy: {liveStrategyLabel}</div>
+            <div className="text-foreground">Historical filter source: {historicalFilterSource}</div>
             <div className="text-foreground">{paramsUsedDisplay}</div>
             {fallbackUsed && (
               <p className="text-xs text-amber-300">
-                Fallback thresholds are hard-coded defaults and may differ from the live ledger when the strategy parameter file is missing.
+                Fallback historical filters are active because strategy parameters could not be loaded from the preferred source.
               </p>
             )}
             {!activeParamsComplete && (
@@ -608,15 +672,16 @@ const Index = () => {
                 </ul>
               </div>
             )}
+            <p>Parameters are shown for transparency only. No live strategy selection or optimization is applied.</p>
             <p>Historical results and statistical summaries only; no future predictions are shown.</p>
           </div>
         </div>
       </section>
 
-      {/* Window performance (model) */}
+      {/* Performance overview */}
       <section className="container mx-auto px-4 py-10">
         <div className="mb-6">
-          <h2 className="text-2xl font-bold">Window Performance (Model)</h2>
+          <h2 className="text-2xl font-bold">Performance Overview</h2>
           <p className="text-sm text-muted-foreground">Source: {combinedSource} (played games only, windowed).</p>
         </div>
         <TooltipProvider delayDuration={100}>
@@ -689,14 +754,27 @@ const Index = () => {
         </TooltipProvider>
       </section>
 
+      {/* Calibration quality */}
+      <section className="container mx-auto px-4 pb-10">
+        <div className="glass-card p-6">
+          <h2 className="text-xl font-bold mb-2">Calibration Quality</h2>
+          <p className="text-sm text-muted-foreground">
+            Slope: {fmtNumber(calibrationMetrics.calibrationSlope, 3)} • Intercept:{" "}
+            {fmtNumber(calibrationMetrics.calibrationIntercept, 3)} • Avg predicted:{" "}
+            {fmtPercent(calibrationMetrics.avgPredictedProb * 100, 1)} • Base rate:{" "}
+            {fmtPercent(calibrationMetrics.baseRate * 100, 1)}
+          </p>
+        </div>
+      </section>
+
       {/* Strategy (simulated window subset) */}
       <section className="container mx-auto px-4 py-10">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-2xl font-bold">Strategy (Simulated on Window Subset)</h2>
+            <h2 className="text-2xl font-bold">Strategy (Simulated Window Subset)</h2>
             <p className="text-sm text-muted-foreground">
-              Simulated performance on local_matched_games restricted to the window (not actual placed bets). The
-              table below highlights the latest local_matched_games file.
+              Simulated historical subset from local_matched_games, restricted to the current window. This is not a
+              record of actual placed bets.
             </p>
           </div>
           <span className="rounded-full border border-border bg-muted/30 px-3 py-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -752,7 +830,8 @@ const Index = () => {
           <div className="overflow-x-auto">
             {localMatchedGamesRowsSorted.length === 0 ? (
               <div className="rounded-lg border border-border p-4 text-sm text-muted-foreground">
-                No local matched games available.
+                <p>No simulated matches in window</p>
+                <p className="mt-1">No simulated matches are available for the current window.</p>
               </div>
             ) : (
               <table className="w-full text-sm">
@@ -812,8 +891,10 @@ const Index = () => {
       {/* Placed bets overview */}
       <section className="container mx-auto px-4 py-10">
         <div className="mb-6">
-          <h2 className="text-2xl font-bold">Placed Bets (Real) — Overview</h2>
+          <h2 className="text-2xl font-bold">Placed Bets (Real)</h2>
           <p className="text-sm text-muted-foreground">Source: {betLogFlatSource} (settled only).</p>
+          <p className="text-xs text-muted-foreground mt-1">Real bets (settled via combined_*)</p>
+          <p className="text-xs text-muted-foreground">Actually placed &amp; settled bets only</p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -850,7 +931,7 @@ const Index = () => {
       {/* Placed bets (real) */}
       <section className="container mx-auto px-4 py-10">
         <div className="mb-6">
-          <h2 className="text-2xl font-bold">Placed Bets (Real) — 2026 YTD</h2>
+          <h2 className="text-2xl font-bold">Settled Bets (2026)</h2>
           <p className="text-sm text-muted-foreground">
             Source: {betLogFlatSource}, settled against {combinedSource} outcomes.
           </p>
@@ -927,14 +1008,14 @@ const Index = () => {
       {/* Home win rates */}
       <section className="container mx-auto px-4 py-10">
         <div className="mb-6">
-          <h2 className="text-2xl font-bold">Home Win Rates (Last 20)</h2>
+          <h2 className="text-2xl font-bold">Home Win Rates</h2>
           <p className="text-sm text-muted-foreground">
-            Computed per team: home win rate using that team’s last 20 games (home + away).
+            Diagnostic table ranked by home win rate descending.
           </p>
         </div>
 
         <div className="glass-card p-6 overflow-x-auto">
-          {homeWinRatesLast20.length === 0 ? (
+          {homeWinRatesDiagnosticRows.length === 0 ? (
             <div className="rounded-lg border border-border p-4 text-sm text-muted-foreground">
               No home win rate data available yet.
             </div>
@@ -946,23 +1027,33 @@ const Index = () => {
                   <th className="py-2 pr-4">Home Win Rate</th>
                   <th className="py-2 pr-4">Home Wins</th>
                   <th className="py-2 pr-4">Home Games</th>
-                  <th className="py-2 pr-4">Last 20 Games</th>
+                  <th className="py-2 pr-4">Window Games</th>
                 </tr>
               </thead>
               <tbody>
-                {homeWinRatesLast20.map((row) => (
+                {homeWinRatesDiagnosticRows.map((row) => (
                   <tr key={row.team} className="border-b border-border/50">
                     <td className="py-2 pr-4 font-medium">{row.team}</td>
                     <td className="py-2 pr-4">{fmtPercent(row.homeWinRate * 100, 1)}</td>
                     <td className="py-2 pr-4">{row.homeWins}</td>
-                    <td className="py-2 pr-4">{row.totalHomeGames}</td>
-                    <td className="py-2 pr-4">{row.totalLast20Games}</td>
+                    <td className="py-2 pr-4">{row.homeGames}</td>
+                    <td className="py-2 pr-4">{row.windowGames}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           )}
+          <p className="mt-4 text-xs text-muted-foreground">
+            Showing all teams with home win rate &gt; 50% in the last 200 games.
+          </p>
         </div>
+      </section>
+
+      <section className="container mx-auto px-4 pb-10">
+        <p className="text-xs text-muted-foreground">
+          Dashboard parity note: sections distinguish latest settled historical data, current run, simulated window
+          subset, and real placed bets.
+        </p>
       </section>
     </>
   );
