@@ -489,13 +489,17 @@ const Index = () => {
 
   const oddsRangeLabel =
     oddsMin !== null && oddsMax !== null ? `${fmtNumber(oddsMin, 2)}–${fmtNumber(oddsMax, 2)}` : null;
+  const activeFiltersUnavailableLabel =
+    "Strategy filters unavailable (dashboard_state.json active_params missing or invalid)";
 
   const thresholdsLabel =
     strategyStatusTrustworthy
       ? `HW ≥ ${fmtNumber(homeWinRateMin as number, 2)} | odds ${fmtNumber(oddsMin as number, 2)}–${fmtNumber(oddsMax as number, 2)} | p ≥ ${fmtNumber(probThreshold as number, 2)} | EV ≥ ${fmtNumber(minEv as number, 2)}`
       : activeFiltersEffective;
 
-  const activeFiltersDisplay = `${thresholdsLabel} | window ${windowSize} (${windowStartLabel} → ${windowEndLabel})`;
+  const activeFiltersDisplay = strategyStatusTrustworthy
+    ? `${thresholdsLabel} | window ${windowSize} (${windowStartLabel} → ${windowEndLabel})`
+    : `${activeFiltersUnavailableLabel} | source text: ${activeFiltersEffective}`;
 
   const localMatchedGamesRowsSorted = useMemo(() => {
     return [...localMatchedRowsDisplay].sort((a, b) => b.date.localeCompare(a.date));
