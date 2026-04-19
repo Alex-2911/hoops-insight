@@ -712,7 +712,12 @@ const Index = () => {
             )}
             {!activeParamsComplete && (
               <p className="text-xs text-amber-300">
-                Warning: active_params is missing or incomplete in dashboard_state.json; threshold displays may be partial.
+                Warning: active_params is missing or incomplete in dashboard_state.json; strategy-filter and today-status displays are unavailable.
+              </p>
+            )}
+            {activeParamsComplete && !activeParamsEconomicallyMeaningful && (
+              <p className="text-xs text-amber-300">
+                Warning: active_params values are outside expected ranges; strategy-filter and today-status displays are disabled.
               </p>
             )}
             {activeParamsComplete && !activeParamsEconomicallyMeaningful && (
