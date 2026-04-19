@@ -429,6 +429,22 @@ const Index = () => {
   const probThreshold = readActiveParam("prob_threshold");
   const minEv = readActiveParam("min_ev");
   const windowSizeFromParams = readActiveParam("window_size");
+  const activeParamsEconomicallyMeaningful =
+    homeWinRateMin !== null &&
+    homeWinRateMin >= 0 &&
+    homeWinRateMin <= 1 &&
+    oddsMin !== null &&
+    oddsMin >= 1 &&
+    oddsMin <= 20 &&
+    oddsMax !== null &&
+    oddsMax >= 1 &&
+    oddsMax <= 20 &&
+    oddsMax >= oddsMin &&
+    probThreshold !== null &&
+    probThreshold >= 0 &&
+    probThreshold <= 1 &&
+    minEv !== null;
+  const strategyStatusTrustworthy = activeParamsComplete && activeParamsEconomicallyMeaningful;
 
   const overallAccuracyValue = pickNumber(summaryStats.overall_accuracy, calibrationMetrics.actualWinPct);
   const overallAccuracyPct = formatPercentFromMaybeRatio(overallAccuracyValue, 2);
@@ -473,13 +489,17 @@ const Index = () => {
 
   const oddsRangeLabel =
     oddsMin !== null && oddsMax !== null ? `${fmtNumber(oddsMin, 2)}–${fmtNumber(oddsMax, 2)}` : null;
+  const activeFiltersUnavailableLabel =
+    "Strategy filters unavailable (dashboard_state.json active_params missing or invalid)";
 
   const thresholdsLabel =
-    homeWinRateMin !== null && oddsMin !== null && oddsMax !== null && probThreshold !== null && minEv !== null
-      ? `HW ≥ ${fmtNumber(homeWinRateMin, 2)} | odds ${fmtNumber(oddsMin, 2)}–${fmtNumber(oddsMax, 2)} | p ≥ ${fmtNumber(probThreshold, 2)} | EV ≥ ${fmtNumber(minEv, 2)}`
-      : activeFiltersEffective;
+    strategyStatusTrustworthy
+      ? `HW ≥ ${fmtNumber(homeWinRateMin as number, 2)} | odds ${fmtNumber(oddsMin as number, 2)}–${fmtNumber(oddsMax as number, 2)} | p ≥ ${fmtNumber(probThreshold as number, 2)} | EV ≥ ${fmtNumber(minEv as number, 2)}`
+      : activeFiltersUnavailableLabel;
 
-  const activeFiltersDisplay = `${thresholdsLabel} | window ${windowSize} (${windowStartLabel} → ${windowEndLabel})`;
+  const activeFiltersDisplay = strategyStatusTrustworthy
+    ? `${thresholdsLabel} | window ${windowSize} (${windowStartLabel} → ${windowEndLabel})`
+    : `${activeFiltersUnavailableLabel} | source text: ${activeFiltersEffective}`;
 
   const localMatchedGamesRowsSorted = useMemo(() => {
     return [...localMatchedRowsDisplay].sort((a, b) => b.date.localeCompare(a.date));
@@ -649,15 +669,24 @@ const Index = () => {
       <section className="container mx-auto px-4 py-6">
         <div className="glass-card p-6">
           <h2 className="text-xl font-bold mb-3">Today Status</h2>
-          {hasTodayQualifyingGames ? (
-            <div className="space-y-2 text-sm">
-              <p className="text-foreground">{todayQualifyingGamesCount} qualifying games today</p>
-              <p className="text-muted-foreground">Shortlist is available for the current run.</p>
-            </div>
+          {strategyStatusTrustworthy ? (
+            hasTodayQualifyingGames ? (
+              <div className="space-y-2 text-sm">
+                <p className="text-foreground">{todayQualifyingGamesCount} qualifying games today</p>
+                <p className="text-muted-foreground">Shortlist is available for the current run.</p>
+              </div>
+            ) : (
+              <div className="space-y-2 text-sm">
+                <p className="text-foreground">No qualifying games today</p>
+                <p className="text-muted-foreground">No games qualify for today under the current live constraints.</p>
+              </div>
+            )
           ) : (
             <div className="space-y-2 text-sm">
-              <p className="text-foreground">No qualifying games today</p>
-              <p className="text-muted-foreground">No games qualify for today under the current live constraints.</p>
+              <p className="text-foreground">Today status unavailable</p>
+              <p className="text-muted-foreground">
+                Strategy filters are missing or invalid in dashboard_state.json, so qualifying-game status is not reliable.
+              </p>
             </div>
           )}
         </div>
@@ -683,7 +712,12 @@ const Index = () => {
             )}
             {!activeParamsComplete && (
               <p className="text-xs text-amber-300">
-                Warning: active_params is missing or incomplete in dashboard_state.json; threshold displays may be partial.
+                Warning: active_params is missing or incomplete in dashboard_state.json; strategy-filter and today-status displays are unavailable.
+              </p>
+            )}
+            {activeParamsComplete && !activeParamsEconomicallyMeaningful && (
+              <p className="text-xs text-amber-300">
+                Warning: active_params values are outside expected ranges; strategy-filter and today-status displays are disabled.
               </p>
             )}
             <div className="text-foreground">Params source: {paramsSourceLabel}</div>
