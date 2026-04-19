@@ -495,7 +495,7 @@ const Index = () => {
   const thresholdsLabel =
     strategyStatusTrustworthy
       ? `HW ≥ ${fmtNumber(homeWinRateMin as number, 2)} | odds ${fmtNumber(oddsMin as number, 2)}–${fmtNumber(oddsMax as number, 2)} | p ≥ ${fmtNumber(probThreshold as number, 2)} | EV ≥ ${fmtNumber(minEv as number, 2)}`
-      : activeFiltersUnavailableLabel;
+      : activeFiltersEffective;
 
   const activeFiltersDisplay = strategyStatusTrustworthy
     ? `${thresholdsLabel} | window ${windowSize} (${windowStartLabel} → ${windowEndLabel})`
