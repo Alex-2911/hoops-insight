@@ -495,7 +495,7 @@ const Index = () => {
   const thresholdsLabel =
     strategyStatusTrustworthy
       ? `HW ≥ ${fmtNumber(homeWinRateMin as number, 2)} | odds ${fmtNumber(oddsMin as number, 2)}–${fmtNumber(oddsMax as number, 2)} | p ≥ ${fmtNumber(probThreshold as number, 2)} | EV ≥ ${fmtNumber(minEv as number, 2)}`
-      : activeFiltersUnavailableLabel;
+      : activeFiltersEffective;
 
   const activeFiltersDisplay = strategyStatusTrustworthy
     ? `${thresholdsLabel} | window ${windowSize} (${windowStartLabel} → ${windowEndLabel})`
@@ -713,6 +713,11 @@ const Index = () => {
             {!activeParamsComplete && (
               <p className="text-xs text-amber-300">
                 Warning: active_params is missing or incomplete in dashboard_state.json; strategy-filter and today-status displays are unavailable.
+              </p>
+            )}
+            {activeParamsComplete && !activeParamsEconomicallyMeaningful && (
+              <p className="text-xs text-amber-300">
+                Warning: active_params values are outside expected ranges; strategy-filter and today-status displays are disabled.
               </p>
             )}
             {activeParamsComplete && !activeParamsEconomicallyMeaningful && (

@@ -197,7 +197,9 @@ def test_dashboard_state_ignores_invalid_metrics_thresholds(tmp_path: Path) -> N
         "min_ev": 0.0,
         "window_size": 200.0,
     }
-    assert any("ignored invalid metrics snapshot thresholds" in issue for issue in dashboard_state["data_warnings"])
+    assert any(
+        "ignored invalid metrics snapshot thresholds" in issue for issue in dashboard_state["data_consistency_issues"]
+    )
 
 
 def test_dashboard_state_uses_nested_params_used_schema_without_fallback_label(tmp_path: Path) -> None:
@@ -423,4 +425,4 @@ def test_dashboard_state_flags_stale_bet_log_date(tmp_path: Path) -> None:
     )
 
     dashboard_state = json.loads((out_dir / "dashboard_state.json").read_text(encoding="utf-8"))
-    assert any("bet_log appears stale versus snapshot" in issue for issue in dashboard_state["data_warnings"])
+    assert any("bet_log appears stale versus snapshot" in issue for issue in dashboard_state["data_consistency_issues"])
