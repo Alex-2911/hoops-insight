@@ -1747,11 +1747,11 @@ def main() -> None:
             snapshot_dt = datetime.strptime(as_of_date, DATE_FMT)
             day_gap = (snapshot_dt - bet_log_latest_dt).days
             if day_gap > 14:
-                data_warnings.append(
+                consistency_issues.append(
                     f"bet_log appears stale versus snapshot ({day_gap} days behind: {bet_log_latest_date_raw} vs {as_of_date})"
                 )
         except ValueError:
-            data_warnings.append(
+            consistency_issues.append(
                 f"bet_log_latest_date_in_file is not parseable as {DATE_FMT}: {bet_log_latest_date_raw}"
             )
 
@@ -1830,11 +1830,11 @@ def main() -> None:
     metrics_invalid_keys = params_resolution.get("metrics_invalid_keys") or []
     strategy_invalid_keys = params_resolution.get("strategy_invalid_keys") or []
     if metrics_invalid_keys:
-        data_warnings.append(
+        consistency_issues.append(
             f"ignored invalid metrics snapshot thresholds: {','.join(metrics_invalid_keys)}"
         )
     if strategy_invalid_keys:
-        data_warnings.append(
+        consistency_issues.append(
             f"ignored invalid strategy thresholds: {','.join(strategy_invalid_keys)}"
         )
 
