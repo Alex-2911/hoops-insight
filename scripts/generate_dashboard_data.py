@@ -1694,6 +1694,7 @@ def main() -> None:
     if canonical_bet_log_date:
         selection_metadata["bet_log_latest_date_in_file"] = canonical_bet_log_date
     consistency_issues: List[str] = list(bet_log_source_issues)
+    data_warnings: List[str] = []
 
     if bet_log_path:
         bet_log_rows = load_bet_log(bet_log_path)
@@ -2010,6 +2011,7 @@ def main() -> None:
         "local_matched_parse_error": local_matched_parse_error,
         "data_consistency_status": data_consistency_status,
         "data_consistency_issues": consistency_issues,
+        "data_warnings": data_warnings,
         "combined_source_file": combined_source_file,
         "local_matched_source_file": _label_path(local_matched_games_path),
         "bet_log_source_file": _metadata_path(bet_log_path),
@@ -2214,6 +2216,7 @@ def main() -> None:
         "windowEnd": window_end_label,
         "dataConsistencyStatus": data_consistency_status,
         "dataConsistencyIssues": consistency_issues,
+        "dataWarnings": data_warnings,
         "sources": {
             "combined": _label_path(combined_path),
             "local_matched": _label_path(local_matched_games_path),
