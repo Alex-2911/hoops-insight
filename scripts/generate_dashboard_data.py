@@ -1078,12 +1078,53 @@ def _extract_threshold_params(payload: Dict[str, object]) -> Dict[str, object]:
     return best
 
 
+def _threshold_value_is_valid(key: str, value: object) -> bool:
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        return False
+    numeric = float(value)
+    if not math.isfinite(numeric):
+        return False
+    if key == "home_win_rate_threshold":
+        return 0.0 <= numeric <= 1.0
+    if key == "prob_threshold":
+        return 0.0 <= numeric <= 1.0
+    if key == "odds_min":
+        return 1.0 <= numeric <= 20.0
+    if key == "odds_max":
+        return 1.0 <= numeric <= 20.0
+    if key == "min_ev":
+        return -200.0 <= numeric <= 200.0
+    return True
+
+
+def _sanitize_threshold_params(raw: Dict[str, object]) -> Tuple[Dict[str, float], List[str]]:
+    sanitized: Dict[str, float] = {}
+    invalid_keys: List[str] = []
+    for key in ("home_win_rate_threshold", "odds_min", "odds_max", "prob_threshold", "min_ev"):
+        if key not in raw:
+            continue
+        value = raw.get(key)
+        if _threshold_value_is_valid(key, value):
+            sanitized[key] = float(value)
+        else:
+            invalid_keys.append(key)
+
+    odds_min = sanitized.get("odds_min")
+    odds_max = sanitized.get("odds_max")
+    if odds_min is not None and odds_max is not None and odds_max < odds_min:
+        invalid_keys.extend(["odds_min", "odds_max"])
+        sanitized.pop("odds_min", None)
+        sanitized.pop("odds_max", None)
+
+    return sanitized, sorted(set(invalid_keys))
+
+
 def _resolve_canonical_threshold_params(
     metrics_snapshot_path: Optional[Path],
     strategy_params: Dict[str, object],
     strategy_params_path: Optional[Path],
 ) -> Tuple[Dict[str, object], Dict[str, object]]:
-    strategy_thresholds = {
+    strategy_thresholds_raw = {
         key: value
         for key, value in {
             "home_win_rate_threshold": _get_param(strategy_params, "home_win_rate_threshold", "min_home_win_rate"),
@@ -1094,12 +1135,15 @@ def _resolve_canonical_threshold_params(
         }.items()
         if value is not None
     }
+    strategy_thresholds, strategy_invalid_keys = _sanitize_threshold_params(strategy_thresholds_raw)
     metrics_thresholds: Dict[str, object] = {}
+    metrics_invalid_keys: List[str] = []
     if metrics_snapshot_path and metrics_snapshot_path.exists():
         try:
             payload = json.loads(metrics_snapshot_path.read_text(encoding="utf-8"))
             if isinstance(payload, dict):
-                metrics_thresholds = _extract_threshold_params(payload)
+                metrics_thresholds_raw = _extract_threshold_params(payload)
+                metrics_thresholds, metrics_invalid_keys = _sanitize_threshold_params(metrics_thresholds_raw)
         except (json.JSONDecodeError, OSError):
             metrics_thresholds = {}
 
@@ -1132,7 +1176,17 @@ def _resolve_canonical_threshold_params(
         ),
         "fallback_used": bool(missing),
         "fallback_reason": "" if not missing else f"missing_threshold_keys:{','.join(missing)}",
+        "strategy_invalid_keys": strategy_invalid_keys,
+        "metrics_invalid_keys": metrics_invalid_keys,
     }
+    if strategy_invalid_keys:
+        metadata["fallback_used"] = True
+        reason = f"invalid_strategy_threshold_keys:{','.join(strategy_invalid_keys)}"
+        metadata["fallback_reason"] = f"{metadata['fallback_reason']}; {reason}".strip("; ")
+    if metrics_invalid_keys:
+        metadata["fallback_used"] = True
+        reason = f"invalid_metrics_threshold_keys:{','.join(metrics_invalid_keys)}"
+        metadata["fallback_reason"] = f"{metadata['fallback_reason']}; {reason}".strip("; ")
     return canonical, metadata
 
 
@@ -1640,6 +1694,7 @@ def main() -> None:
     if canonical_bet_log_date:
         selection_metadata["bet_log_latest_date_in_file"] = canonical_bet_log_date
     consistency_issues: List[str] = list(bet_log_source_issues)
+    data_warnings: List[str] = []
 
     if bet_log_path:
         bet_log_rows = load_bet_log(bet_log_path)
@@ -1685,6 +1740,20 @@ def main() -> None:
 
     snapshot_as_of_date = as_of_date
     combined_source_file = combined_path.name
+    bet_log_latest_date_raw = selection_metadata.get("bet_log_latest_date_in_file")
+    if isinstance(bet_log_latest_date_raw, str) and as_of_date != "—":
+        try:
+            bet_log_latest_dt = datetime.strptime(bet_log_latest_date_raw, DATE_FMT)
+            snapshot_dt = datetime.strptime(as_of_date, DATE_FMT)
+            day_gap = (snapshot_dt - bet_log_latest_dt).days
+            if day_gap > 14:
+                data_warnings.append(
+                    f"bet_log appears stale versus snapshot ({day_gap} days behind: {bet_log_latest_date_raw} vs {as_of_date})"
+                )
+        except ValueError:
+            data_warnings.append(
+                f"bet_log_latest_date_in_file is not parseable as {DATE_FMT}: {bet_log_latest_date_raw}"
+            )
 
     # ----------------------------
     # Load versioned params (shared strategy module)
@@ -1757,6 +1826,16 @@ def main() -> None:
         selection_metadata["fallback_used"] = True
         selection_metadata["fallback_reason"] = (
             f"{selection_metadata.get('fallback_reason')}; {params_resolution['fallback_reason']}".strip("; ")
+        )
+    metrics_invalid_keys = params_resolution.get("metrics_invalid_keys") or []
+    strategy_invalid_keys = params_resolution.get("strategy_invalid_keys") or []
+    if metrics_invalid_keys:
+        data_warnings.append(
+            f"ignored invalid metrics snapshot thresholds: {','.join(metrics_invalid_keys)}"
+        )
+    if strategy_invalid_keys:
+        data_warnings.append(
+            f"ignored invalid strategy thresholds: {','.join(strategy_invalid_keys)}"
         )
 
     expected_active_params = {
@@ -1932,6 +2011,7 @@ def main() -> None:
         "local_matched_parse_error": local_matched_parse_error,
         "data_consistency_status": data_consistency_status,
         "data_consistency_issues": consistency_issues,
+        "data_warnings": data_warnings,
         "combined_source_file": combined_source_file,
         "local_matched_source_file": _label_path(local_matched_games_path),
         "bet_log_source_file": _metadata_path(bet_log_path),
@@ -2136,6 +2216,7 @@ def main() -> None:
         "windowEnd": window_end_label,
         "dataConsistencyStatus": data_consistency_status,
         "dataConsistencyIssues": consistency_issues,
+        "dataWarnings": data_warnings,
         "sources": {
             "combined": _label_path(combined_path),
             "local_matched": _label_path(local_matched_games_path),
