@@ -117,10 +117,11 @@ const Index = () => {
     const load = async () => {
       setFetchStarted(true);
       try {
-        const [summaryRes, tablesRes, lastRunRes] = await Promise.all([
+        const [summaryRes, tablesRes, lastRunRes, dashboardStateRes] = await Promise.all([
           fetch(`${baseUrl}data/summary.json`),
           fetch(`${baseUrl}data/tables.json`),
           fetch(`${baseUrl}data/last_run.json`),
+          fetch(`${baseUrl}data/dashboard_state.json`),
         ]);
 
         if (!summaryRes.ok || !tablesRes.ok) {
@@ -130,6 +131,7 @@ const Index = () => {
         const summaryJson = (await summaryRes.json()) as Record<string, any>;
         const tablesJson = (await tablesRes.json()) as TablesPayload;
         const lastRunJson = lastRunRes.ok ? ((await lastRunRes.json()) as Record<string, any>) : null;
+        const dashboardStateJson = dashboardStateRes.ok ? ((await dashboardStateRes.json()) as DashboardState) : null;
 
         const normalizedPayload = {
           as_of_date: summaryJson.as_of_date ?? summaryJson.asOfDate ?? "—",
@@ -144,7 +146,7 @@ const Index = () => {
           tables: tablesJson,
           last_run: lastRunJson,
         } as DashboardPayload;
-        const normalizedState = {
+        const fallbackState = {
           as_of_date: normalizedPayload.as_of_date,
           window_size: normalizedPayload.window.size,
           window_start: normalizedPayload.window.start,
@@ -162,6 +164,7 @@ const Index = () => {
           data_consistency_status: "ok",
           data_consistency_issues: [],
         } as DashboardState;
+        const normalizedState = dashboardStateJson ?? fallbackState;
 
         if (alive) {
           setPayload(normalizedPayload);
@@ -712,17 +715,12 @@ const Index = () => {
             )}
             {!activeParamsComplete && (
               <p className="text-xs text-amber-300">
-                Warning: active_params is missing or incomplete in dashboard_state.json; strategy-filter and today-status displays are unavailable.
+                Warning: active_params is missing or incomplete in dashboard_state.json; strategy filters and Today Status displays are unavailable.
               </p>
             )}
             {activeParamsComplete && !activeParamsEconomicallyMeaningful && (
               <p className="text-xs text-amber-300">
-                Warning: active_params values are outside expected ranges; strategy-filter and today-status displays are disabled.
-              </p>
-            )}
-            {activeParamsComplete && !activeParamsEconomicallyMeaningful && (
-              <p className="text-xs text-amber-300">
-                Warning: active_params values are outside expected ranges; strategy-filter and today-status displays are disabled.
+                Warning: active_params values are outside expected ranges; strategy filters and Today Status displays are disabled.
               </p>
             )}
             <div className="text-foreground">Params source: {paramsSourceLabel}</div>
