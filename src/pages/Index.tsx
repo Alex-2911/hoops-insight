@@ -117,10 +117,11 @@ const Index = () => {
     const load = async () => {
       setFetchStarted(true);
       try {
-        const [summaryRes, tablesRes, lastRunRes] = await Promise.all([
+        const [summaryRes, tablesRes, lastRunRes, dashboardStateRes] = await Promise.all([
           fetch(`${baseUrl}data/summary.json`),
           fetch(`${baseUrl}data/tables.json`),
           fetch(`${baseUrl}data/last_run.json`),
+          fetch(`${baseUrl}data/dashboard_state.json`),
         ]);
 
         if (!summaryRes.ok || !tablesRes.ok) {
@@ -130,6 +131,7 @@ const Index = () => {
         const summaryJson = (await summaryRes.json()) as Record<string, any>;
         const tablesJson = (await tablesRes.json()) as TablesPayload;
         const lastRunJson = lastRunRes.ok ? ((await lastRunRes.json()) as Record<string, any>) : null;
+        const dashboardStateJson = dashboardStateRes.ok ? ((await dashboardStateRes.json()) as DashboardState) : null;
 
         const normalizedPayload = {
           as_of_date: summaryJson.as_of_date ?? summaryJson.asOfDate ?? "—",
@@ -144,7 +146,7 @@ const Index = () => {
           tables: tablesJson,
           last_run: lastRunJson,
         } as DashboardPayload;
-        const normalizedState = {
+        const fallbackState = {
           as_of_date: normalizedPayload.as_of_date,
           window_size: normalizedPayload.window.size,
           window_start: normalizedPayload.window.start,
@@ -162,6 +164,7 @@ const Index = () => {
           data_consistency_status: "ok",
           data_consistency_issues: [],
         } as DashboardState;
+        const normalizedState = dashboardStateJson ?? fallbackState;
 
         if (alive) {
           setPayload(normalizedPayload);
