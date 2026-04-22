@@ -715,12 +715,12 @@ const Index = () => {
             )}
             {!activeParamsComplete && (
               <p className="text-xs text-amber-300">
-                Warning: active_params is missing or incomplete in dashboard_state.json; strategy filters and Today Status displays are unavailable.
+                Warning: active_params is missing or incomplete in dashboard_state.json; strategy-filter and Today Status displays are unavailable.
               </p>
             )}
             {activeParamsComplete && !activeParamsEconomicallyMeaningful && (
               <p className="text-xs text-amber-300">
-                Warning: active_params values are outside expected ranges; strategy filters and Today Status displays are disabled.
+                Warning: active_params values are outside expected ranges; strategy-filter and Today Status displays are disabled.
               </p>
             )}
             <div className="text-foreground">Params source: {paramsSourceLabel}</div>
