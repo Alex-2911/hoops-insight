@@ -485,9 +485,14 @@ const Index = () => {
     homeWinRateMin !== null && oddsMin !== null && oddsMax !== null && probThreshold !== null && minEv !== null
       ? `Fallback (HW ≥ ${fmtNumber(homeWinRateMin, 2)} • odds ${fmtNumber(oddsMin, 2)}–${fmtNumber(oddsMax, 2)} • p ≥ ${fmtNumber(probThreshold, 2)} • EV ≥ ${fmtNumber(minEv, 2)})`
       : "Fallback (threshold details unavailable)";
+  const noBetModeActive = [dashboardState?.params_source_type, dashboardState?.params_used, dashboardState?.fallback_reason]
+    .filter((value): value is string => typeof value === "string")
+    .some((value) => value.toUpperCase().includes("NO_BET"));
 
   const paramsUsedDisplay = fallbackUsed
-    ? fallbackDetailsLabel
+    ? noBetModeActive
+      ? "No-bet mode active (stability gate)"
+      : fallbackDetailsLabel
     : `Params used: ${dashboardState?.params_used ?? paramsUsedLabel}`;
 
   const oddsRangeLabel =
@@ -592,11 +597,20 @@ const Index = () => {
     kpis.max_drawdown_eur !== null ? fmtCurrencyEUR(kpis.max_drawdown_eur as number, 0) : "—";
 
   const liveStrategyLabel = "none";
+  const formatSourceLabel = (value: string | null | undefined) => {
+    if (!value || typeof value !== "string") return "—";
+    const normalized = value.trim();
+    if (!normalized) return "—";
+    const parts = normalized.split(/[\\/]/).filter(Boolean);
+    return parts.length > 0 ? parts[parts.length - 1] : normalized;
+  };
   const historicalFilterSource =
     dashboardState?.metrics_snapshot_source_file ??
     dashboardState?.strategy_params_source_file ??
     dashboardState?.params_source_label ??
     "strategy_params.json";
+  const historicalFilterSourceDisplay = formatSourceLabel(historicalFilterSource);
+  const paramsSourceDisplay = formatSourceLabel(paramsSourceLabel);
 
   const todayShortlist = (payload?.last_run as any)?.today_shortlist;
   const todayQualifyingGamesCountRaw = (payload?.last_run as any)?.qualifying_games_today;
@@ -664,7 +678,7 @@ const Index = () => {
           <p className="text-sm text-muted-foreground">Run: {windowEndLabel}</p>
           <p className="text-sm text-muted-foreground">Window: {windowSize} games</p>
           <p className="text-sm text-muted-foreground">Live strategy: {liveStrategyLabel}</p>
-          <p className="text-sm text-muted-foreground">Historical filter source: {historicalFilterSource}</p>
+          <p className="text-sm text-muted-foreground">Historical filter source: {historicalFilterSourceDisplay}</p>
         </div>
       </section>
 
@@ -706,11 +720,13 @@ const Index = () => {
               <div className="text-foreground">{activeFiltersDisplay}</div>
             </div>
             <div className="text-foreground">Live strategy: {liveStrategyLabel}</div>
-            <div className="text-foreground">Historical filter source: {historicalFilterSource}</div>
+            <div className="text-foreground">Historical filter source: {historicalFilterSourceDisplay}</div>
             <div className="text-foreground">{paramsUsedDisplay}</div>
             {fallbackUsed && (
               <p className="text-xs text-amber-300">
-                Fallback historical filters are active because strategy parameters could not be loaded from the preferred source.
+                {noBetModeActive
+                  ? "No-bet mode is active due to the stability gate; thresholds are shown for transparency."
+                  : "Fallback historical filters are active because strategy parameters could not be loaded from the preferred source."}
               </p>
             )}
             {!activeParamsComplete && (
@@ -723,7 +739,7 @@ const Index = () => {
                 Warning: active_params values are outside expected ranges; strategy-filter and Today Status displays are disabled.
               </p>
             )}
-            <div className="text-foreground">Params source: {paramsSourceLabel}</div>
+            <div className="text-foreground">Params source: {paramsSourceDisplay}</div>
             {strategyParamsParseStatus === "parse_error" && (
               <p className="text-xs text-red-300">
                 strategy_params.json was found but could not be parsed. Defaults were applied. Error: {strategyParamsParseError ?? "unknown"}
