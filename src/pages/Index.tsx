@@ -10,13 +10,40 @@ import { Target, TrendingUp, Activity, BarChart3, Info } from "lucide-react";
 import { fmtCurrencyEUR, fmtNumber, fmtPercent, formatSigned } from "@/lib/format";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
+type ActualBetRow = {
+  bet_id: string;
+  bet_date: string;
+  game_date: string;
+  league: string;
+  home_team: string;
+  away_team: string;
+  selection: string;
+  market: string;
+  bet_type: string;
+  line: string;
+  odds: string;
+  stake_eur: string;
+  payout_eur: string;
+  pnl_eur: string;
+  status: string;
+  bookmaker: string;
+  source: string;
+  canonical_decision: string;
+  stage2_label: string;
+  model_note: string;
+  user_note: string;
+  screenshot_ref: string;
+};
+
 const Index = () => {
+  const [activeTab, setActiveTab] = useState<"overview" | "actual-bets">("overview");
   const [payload, setPayload] = useState<DashboardPayload | null>(null);
   const [dashboardState, setDashboardState] = useState<DashboardState | null>(null);
   const [localMatchedLatestRows, setLocalMatchedLatestRows] = useState<LocalMatchedGameRow[]>([]);
   const [tablesFallback, setTablesFallback] = useState<TablesPayload | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [actualBetsRows, setActualBetsRows] = useState<ActualBetRow[]>([]);
   const [fetchStarted, setFetchStarted] = useState(false);
   const baseUrl = import.meta.env.BASE_URL ?? "/";
   const staleMessage = dashboardState?.last_update_utc
@@ -111,6 +138,21 @@ const Index = () => {
     }, []);
   };
 
+  const parseActualBetsCsv = (csvText: string): ActualBetRow[] => {
+    const trimmed = csvText.trim();
+    if (!trimmed) return [];
+    const lines = trimmed.split(/\r?\n/).filter(Boolean);
+    if (lines.length < 2) return [];
+    const headers = lines[0].split(",").map((header) => header.replace(/^\uFEFF/, "").trim());
+    const rows = lines.slice(1).map((line) => line.split(","));
+    return rows.map((columns) =>
+      headers.reduce<Record<string, string>>((acc, header, index) => {
+        acc[header] = columns[index]?.trim() ?? "";
+        return acc;
+      }, {}) as ActualBetRow,
+    );
+  };
+
   useEffect(() => {
     let alive = true;
 
@@ -186,6 +228,12 @@ const Index = () => {
             const parsedRows = parseLocalMatchedCsv(localMatchedText);
             if (parsedRows.length > 0) setLocalMatchedLatestRows(parsedRows);
           }
+        }
+
+        const actualBetsRes = await fetch(`${baseUrl}data/actual_bets_manual.csv`);
+        if (alive && actualBetsRes.ok) {
+          const actualBetsText = await actualBetsRes.text();
+          setActualBetsRows(parseActualBetsCsv(actualBetsText));
         }
 
       } catch (err) {
@@ -640,6 +688,24 @@ const Index = () => {
       }));
   }, [homeWinRatesLast20, homeWinRatesWindow]);
 
+  const actualBetsRowsSorted = useMemo(
+    () => [...actualBetsRows].sort((a, b) => `${b.bet_date}${b.bet_id}`.localeCompare(`${a.bet_date}${a.bet_id}`)),
+    [actualBetsRows],
+  );
+  const parseNumeric = (value: string) => {
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+  const actualSettledRows = actualBetsRows.filter((row) => ["Won", "Lost", "Void", "Cashout"].includes(row.status));
+  const pendingBets = actualBetsRows.filter((row) => row.status === "Pending").length;
+  const totalStake = actualBetsRows.reduce((acc, row) => acc + (parseNumeric(row.stake_eur) ?? 0), 0);
+  const totalPnl = actualBetsRows.reduce((acc, row) => acc + (parseNumeric(row.pnl_eur) ?? 0), 0);
+  const settledStakeForRoi = actualSettledRows.reduce((acc, row) => acc + (parseNumeric(row.stake_eur) ?? 0), 0);
+  const roiPct = settledStakeForRoi > 0 ? (totalPnl / settledStakeForRoi) * 100 : 0;
+  const wonCount = actualBetsRows.filter((row) => row.status === "Won").length;
+  const lostCount = actualBetsRows.filter((row) => row.status === "Lost").length;
+  const winRatePct = wonCount + lostCount > 0 ? (wonCount / (wonCount + lostCount)) * 100 : 0;
+
 
   if (isLoading && !payload && !dashboardState) {
     return (
@@ -681,6 +747,46 @@ const Index = () => {
           <p className="text-sm text-muted-foreground">Historical filter source: {historicalFilterSourceDisplay}</p>
         </div>
       </section>
+      <section className="container mx-auto px-4 py-4">
+        <div className="glass-card p-3">
+          <div className="flex gap-2">
+            <button className={`rounded px-3 py-1 text-sm ${activeTab === "overview" ? "bg-primary text-primary-foreground" : "bg-muted"}`} onClick={() => setActiveTab("overview")}>Overview</button>
+            <button className={`rounded px-3 py-1 text-sm ${activeTab === "actual-bets" ? "bg-primary text-primary-foreground" : "bg-muted"}`} onClick={() => setActiveTab("actual-bets")}>Actual Bets</button>
+          </div>
+        </div>
+      </section>
+      {activeTab === "actual-bets" ? (
+        <section className="container mx-auto px-4 py-6">
+          <div className="mb-6">
+            <h2 className="text-2xl font-bold">Actual Bets</h2>
+            <p className="text-sm text-muted-foreground">Manual betting log from public/data/actual_bets_manual.csv only.</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <StatCard title="Total bets" value={`${actualBetsRows.length}`} icon={<Target className="w-6 h-6" />} />
+            <StatCard title="Settled bets" value={`${actualSettledRows.length}`} subtitle={`Pending: ${pendingBets}`} icon={<Activity className="w-6 h-6" />} />
+            <StatCard title="Total stake / PnL" value={fmtCurrencyEUR(totalStake, 2)} subtitle={`P/L: ${formatSigned(totalPnl)}`} icon={<TrendingUp className="w-6 h-6" />} />
+            <StatCard title="ROI / Win rate" value={`${fmtPercent(roiPct, 2)} / ${fmtPercent(winRatePct, 2)}`} icon={<BarChart3 className="w-6 h-6" />} />
+          </div>
+          <div className="glass-card p-6 overflow-x-auto">
+            {actualBetsRowsSorted.length === 0 ? (
+              <div className="rounded-lg border border-border p-4 text-sm text-muted-foreground">
+                No manual bets logged yet. Add rows to public/data/actual_bets_manual.csv.
+              </div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead><tr className="text-left border-b border-border"><th className="py-2 pr-4">Bet date</th><th className="py-2 pr-4">Game</th><th className="py-2 pr-4">Selection</th><th className="py-2 pr-4">Market</th><th className="py-2 pr-4">Odds</th><th className="py-2 pr-4">Stake</th><th className="py-2 pr-4">PnL</th><th className="py-2 pr-4">Status</th><th className="py-2 pr-4">Note</th></tr></thead>
+                <tbody>
+                  {actualBetsRowsSorted.map((row) => {
+                    const statusClass = row.status === "Won" ? "text-emerald-400" : row.status === "Lost" ? "text-red-400" : "text-muted-foreground";
+                    return <tr key={row.bet_id} className="border-b border-border/50"><td className="py-2 pr-4">{row.bet_date}</td><td className="py-2 pr-4">{row.away_team} @ {row.home_team}</td><td className="py-2 pr-4">{row.selection}</td><td className="py-2 pr-4">{row.market}</td><td className="py-2 pr-4">{row.odds || "—"}</td><td className="py-2 pr-4">{row.stake_eur ? fmtCurrencyEUR(parseNumeric(row.stake_eur) ?? 0, 2) : "—"}</td><td className="py-2 pr-4">{row.pnl_eur ? formatSigned(parseNumeric(row.pnl_eur) ?? 0) : "—"}</td><td className={`py-2 pr-4 font-medium ${statusClass}`}>{row.status || "—"}</td><td className="py-2 pr-4">{row.user_note || row.model_note || "—"}</td></tr>;
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </section>
+      ) : (
+        <>
 
       {/* Today status */}
       <section className="container mx-auto px-4 py-6">
@@ -1140,6 +1246,8 @@ const Index = () => {
           subset, and real placed bets.
         </p>
       </section>
+      </>
+      )}
     </>
   );
 };
