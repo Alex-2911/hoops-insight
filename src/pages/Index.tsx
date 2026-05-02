@@ -525,6 +525,14 @@ const Index = () => {
   const paramsSourceLabel = dashboardState?.params_source_label ?? "strategy_params.json";
   const dataConsistencyStatus = dashboardState?.data_consistency_status ?? "ok";
   const dataConsistencyIssues = dashboardState?.data_consistency_issues ?? [];
+  const normalizedConsistencyIssues = dataConsistencyIssues.map((issue) => issue.toLowerCase());
+  const hasBetLogStaleIssue = normalizedConsistencyIssues.some(
+    (issue) => issue.includes("bet_log") && issue.includes("stale"),
+  );
+  const hasNonBetLogConsistencyIssue = normalizedConsistencyIssues.some(
+    (issue) => !(issue.includes("bet_log") && issue.includes("stale")),
+  );
+  const legacyBetLogOnlyIssue = hasBetLogStaleIssue && !hasNonBetLogConsistencyIssue;
   const strategyParamsParseStatus = dashboardState?.strategy_params_parse_status ?? "ok";
   const strategyParamsParseError = dashboardState?.strategy_params_parse_error;
   const fallbackUsed = Boolean(dashboardState?.fallback_used);
@@ -853,7 +861,11 @@ const Index = () => {
             )}
             {dataConsistencyStatus !== "ok" && (
               <div className="rounded border border-red-400/50 bg-red-500/10 p-2 text-xs text-red-200">
-                <p className="font-semibold">Dashboard data sources are out of sync.</p>
+                <p className="font-semibold">
+                  {legacyBetLogOnlyIssue
+                    ? "Legacy bet_log source is stale versus snapshot."
+                    : "Dashboard data sources are out of sync."}
+                </p>
                 <ul className="list-disc pl-4">
                   {dataConsistencyIssues.length > 0 ? (
                     dataConsistencyIssues.map((issue) => <li key={issue}>{issue}</li>)
@@ -861,6 +873,11 @@ const Index = () => {
                     <li>combined_latest.csv and local_matched_games_latest.csv refer to different snapshots.</li>
                   )}
                 </ul>
+                {hasBetLogStaleIssue && (
+                  <p className="mt-2">
+                    Manual Actual Bets are tracked separately in <code>actual_bets_manual.csv</code>.
+                  </p>
+                )}
               </div>
             )}
             <p>Parameters are shown for transparency only. No live strategy selection or optimization is applied.</p>
