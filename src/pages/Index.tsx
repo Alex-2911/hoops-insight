@@ -145,9 +145,17 @@ const Index = () => {
     if (lines.length < 2) return [];
     const headers = lines[0].split(",").map((header) => header.replace(/^\uFEFF/, "").trim());
     const rows = lines.slice(1).map((line) => line.split(","));
+    const sanitizeCsvCell = (value: string) => {
+      const trimmed = value.trim();
+      const withoutWrappingQuotes =
+        trimmed.startsWith("\"") && trimmed.endsWith("\"") && trimmed.length >= 2
+          ? trimmed.slice(1, -1)
+          : trimmed;
+      return withoutWrappingQuotes.replace(/""/g, "\"");
+    };
     return rows.map((columns) =>
       headers.reduce<Record<string, string>>((acc, header, index) => {
-        acc[header] = columns[index]?.trim() ?? "";
+        acc[header] = sanitizeCsvCell(columns[index] ?? "");
         return acc;
       }, {}) as ActualBetRow,
     );
