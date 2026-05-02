@@ -145,9 +145,17 @@ const Index = () => {
     if (lines.length < 2) return [];
     const headers = lines[0].split(",").map((header) => header.replace(/^\uFEFF/, "").trim());
     const rows = lines.slice(1).map((line) => line.split(","));
+    const sanitizeCsvCell = (value: string) => {
+      const trimmed = value.trim();
+      const withoutWrappingQuotes =
+        trimmed.startsWith("\"") && trimmed.endsWith("\"") && trimmed.length >= 2
+          ? trimmed.slice(1, -1)
+          : trimmed;
+      return withoutWrappingQuotes.replace(/""/g, "\"");
+    };
     return rows.map((columns) =>
       headers.reduce<Record<string, string>>((acc, header, index) => {
-        acc[header] = columns[index]?.trim() ?? "";
+        acc[header] = sanitizeCsvCell(columns[index] ?? "");
         return acc;
       }, {}) as ActualBetRow,
     );
@@ -525,6 +533,14 @@ const Index = () => {
   const paramsSourceLabel = dashboardState?.params_source_label ?? "strategy_params.json";
   const dataConsistencyStatus = dashboardState?.data_consistency_status ?? "ok";
   const dataConsistencyIssues = dashboardState?.data_consistency_issues ?? [];
+  const normalizedConsistencyIssues = dataConsistencyIssues.map((issue) => issue.toLowerCase());
+  const hasBetLogStaleIssue = normalizedConsistencyIssues.some(
+    (issue) => issue.includes("bet_log") && issue.includes("stale"),
+  );
+  const hasNonBetLogConsistencyIssue = normalizedConsistencyIssues.some(
+    (issue) => !(issue.includes("bet_log") && issue.includes("stale")),
+  );
+  const legacyBetLogOnlyIssue = hasBetLogStaleIssue && !hasNonBetLogConsistencyIssue;
   const strategyParamsParseStatus = dashboardState?.strategy_params_parse_status ?? "ok";
   const strategyParamsParseError = dashboardState?.strategy_params_parse_error;
   const fallbackUsed = Boolean(dashboardState?.fallback_used);
@@ -853,7 +869,11 @@ const Index = () => {
             )}
             {dataConsistencyStatus !== "ok" && (
               <div className="rounded border border-red-400/50 bg-red-500/10 p-2 text-xs text-red-200">
-                <p className="font-semibold">Dashboard data sources are out of sync.</p>
+                <p className="font-semibold">
+                  {legacyBetLogOnlyIssue
+                    ? "Legacy bet_log source is stale versus snapshot."
+                    : "Dashboard data sources are out of sync."}
+                </p>
                 <ul className="list-disc pl-4">
                   {dataConsistencyIssues.length > 0 ? (
                     dataConsistencyIssues.map((issue) => <li key={issue}>{issue}</li>)
@@ -861,6 +881,11 @@ const Index = () => {
                     <li>combined_latest.csv and local_matched_games_latest.csv refer to different snapshots.</li>
                   )}
                 </ul>
+                {hasBetLogStaleIssue && (
+                  <p className="mt-2">
+                    Manual Actual Bets are tracked separately in <code>actual_bets_manual.csv</code>.
+                  </p>
+                )}
               </div>
             )}
             <p>Parameters are shown for transparency only. No live strategy selection or optimization is applied.</p>
@@ -1082,8 +1107,45 @@ const Index = () => {
       {/* Placed bets overview */}
       <section className="container mx-auto px-4 py-10">
         <div className="mb-6">
-          <h2 className="text-2xl font-bold">Placed Bets (Real)</h2>
+          <h2 className="text-2xl font-bold">Manual Actual Bets</h2>
+          <p className="text-sm text-muted-foreground">Source: actual_bets_manual.csv (manual real-bet log).</p>
+        </div>
+
+        <div className="glass-card p-6 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <StatCard title="Total manual bets" value={`${actualBetsRows.length}`} icon={<Target className="w-6 h-6" />} />
+            <StatCard title="Settled / Pending" value={`${actualSettledRows.length} / ${pendingBets}`} icon={<Activity className="w-6 h-6" />} />
+            <StatCard title="Manual stake / PnL" value={fmtCurrencyEUR(totalStake, 2)} subtitle={`P/L: ${formatSigned(totalPnl)}`} icon={<TrendingUp className="w-6 h-6" />} />
+            <StatCard title="Manual ROI / Win rate" value={`${fmtPercent(roiPct, 2)} / ${fmtPercent(winRatePct, 2)}`} icon={<BarChart3 className="w-6 h-6" />} />
+          </div>
+          {actualBetsRowsSorted.length === 0 ? (
+            <div className="rounded-lg border border-border p-4 text-sm text-muted-foreground">
+              No manual bets logged yet.
+            </div>
+          ) : (
+            <div className="rounded-lg border border-border p-4 text-sm">
+              <div className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">Latest manual bet</div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <div><span className="text-muted-foreground">Bet date:</span> {actualBetsRowsSorted[0].bet_date || "—"}</div>
+                <div><span className="text-muted-foreground">Game:</span> {actualBetsRowsSorted[0].away_team} @ {actualBetsRowsSorted[0].home_team}</div>
+                <div><span className="text-muted-foreground">Selection:</span> {actualBetsRowsSorted[0].selection || "—"}</div>
+                <div><span className="text-muted-foreground">Market:</span> {actualBetsRowsSorted[0].market || "—"}</div>
+                <div><span className="text-muted-foreground">Odds:</span> {actualBetsRowsSorted[0].odds || "—"}</div>
+                <div><span className="text-muted-foreground">Stake:</span> {actualBetsRowsSorted[0].stake_eur ? fmtCurrencyEUR(parseNumeric(actualBetsRowsSorted[0].stake_eur) ?? 0, 2) : "—"}</div>
+                <div><span className="text-muted-foreground">PnL:</span> {actualBetsRowsSorted[0].pnl_eur ? formatSigned(parseNumeric(actualBetsRowsSorted[0].pnl_eur) ?? 0) : "—"}</div>
+                <div><span className="text-muted-foreground">Status:</span> {actualBetsRowsSorted[0].status || "—"}</div>
+                <div className="md:col-span-2"><span className="text-muted-foreground">Note:</span> {actualBetsRowsSorted[0].user_note || actualBetsRowsSorted[0].model_note || "—"}</div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold">Legacy Live Bet Log</h2>
           <p className="text-sm text-muted-foreground">Source: {betLogFlatSource} (settled only).</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            This legacy bet_log_flat_live.csv source is separate from the manual Actual Bets log.
+          </p>
           <p className="text-xs text-muted-foreground mt-1">Real bets (settled via combined_*)</p>
           <p className="text-xs text-muted-foreground">Actually placed &amp; settled bets only</p>
         </div>
