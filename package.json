@@ -14,7 +14,7 @@
     "validate:parity": "node scripts/validate_dashboard_state.mjs public/data",
     "check:bot-readiness": "node scripts/check_bot_readiness.mjs",
     "agent:serve": "node scripts/serve_agent_api.mjs",
-    "agent:test": "curl -i -X POST ${AGENT_API_URL:-http://localhost:8787/api/agent} -H \"Content-Type: application/json\" -d '{\"question\":\"who is playing today?\",\"capability\":\"read_only\",\"context\":{}}'"
+    "agent:test": "curl -i -X POST ${AGENT_API_URL:-http://localhost:5173/api/agent} -H \"Content-Type: application/json\" -d '{\"question\":\"who is playing today?\",\"capability\":\"read_only\",\"context\":{}}'"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

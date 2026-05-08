@@ -1,7 +1,7 @@
 import http from "http";
 import { agentJsonHeaders, buildAgentResponse, methodNotAllowedBody } from "../api/agent_core.mjs";
 
-const port = Number.parseInt(process.env.PORT || process.env.AGENT_API_PORT || "8787", 10);
+const port = Number.parseInt(process.env.PORT || process.env.AGENT_API_PORT || "5173", 10);
 
 const sendJson = (response, status, payload) => {
   response.writeHead(status, agentJsonHeaders);

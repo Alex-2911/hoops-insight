@@ -15,6 +15,14 @@ type AgentMessage = {
   content: string;
 };
 
+type AgentResponse = {
+  answer?: string;
+  reply?: string;
+  error?: string;
+  used_sources?: string[];
+  warnings?: string[];
+};
+
 type ActualBetRow = {
   bet_id: string;
   bet_date: string;
@@ -780,13 +788,26 @@ const Index = () => {
           messages: nextMessages.slice(-8),
         }),
       });
-      const data = (await response.json().catch(() => ({}))) as { answer?: string; reply?: string; error?: string; warnings?: string[] };
-      if (!response.ok) {
-        throw new Error(data.error || `Agent endpoint returned ${response.status}`);
+      const rawResponse = await response.text();
+      let data: AgentResponse = {};
+      if (rawResponse.trim()) {
+        try {
+          data = JSON.parse(rawResponse) as AgentResponse;
+        } catch {
+          data = {
+            error: `Agent endpoint returned non-JSON response (${response.status}).`,
+            warnings: [rawResponse.slice(0, 240)],
+          };
+        }
       }
+      if (!response.ok) {
+        const warningDetail = data.warnings?.length ? ` ${data.warnings.join(" ")}` : "";
+        throw new Error(data.error || data.answer || `Agent endpoint returned ${response.status}.${warningDetail}`);
+      }
+      const warningText = data.warnings?.length ? `\n\nWarnings:\n- ${data.warnings.join("\n- ")}` : "";
       setAgentMessages((current) => [
         ...current,
-        { role: "assistant", content: data.answer || data.reply || "No agent response was returned." },
+        { role: "assistant", content: `${data.answer || data.reply || "No agent response was returned."}${warningText}` },
       ]);
       setAgentStatus("idle");
     } catch (err) {

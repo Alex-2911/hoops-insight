@@ -155,12 +155,12 @@ AGENT_API_URL="https://your-agent.example.com/api/agent" npm run agent:test
 Equivalent raw curl command:
 
 ```sh
-curl -i -X POST http://localhost:8787/api/agent \
+curl -i -X POST http://localhost:5173/api/agent \
   -H "Content-Type: application/json" \
   -d '{"question":"who is playing today?","capability":"read_only","context":{}}'
 ```
 
-The same `/api/agent` route is also mounted in local `npm run dev` and `npm run preview` via the Vite middleware.
+The same `/api/agent` route is also mounted in local `npm run dev` and `npm run preview` via the Vite middleware. The default local API test URL is `http://localhost:5173/api/agent`.
 
 ## Pipeline runner (path-agnostic)
 
