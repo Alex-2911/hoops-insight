@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { StatCard } from "@/components/cards/StatCard";
 import type {
   DashboardPayload,
@@ -9,6 +9,11 @@ import type {
 import { Target, TrendingUp, Activity, BarChart3, Info } from "lucide-react";
 import { fmtCurrencyEUR, fmtNumber, fmtPercent, formatSigned } from "@/lib/format";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
+type AgentMessage = {
+  role: "user" | "assistant";
+  content: string;
+};
 
 type ActualBetRow = {
   bet_id: string;
@@ -36,7 +41,7 @@ type ActualBetRow = {
 };
 
 const Index = () => {
-  const [activeTab, setActiveTab] = useState<"overview" | "actual-bets">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "actual-bets" | "agent-chat">("overview");
   const [payload, setPayload] = useState<DashboardPayload | null>(null);
   const [dashboardState, setDashboardState] = useState<DashboardState | null>(null);
   const [localMatchedLatestRows, setLocalMatchedLatestRows] = useState<LocalMatchedGameRow[]>([]);
@@ -45,10 +50,21 @@ const Index = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [actualBetsRows, setActualBetsRows] = useState<ActualBetRow[]>([]);
   const [fetchStarted, setFetchStarted] = useState(false);
+  const [agentMessages, setAgentMessages] = useState<AgentMessage[]>([
+    {
+      role: "assistant",
+      content:
+        "Ask about dashboard freshness, current filters, simulated matches, or manual bets. I will use the loaded dashboard context only.",
+    },
+  ]);
+  const [agentInput, setAgentInput] = useState("");
+  const [agentStatus, setAgentStatus] = useState<"idle" | "sending" | "error">("idle");
+  const [agentError, setAgentError] = useState<string | null>(null);
   const baseUrl = import.meta.env.BASE_URL ?? "/";
   const staleMessage = dashboardState?.last_update_utc
     ? `Last update: ${dashboardState.last_update_utc}`
     : null;
+  const agentEndpoint = import.meta.env.VITE_HOOPS_AGENT_API_URL ?? "/api/agent";
 
 
   const parseLocalMatchedCsv = (csvText: string): LocalMatchedGameRow[] => {
@@ -708,6 +724,84 @@ const Index = () => {
     () => [...actualBetsRows].sort((a, b) => `${b.bet_date}${b.bet_id}`.localeCompare(`${a.bet_date}${a.bet_id}`)),
     [actualBetsRows],
   );
+
+  const agentDashboardContext = useMemo(
+    () => ({
+      as_of_date: summaryAsOfDate,
+      window_end: windowEndLabel,
+      window_size: windowSize,
+      active_filters: activeFiltersDisplay,
+      data_consistency_status: dataConsistencyStatus,
+      data_consistency_issues: dataConsistencyIssues,
+      sources: dashboardState?.sources ?? null,
+      summary_stats: summaryStats,
+      strategy_summary: strategySummary,
+      kpis,
+      local_matched_games_count: localMatchedDisplayCount,
+      manual_actual_bets_count: actualBetsRows.length,
+      latest_manual_bet: actualBetsRowsSorted[0] ?? null,
+    }),
+    [
+      activeFiltersDisplay,
+      actualBetsRows.length,
+      actualBetsRowsSorted,
+      dashboardState?.sources,
+      dataConsistencyIssues,
+      dataConsistencyStatus,
+      kpis,
+      localMatchedDisplayCount,
+      strategySummary,
+      summaryAsOfDate,
+      summaryStats,
+      windowEndLabel,
+      windowSize,
+    ],
+  );
+
+  const handleAgentSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const message = agentInput.trim();
+    if (!message || agentStatus === "sending") return;
+
+    const nextMessages: AgentMessage[] = [...agentMessages, { role: "user", content: message }];
+    setAgentMessages(nextMessages);
+    setAgentInput("");
+    setAgentStatus("sending");
+    setAgentError(null);
+
+    try {
+      const response = await fetch(agentEndpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          question: message,
+          capability: "read_only",
+          context: agentDashboardContext,
+          messages: nextMessages.slice(-8),
+        }),
+      });
+      const data = (await response.json().catch(() => ({}))) as { answer?: string; reply?: string; error?: string; warnings?: string[] };
+      if (!response.ok) {
+        throw new Error(data.error || `Agent endpoint returned ${response.status}`);
+      }
+      setAgentMessages((current) => [
+        ...current,
+        { role: "assistant", content: data.answer || data.reply || "No agent response was returned." },
+      ]);
+      setAgentStatus("idle");
+    } catch (err) {
+      const messageText = err instanceof Error ? err.message : "Agent request failed.";
+      setAgentError(messageText);
+      setAgentStatus("error");
+      setAgentMessages((current) => [
+        ...current,
+        {
+          role: "assistant",
+          content: `Agent backend unavailable: ${messageText}`,
+        },
+      ]);
+    }
+  };
   const parseNumeric = (value: string) => {
     const parsed = Number.parseFloat(value);
     return Number.isFinite(parsed) ? parsed : null;
@@ -768,10 +862,60 @@ const Index = () => {
           <div className="flex gap-2">
             <button className={`rounded px-3 py-1 text-sm ${activeTab === "overview" ? "bg-primary text-primary-foreground" : "bg-muted"}`} onClick={() => setActiveTab("overview")}>Overview</button>
             <button className={`rounded px-3 py-1 text-sm ${activeTab === "actual-bets" ? "bg-primary text-primary-foreground" : "bg-muted"}`} onClick={() => setActiveTab("actual-bets")}>Actual Bets</button>
+            <button className={`rounded px-3 py-1 text-sm ${activeTab === "agent-chat" ? "bg-primary text-primary-foreground" : "bg-muted"}`} onClick={() => setActiveTab("agent-chat")}>Agent Chat</button>
           </div>
         </div>
       </section>
-      {activeTab === "actual-bets" ? (
+      {activeTab === "agent-chat" ? (
+        <section className="container mx-auto px-4 py-6">
+          <div className="mb-6">
+            <h2 className="text-2xl font-bold">Agent Chat</h2>
+            <p className="text-sm text-muted-foreground">
+              Backend endpoint: <code>{agentEndpoint}</code>. The agent only receives a compact dashboard context and the
+              last few chat messages.
+            </p>
+          </div>
+
+          <div className="glass-card p-6">
+            <div className="mb-4 rounded-lg border border-amber-400/40 bg-amber-500/10 p-3 text-xs text-amber-100">
+              Use this as a dashboard explanation assistant, not as autonomous betting approval. Refresh the Basketball_prediction
+              data first before relying on live recommendations.
+            </div>
+            <div className="mb-4 max-h-96 space-y-3 overflow-y-auto rounded-lg border border-border p-4">
+              {agentMessages.map((message, index) => (
+                <div
+                  key={`${message.role}-${index}`}
+                  className={`rounded-lg p-3 text-sm ${
+                    message.role === "user" ? "ml-auto bg-primary text-primary-foreground" : "mr-auto bg-muted"
+                  } max-w-3xl`}
+                >
+                  <div className="mb-1 text-xs font-semibold uppercase tracking-wide opacity-70">
+                    {message.role === "user" ? "You" : "Agent"}
+                  </div>
+                  <p className="whitespace-pre-wrap">{message.content}</p>
+                </div>
+              ))}
+            </div>
+            {agentError && <p className="mb-3 text-sm text-red-400">{agentError}</p>}
+            <form className="flex flex-col gap-3 md:flex-row" onSubmit={handleAgentSubmit}>
+              <input
+                className="min-h-11 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={agentInput}
+                onChange={(event) => setAgentInput(event.target.value)}
+                placeholder="Ask about stale data, filters, ROI, matched games..."
+                disabled={agentStatus === "sending"}
+              />
+              <button
+                className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
+                type="submit"
+                disabled={agentStatus === "sending" || !agentInput.trim()}
+              >
+                {agentStatus === "sending" ? "Sending..." : "Send"}
+              </button>
+            </form>
+          </div>
+        </section>
+      ) : activeTab === "actual-bets" ? (
         <section className="container mx-auto px-4 py-6">
           <div className="mb-6">
             <h2 className="text-2xl font-bold">Actual Bets</h2>
