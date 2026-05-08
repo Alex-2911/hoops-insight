@@ -46,5 +46,6 @@ Before marking the bots live-ready:
 1. Run `npm run check:bot-readiness` and review any missing artifacts or stale dates.
 2. Run `node scripts/check_bot_readiness.mjs --strict` in pre-deploy automation when the Basketball_prediction artifacts are expected to be present.
 3. Configure either `HOOPS_AGENT_API_URL` for an external agent backend or `OPENAI_API_KEY`/`HOOPS_AGENT_MODEL` for the bundled `/api/agent` serverless endpoint.
-4. If the agent backend is hosted outside this deployment, build the frontend with `VITE_HOOPS_AGENT_API_URL` pointing at that service.
-5. Re-run `npm run validate:parity` after fresh `combined_latest.csv` and `local_matched_games_latest.csv` are synced.
+4. If deploying to a static-only host such as GitHub Pages, deploy the agent backend separately and build the frontend with `VITE_HOOPS_AGENT_API_URL` pointing at that service.
+5. Verify `POST /api/agent` with `npm run agent:test` against the deployed backend URL equivalent; it must return JSON with `answer`, `used_sources`, and `warnings`.
+6. Re-run `npm run validate:parity` after fresh `combined_latest.csv` and `local_matched_games_latest.csv` are synced.

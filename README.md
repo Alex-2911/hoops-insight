@@ -100,7 +100,7 @@ python3 scripts/generate_dashboard_data.py \
 
 ## Agent Chat backend
 
-The dashboard includes an **Agent Chat** tab that posts dashboard context to an agent endpoint. In production the frontend defaults to `/api/agent`, which is implemented by `api/agent.ts` for Vercel-style serverless deployments.
+The dashboard includes an **Agent Chat** tab that posts dashboard context to an agent endpoint. The frontend defaults to `/api/agent`. Local Vite dev/preview serves that route through middleware, and `api/agent.ts` implements the same route for Vercel-style serverless deployments. Static-only hosts such as GitHub Pages still need `VITE_HOOPS_AGENT_API_URL` pointing at a separately deployed backend.
 
 Configure one of these backend options before treating the bot as live-ready:
 
@@ -114,7 +114,7 @@ For a separately hosted agent service, point the frontend at it with:
 VITE_HOOPS_AGENT_API_URL="https://your-agent.example.com/api/agent" npm run build
 ```
 
-If neither `HOOPS_AGENT_API_URL` nor `OPENAI_API_KEY` is configured, the chat UI will render but requests return a configuration error instead of a model response.
+If neither `HOOPS_AGENT_API_URL` nor `OPENAI_API_KEY` is configured, `/api/agent` still accepts POST and returns a helpful readiness/mock JSON response instead of a 405 or HTML error. The response shape is always `{ "answer": "...", "used_sources": [], "warnings": [] }`.
 
 ## Bot readiness check
 
@@ -131,6 +131,36 @@ node scripts/check_bot_readiness.mjs --strict
 ```
 
 The check verifies dashboard JSON/CSV presence, stale `as_of_date`, optional Basketball_prediction artifacts, and agent backend configuration. It does not generate fresh predictions; run the Basketball_prediction pipeline first, then regenerate Hoops Insight data with `npm run gen:data`.
+
+### Local Agent API smoke test
+
+Run the standalone local Agent API server:
+
+```sh
+npm run agent:serve
+```
+
+Then, in another terminal, verify POST `/api/agent`:
+
+```sh
+npm run agent:test
+```
+
+To point the same smoke test at a deployed backend, set `AGENT_API_URL`:
+
+```sh
+AGENT_API_URL="https://your-agent.example.com/api/agent" npm run agent:test
+```
+
+Equivalent raw curl command:
+
+```sh
+curl -i -X POST http://localhost:5173/api/agent \
+  -H "Content-Type: application/json" \
+  -d '{"question":"who is playing today?","capability":"read_only","context":{}}'
+```
+
+The same `/api/agent` route is also mounted in local `npm run dev` and `npm run preview` via the Vite middleware. The default local API test URL is `http://localhost:5173/api/agent`.
 
 ## Pipeline runner (path-agnostic)
 
