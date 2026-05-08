@@ -11,7 +11,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "node --test",
-    "validate:parity": "node scripts/validate_dashboard_state.mjs public/data"
+    "validate:parity": "node scripts/validate_dashboard_state.mjs public/data",
+    "check:bot-readiness": "node scripts/check_bot_readiness.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

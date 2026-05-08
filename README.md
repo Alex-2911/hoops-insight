@@ -97,6 +97,41 @@ python3 scripts/generate_dashboard_data.py \
   --combined-path public/data/combined_nba_predictions_iso_2025-01-05.csv
 ```
 
+
+## Agent Chat backend
+
+The dashboard includes an **Agent Chat** tab that posts dashboard context to an agent endpoint. In production the frontend defaults to `/api/agent`, which is implemented by `api/agent.ts` for Vercel-style serverless deployments.
+
+Configure one of these backend options before treating the bot as live-ready:
+
+- `HOOPS_AGENT_API_URL`: proxy `/api/agent` to an existing hosted LLM/backend endpoint.
+- `OPENAI_API_KEY`: let `/api/agent` call the OpenAI Responses API directly.
+- `HOOPS_AGENT_MODEL`: optional model override when using `OPENAI_API_KEY`.
+
+For a separately hosted agent service, point the frontend at it with:
+
+```sh
+VITE_HOOPS_AGENT_API_URL="https://your-agent.example.com/api/agent" npm run build
+```
+
+If neither `HOOPS_AGENT_API_URL` nor `OPENAI_API_KEY` is configured, the chat UI will render but requests return a configuration error instead of a model response.
+
+## Bot readiness check
+
+Run the readiness report before live use:
+
+```sh
+npm run check:bot-readiness
+```
+
+Use strict mode in CI or pre-deploy checks:
+
+```sh
+node scripts/check_bot_readiness.mjs --strict
+```
+
+The check verifies dashboard JSON/CSV presence, stale `as_of_date`, optional Basketball_prediction artifacts, and agent backend configuration. It does not generate fresh predictions; run the Basketball_prediction pipeline first, then regenerate Hoops Insight data with `npm run gen:data`.
+
 ## Pipeline runner (path-agnostic)
 
 Use the repo script to run the full pipeline, export dashboard data, and preview the app.
