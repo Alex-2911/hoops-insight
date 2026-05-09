@@ -32,7 +32,7 @@ const makeReadinessAnswer = ({ question, context }) => {
   return {
     answer: [
       "Agent backend is reachable and accepting POST requests, but no LLM provider is configured yet.",
-      "Set HOOPS_AGENT_API_URL to proxy an existing read-only agent service, or set OPENAI_API_KEY for the bundled serverless agent.",
+      "Set HOOPS_AGENT_API_URL to proxy an existing read-only agent service, or set OPENAI_API_KEY for the bundled Agents SDK workflow.",
       `I received your question: “${question || "(empty question)"}”.`,
       `Dashboard as_of_date from the supplied context: ${asOfDate}.`,
       "I cannot place bets, run shell commands, or guarantee betting outcomes.",
@@ -45,50 +45,23 @@ const makeReadinessAnswer = ({ question, context }) => {
   };
 };
 
-const buildSystemPrompt = ({ context, capability }) => `You are the Hoops Insight dashboard agent.
-Capability: ${capability}. You are read-only: do not place bets, do not instruct users to place bets, and do not claim certainty.
-Use only the dashboard context supplied by the app. Be concise and call out stale or missing data.
-If asked who is playing today, answer only from the supplied context; if not present, say the backend needs fresh Basketball_prediction data.
-Return useful plain text.
-Dashboard context JSON:
-${JSON.stringify(context ?? {}, null, 2)}`;
+const buildWorkflowInput = ({ question, context, messages }) => [
+  `User question: ${question}`,
+  `Dashboard context: ${JSON.stringify(context, null, 2)}`,
+  `Recent messages: ${JSON.stringify(messages ?? [], null, 2)}`,
+].join("\n\n");
 
-const callOpenAI = async ({ question, capability, context, messages }) => {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return null;
+const callBundledWorkflow = async (payload, workflowRunner) => {
+  if (!process.env.OPENAI_API_KEY || process.env.HOOPS_AGENT_API_URL) return null;
 
-  const model = process.env.HOOPS_AGENT_MODEL || "gpt-4.1-mini";
-  const input = [
-    { role: "system", content: buildSystemPrompt({ context, capability }) },
-    ...messages,
-    { role: "user", content: question },
-  ];
-
-  const response = await fetch("https://api.openai.com/v1/responses", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ model, input }),
+  const runWorkflow = workflowRunner ?? (await import("./hoops_insight_betting_agent_workflow.mjs")).runWorkflow;
+  const { output_text } = await runWorkflow({
+    input_as_text: buildWorkflowInput(payload),
   });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const error = data?.error?.message || `OpenAI request failed with ${response.status}`;
-    throw new Error(error);
-  }
-
-  const answer =
-    data.output_text ||
-    data.output
-      ?.flatMap((item) => item.content ?? [])
-      ?.map((content) => content.text ?? "")
-      ?.join("\n")
-      ?.trim();
 
   return {
-    answer: answer || "No response text was returned by the model.",
-    used_sources: ["dashboard_context", "openai_responses_api"],
+    answer: String(output_text || "No response text was returned by the Hoops Insight Betting Agent workflow."),
+    used_sources: ["dashboard context", "Hoops Insight Betting Agent workflow"],
     warnings: [],
   };
 };
@@ -116,7 +89,7 @@ const proxyAgent = async (payload) => {
 
 export const agentJsonHeaders = JSON_HEADERS;
 
-export const buildAgentResponse = async (rawBody = {}) => {
+export const buildAgentResponse = async (rawBody = {}, options = {}) => {
   const payload = normalizeBody(rawBody);
 
   if (!payload.question) {
@@ -143,7 +116,9 @@ export const buildAgentResponse = async (rawBody = {}) => {
     };
   }
 
-  const answer = (await proxyAgent(payload)) ?? (await callOpenAI(payload)) ?? makeReadinessAnswer(payload);
+  const answer = (await proxyAgent(payload))
+    ?? (await callBundledWorkflow(payload, options.runWorkflow))
+    ?? makeReadinessAnswer(payload);
   return { status: 200, body: answer };
 };
 

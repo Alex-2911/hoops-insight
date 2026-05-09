@@ -105,8 +105,8 @@ The dashboard includes an **Agent Chat** tab that posts dashboard context to an 
 Configure one of these backend options before treating the bot as live-ready:
 
 - `HOOPS_AGENT_API_URL`: proxy `/api/agent` to an existing hosted LLM/backend endpoint.
-- `OPENAI_API_KEY`: let `/api/agent` call the OpenAI Responses API directly.
-- `HOOPS_AGENT_MODEL`: optional model override when using `OPENAI_API_KEY`.
+- `OPENAI_API_KEY`: let `/api/agent` call the bundled backend-only Hoops Insight Betting Agent workflow through the OpenAI Agents SDK.
+- `HOOPS_AGENT_MODEL`: optional Agents SDK model override when using `OPENAI_API_KEY`.
 
 For a separately hosted agent service, point the frontend at it with:
 
