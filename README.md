@@ -114,7 +114,17 @@ For a separately hosted agent service, point the frontend at it with:
 VITE_HOOPS_AGENT_API_URL="https://your-agent.example.com/api/agent" npm run build
 ```
 
-If neither `HOOPS_AGENT_API_URL` nor `OPENAI_API_KEY` is configured, `/api/agent` still accepts POST and returns a helpful readiness/mock JSON response instead of a 405 or HTML error. The response shape is always `{ "answer": "...", "used_sources": [], "warnings": [] }`.
+### Static deployment behavior
+
+A static-only deployment such as GitHub Pages cannot run `api/agent.ts`, so a browser POST to the default `/api/agent` path can return `405 Method Not Allowed` (or another static-host error). That means the backend route is missing on that deployment; it does **not** mean the Agent Chat UI or dashboard data is broken.
+
+Use one of these modes for a real deployed bot:
+
+- **GitHub Pages/static hosting:** deploy the agent backend separately, then build with `VITE_HOOPS_AGENT_API_URL="https://your-agent-backend.example.com/api/agent"`.
+- **Vercel/Netlify/serverless hosting:** deploy the repo with serverless support so `api/agent.ts` is available at `/api/agent`.
+- **Local testing:** run `npm run agent:serve`, then run `npm run agent:test` in another terminal.
+
+If neither `HOOPS_AGENT_API_URL` nor `OPENAI_API_KEY` is configured on a server that actually serves `/api/agent`, the route still accepts POST and returns a helpful readiness/mock JSON response instead of a 405 or HTML error. The response shape is always `{ "answer": "...", "used_sources": [], "warnings": [] }`.
 
 ## Bot readiness check
 
