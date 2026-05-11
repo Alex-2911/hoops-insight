@@ -282,6 +282,129 @@ describe("agent backend response contract", () => {
     }
   });
 
+  it("keeps the CLE EV-exception profitability question as a golden no-bet eval", async () => {
+    const oldOpenAIKey = process.env.OPENAI_API_KEY;
+    const oldAgentUrl = process.env.HOOPS_AGENT_API_URL;
+    process.env.OPENAI_API_KEY = "test-key";
+    delete process.env.HOOPS_AGENT_API_URL;
+
+    try {
+      let workflowInput = "";
+      const result = await buildAgentResponse(
+        {
+          question: "Why is CLE vs DET not a bet if the EV-exception setup is profitable?",
+          capability: "read_only",
+          context: {
+            current_date: "2026-05-11",
+            today_decision_context: {
+              run_date: "2026-05-11",
+              engine_state: "NO_BET",
+              live_strategy: "none",
+              canonical_model_signals: { label: "Canonical: none", canonical_count: 0 },
+              live_candidates: [
+                {
+                  game: "CLE vs DET",
+                  home_team: "CLE",
+                  away_team: "DET",
+                  odds_1: 1.6,
+                  odds_2: 2.4,
+                  raw_probability: 0.44,
+                  prob_used: 0.575,
+                  live_ev_per_100: -7.95,
+                  kelly: -0.132,
+                  stake: 0,
+                  blocked_by: "min_ev",
+                  canonical_signal: false,
+                  candidate_type: "LOW_PRICE_NEGATIVE_EV",
+                  break_even_probability: 0.625,
+                  edge_vs_break_even: -0.05,
+                  current_price_supported: false,
+                },
+              ],
+              ev_exception_summary: {
+                classification: "historical_support_only",
+                is_betting_signal: false,
+                recommendation_label: "watch-only",
+                summary: {
+                  n: 71,
+                  wins: 44,
+                  win_rate: 0.62,
+                  avg_odds: 2.13,
+                  profit_100_flat: 1976,
+                  roi_pct: 27.8,
+                },
+                price_adjusted: {
+                  current_odds: 1.6,
+                  current_prob_used: 0.575,
+                  current_ev_eur_per_100: -7.95,
+                  current_kelly: -0.132,
+                  current_stake_eur: 0,
+                  break_even_probability: 0.625,
+                  current_prob_minus_break_even: -0.05,
+                  supports_play: false,
+                  classification: "watch-only",
+                },
+              },
+              price_adjusted_warning:
+                "Broad historical EV-exception group is profitable at avg odds 2.13, but today's price 1.60 requires 62.5% break-even. Current prob_used is 57.5%; Kelly is -0.132. Treat as watch-only, not a bet.",
+              decision_labels: {
+                main_decision: "NO_BET",
+                canonical: false,
+                canonical_label: "Canonical: none",
+                setup_profitability: "historical support only",
+                near_miss: true,
+                vibe_live_watch: true,
+                no_bet_reason: "current price does not clear break-even; EV/Kelly negative",
+                steadivus_note: "Good skip / no forced action.",
+              },
+            },
+          },
+        },
+        {
+          runWorkflow: async ({ input_as_text }) => {
+            workflowInput = input_as_text;
+            return {
+              output_text:
+                "CLE vs DET is watch-only / near-miss. The broad historical ROI is supportive context only and does not override today's price. Odds 1.60 require 62.5% break-even, while prob_used is 57.5%. EV -7.95 and Kelly -0.132 are negative, so there is no stake and no bet.",
+            };
+          },
+        },
+      );
+
+      assert.equal(result.status, 200);
+      assert.match(workflowInput, /Why is CLE vs DET not a bet/);
+      assert.match(workflowInput, /"game": "CLE vs DET"/);
+      assert.match(workflowInput, /"odds_1": 1\.6/);
+      assert.match(workflowInput, /"prob_used": 0\.575/);
+      assert.match(workflowInput, /"live_ev_per_100": -7\.95/);
+      assert.match(workflowInput, /"kelly": -0\.132/);
+      assert.match(workflowInput, /"break_even_probability": 0\.625/);
+      assert.match(workflowInput, /"classification": "historical_support_only"/);
+
+      const answer = result.body.answer;
+      assert.match(answer, /Main decision: NO_BET/);
+      assert.match(answer, /Canonical: none/);
+      assert.match(answer, /Setup profitability: historical support only/);
+      assert.match(answer, /CLE vs DET is watch-only \/ near-miss/);
+      assert.match(answer, /broad historical ROI .*does not override today's price/i);
+      assert.match(answer, /Odds 1\.60 require 62\.5% break-even/);
+      assert.match(answer, /prob_used is 57\.5%/);
+      assert.match(answer, /EV -7\.95 and Kelly -0\.132 are negative/);
+      assert.match(answer, /no stake and no bet/);
+      assert.match(answer, /Steadivus: Good skip \/ no forced action/);
+      assert.doesNotMatch(answer, /\bcanonical bet\b/i);
+      assert.doesNotMatch(answer, /\brecommend(?:ed|s)? a bet\b/i);
+      assert.doesNotMatch(answer, /\bbroad historical ROI is enough\b/i);
+      assert.deepEqual(result.body.used_sources, ["dashboard context", "Hoops Insight Betting Agent workflow"]);
+      assert.deepEqual(result.body.warnings, []);
+    } finally {
+      if (oldOpenAIKey === undefined) delete process.env.OPENAI_API_KEY;
+      else process.env.OPENAI_API_KEY = oldOpenAIKey;
+      if (oldAgentUrl === undefined) delete process.env.HOOPS_AGENT_API_URL;
+      else process.env.HOOPS_AGENT_API_URL = oldAgentUrl;
+    }
+  });
+
   it("defines CORS and JSON method-not-allowed response", () => {
     assert.equal(agentJsonHeaders["Access-Control-Allow-Methods"], "POST, OPTIONS");
     assert.equal(methodNotAllowedBody.answer, "");
