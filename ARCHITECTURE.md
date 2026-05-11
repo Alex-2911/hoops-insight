@@ -1,38 +1,69 @@
-# Architecture Documentation
+# Architecture
 
 ## Overview
-This document provides a comprehensive overview of the architecture for the Hoops Insight project. It details the components, their interactions, and the rationale behind the architectural decisions made during development.
 
-## Components
-1. **Frontend**  
-   - Technology: React.js  
-   - Description: The user interface of the application, responsible for rendering pages, handling user interactions and making API calls.
+Hoops Insight is a local-first Vite + React dashboard for reviewing historical basketball prediction and betting artifacts. The app does not own prediction generation. It reads precomputed JSON and CSV files from `public/data` that are exported from the Basketball_prediction pipeline.
 
-2. **Backend**  
-   - Technology: Node.js with Express  
-   - Description: The server-side logic of the application, managing requests, handling business logic, and interacting with the database.
+## Runtime Components
 
-3. **Database**  
-   - Technology: MongoDB  
-   - Description: Used for storing user data, application state, and any other structured information required by the application.
+### Frontend
 
-4. **API**  
-   - Technology: RESTful services  
-   - Description: Exposes endpoints for CRUD operations on the data. The frontend communicates with this layer to retrieve and manipulate data.
+- Stack: Vite, React, TypeScript, Tailwind CSS, shadcn-ui.
+- Entry point: `src/main.tsx`.
+- Main dashboard: `src/pages/Index.tsx`.
+- Shared payload types: `src/data/dashboardTypes.ts`.
 
-## Architecture Diagram
-![Architecture Diagram](link-to-architecture-diagram)
+The frontend fetches dashboard artifacts from `/data/*.json` and `/data/*.csv` at runtime. Vite serves these files from `public/data` in local dev, preview, and production builds.
 
-## Interaction Flow
-1. User interacts with the Frontend.  
-2. Frontend sends requests to the Backend via API calls.  
-3. Backend processes the request and interacts with the Database if necessary.  
-4. Backend sends the response back to the Frontend, which updates the UI accordingly.
+### Data Export
 
-## Rationale
-- **Scalability**: Each component is designed to be independent, allowing for scaling depending on the needs.  
-- **Maintainability**: Using modular structures makes it easier to maintain and update the system.  
-- **Performance**: Asynchronous operations in the Backend and Frontend help in optimizing the performance of the application.
+- Main exporter: `scripts/generate_dashboard_data.py`.
+- Config: `hoops_insight_config.toml`.
+- Validation scripts:
+  - `scripts/validate_dashboard_payload.py`
+  - `scripts/validate_dashboard_state.mjs`
+  - `scripts/check_bot_readiness.mjs`
 
-## Conclusion
-The architecture of Hoops Insight is designed to facilitate a robust, scalable, and maintainable application that can evolve as user needs change.
+The exporter reads Basketball_prediction outputs, normalizes them into dashboard-ready files, and writes canonical artifacts such as:
+
+- `public/data/dashboard_payload.json`
+- `public/data/dashboard_state.json`
+- `public/data/tables.json`
+- `public/data/summary.json`
+- `public/data/local_matched_games_latest.csv`
+
+### Agent API
+
+- Shared core: `api/agent_core.mjs`.
+- Serverless route: `api/agent.ts`.
+- Local Vite middleware/server: `scripts/serve_agent_api.mjs`.
+
+The dashboard's Agent Chat posts read-only dashboard context to `/api/agent` by default. In local Vite dev and preview, middleware serves the route. In Vercel-style deployments, `api/agent.ts` serves the same contract. Static-only deployments must point `VITE_HOOPS_AGENT_API_URL` to a separately hosted backend.
+
+The agent endpoint runs in readiness/mock mode unless either `HOOPS_AGENT_API_URL` or `OPENAI_API_KEY` is configured.
+
+## Data Flow
+
+1. The Basketball_prediction pipeline produces source prediction, strategy, and bet-log artifacts.
+2. `scripts/generate_dashboard_data.py` reads those artifacts using `hoops_insight_config.toml` and optional environment overrides.
+3. The exporter writes dashboard artifacts into `public/data`.
+4. The React app fetches those files from `/data`.
+5. Optional Agent Chat requests send loaded dashboard context to `/api/agent`.
+
+## Deployment Shape
+
+Vite copies `public/` into `dist/` during `npm run build`, so successful builds include the generated dashboard artifacts under `dist/data`. Deployment workflows should regenerate or sync fresh `public/data` artifacts before building.
+
+## Health Checks
+
+Use these commands before treating the dashboard as ready:
+
+```sh
+npm test
+npm run lint
+npm run build
+npm run check:bot-readiness
+npm run validate:parity
+```
+
+`check:bot-readiness` is the best single readiness gate because it checks data freshness, required files, optional pipeline artifacts, and agent backend configuration.

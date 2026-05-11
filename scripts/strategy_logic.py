@@ -104,7 +104,25 @@ def load_strategy_params(path: Path | None) -> StrategyParams:
     if path is None or not path.exists():
         return StrategyParams(version=SUPPORTED_VERSION, params=DEFAULT_PARAMS.copy(), source="defaults")
 
-    payload = json.loads(path.read_text(encoding="utf-8"))
+    if path.suffix.lower() == ".txt":
+        payload: Dict[str, Any] = {"version": SUPPORTED_VERSION, "params": {}}
+        params: Dict[str, Any] = {}
+        for raw_line in path.read_text(encoding="utf-8").splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#") or ":" not in line:
+                continue
+            key, value = line.split(":", 1)
+            normalized_key = _normalize_key(key)
+            if normalized_key == "prob_threshold_used":
+                normalized_key = "prob_threshold"
+            if normalized_key == "min_ev_applied":
+                normalized_key = "min_ev"
+            coerced = _coerce_float(value.strip())
+            if coerced is not None:
+                params[normalized_key] = coerced
+        payload["params"] = params
+    else:
+        payload = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
         raise ValueError(f"Invalid strategy params format in {path}")
 

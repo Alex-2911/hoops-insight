@@ -13,6 +13,14 @@ export interface SummaryPayload {
   generated_at?: string;
   real_bets_available?: boolean;
   summary_stats: SummaryStats;
+  model?: {
+    calibration?: Partial<CalibrationMetrics> & {
+      asOfDate?: string;
+      actualWinPct?: number;
+      fittedGames?: number;
+    };
+    homeWinRatesLast20?: HomeWinRate[];
+  };
   kpis: {
     total_bets: number;
     win_rate: number;
@@ -31,6 +39,9 @@ export interface SummaryPayload {
     sharpeStyle: number | null;
     profitMetricsAvailable: boolean;
     asOfDate: string;
+  };
+  strategy?: {
+    roiPct?: number;
   };
   strategy_params: {
     source: string;
@@ -138,6 +149,8 @@ export interface LastRunPayload {
   run_timestamp?: string;
   active_filters?: string | null;
   active_filters_human?: string | null;
+  today_shortlist?: unknown[];
+  qualifying_games_today?: number;
   strategy_filter_stats?: {
     filters?: Array<{ label: string; count: number }>;
   };
@@ -235,6 +248,104 @@ export interface LocalMatchedGameRow {
   ev_eur_per_100: number;
   win: number;
   pnl: number;
+}
+
+export interface TodayGame {
+  date?: string | null;
+  home_team?: string | null;
+  away_team?: string | null;
+  home_team_prob?: number | null;
+  away_team_prob?: number | null;
+  prob_used?: number | null;
+  prob_base?: number | null;
+  prob_live_oos_proxy?: number | null;
+  prob_iso?: number | null;
+  market_implied_p_devig?: number | null;
+  model_market_gap?: number | null;
+  ev_live_eur_per_100?: number | null;
+  candidate_stake_eur?: number | null;
+  home_win_rate?: number | null;
+  home_wins?: number | null;
+  home_games?: number | null;
+  last20_games?: number | null;
+  hwr_source_file?: string | null;
+  hwr_source_label?: string | null;
+  hwr_window_label?: string | null;
+  home_odds?: number | null;
+  away_odds?: number | null;
+}
+
+export interface TodayGamesPayload {
+  as_of_date?: string | null;
+  source?: string | null;
+  games: TodayGame[];
+  qualifying_bets?: Array<Record<string, string>>;
+  local_matched_games?: Array<Record<string, string>>;
+  engine_state?: string | null;
+  canonical_model_signals?: {
+    engine_state?: string | null;
+    source_file?: string | null;
+    summary_file?: string | null;
+    canonical_count?: number;
+    canonical?: Array<Record<string, string>>;
+    current_rows?: Array<Record<string, string>>;
+    label?: string;
+  };
+  ev_exception_profitability?: {
+    label?: string;
+    classification?: string;
+    is_betting_signal?: boolean;
+    recommendation_label?: string;
+    warning?: string | null;
+    note?: string;
+    debug_csv?: string;
+    criteria?: Record<string, string | number | null>;
+    current_candidates?: Array<Record<string, string | number | null>>;
+    summary?: {
+      n?: number;
+      wins?: number;
+      losses?: number;
+      win_rate?: number | null;
+      avg_odds?: number | null;
+      profit_100_flat?: number;
+      roi_pct?: number | null;
+      avg_prob_used?: number | null;
+      avg_home_win_rate?: number | null;
+      window_start?: string | null;
+      window_end?: string | null;
+    };
+    price_adjusted?: {
+      label?: string;
+      odds_band?: Array<number | null>;
+      prob_used_band?: Array<number | null>;
+      hwr_source_file?: string | null;
+      hwr_source_label?: string | null;
+      hwr_window_label?: string | null;
+      current_odds?: number | null;
+      current_prob_used?: number | null;
+      current_ev_eur_per_100?: number | null;
+      current_kelly?: number | null;
+      current_stake_eur?: number | null;
+      break_even_probability?: number | null;
+      current_prob_minus_break_even?: number | null;
+      n?: number;
+      wins?: number;
+      losses?: number;
+      win_rate?: number | null;
+      avg_odds?: number | null;
+      profit_100_flat?: number;
+      roi_pct?: number | null;
+      win_rate_minus_break_even?: number | null;
+      supports_play?: boolean;
+      classification?: string;
+    };
+    matches?: Array<Record<string, string | number | null>>;
+  } | null;
+  setup_profitability?: {
+    summary?: Record<string, unknown> | null;
+    rows?: Array<Record<string, string>>;
+    matches?: Array<Record<string, string>>;
+  };
 }
 
 export interface BankrollSummary {

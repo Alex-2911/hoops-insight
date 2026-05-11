@@ -42,7 +42,7 @@ from strategy_logic import apply_strategy_filters, load_strategy_params as load_
 
 
 DATE_FMT = "%Y-%m-%d"
-CALIBRATION_WINDOW = 200
+CALIBRATION_WINDOW = int(os.environ.get("N_WINDOW", os.environ.get("DASHBOARD_WINDOW", "200")))
 DEFAULT_MAX_ODDS_FALLBACK = 3.2
 RISK_MIN_SAMPLE = 5
 REQUIRED_DASHBOARD_JSON = (
@@ -368,6 +368,507 @@ def _find_local_matched_games(lightgbm_dir: Path, as_of_date: Optional[str]) -> 
     return _find_latest_by_mtime(lightgbm_dir, "local_matched_games_*.csv")
 
 
+def _read_csv_dicts(path: Optional[Path], max_rows: int = 50) -> List[Dict[str, str]]:
+    if not path or not path.exists():
+        return []
+    rows: List[Dict[str, str]] = []
+    with path.open("r", encoding="utf-8", newline="") as handle:
+        reader = csv.DictReader(handle)
+        for row in reader:
+            rows.append({str(key): str(value) for key, value in row.items() if key is not None})
+            if len(rows) >= max_rows:
+                break
+    return rows
+
+
+def _write_csv_dicts(path: Path, rows: List[Dict[str, object]], fieldnames: List[str]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({field: row.get(field) for field in fieldnames})
+
+
+def _load_home_win_rates(path: Optional[Path]) -> Dict[str, Dict[str, object]]:
+    rates: Dict[str, Dict[str, object]] = {}
+    for row in _read_csv_dicts(path, max_rows=100):
+        team = _safe_team(row.get("") or row.get("team"))
+        if not team:
+            continue
+        source_label = "home_win_rates_sorted latest file: last 20 team games, home rows only"
+        rates[team] = {
+            "home_win_rate": _safe_float(row.get("Home Win Rate") or row.get("home_win_rate")),
+            "home_wins": _safe_float(row.get("Home Wins") or row.get("home_wins")),
+            "home_games": _safe_float(row.get("Total Home Games") or row.get("total_home_games")),
+            "last20_games": _safe_float(row.get("Total Last 20 Games") or row.get("total_last20_games")),
+            "hwr_source_file": path.name if path else None,
+            "hwr_source_label": source_label,
+            "hwr_window_label": "last 20 team games; home games only",
+        }
+    return rates
+
+
+def _read_json_object(path: Optional[Path]) -> Optional[Dict[str, object]]:
+    if not path or not path.exists():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _load_canonical_model_signals(lightgbm_dir: Path, run_date: Optional[str]) -> Dict[str, object]:
+    summary_path = lightgbm_dir / f"script11_watchlist_history_summary_{run_date}.json" if run_date else None
+    if summary_path and not summary_path.exists():
+        summary_path = lightgbm_dir / "script11_watchlist_history_summary_latest.json"
+    summary = _read_json_object(summary_path)
+
+    rows_path = lightgbm_dir / f"script11_watchlist_history_{run_date}.csv" if run_date else None
+    if rows_path and not rows_path.exists():
+        rows_path = lightgbm_dir / "script11_watchlist_history_latest.csv"
+
+    canonical_rows_all: List[Dict[str, str]] = []
+    current_canonical_rows: List[Dict[str, str]] = []
+    current_rows: List[Dict[str, str]] = []
+    for row in _read_csv_dicts(rows_path, max_rows=500):
+        is_current = str(row.get("date") or row.get("game_date") or "") == str(run_date)
+        if is_current:
+            current_rows.append(row)
+        if str(row.get("canonical_signal") or "").strip():
+            canonical_rows_all.append(row)
+            if is_current:
+                current_canonical_rows.append(row)
+
+    return {
+        "engine_state": (summary or {}).get("params_chosen") or None,
+        "source_file": rows_path.name if rows_path and rows_path.exists() else None,
+        "summary_file": summary_path.name if summary_path and summary_path.exists() else None,
+        "canonical_count": len(current_canonical_rows),
+        "canonical_total_count": len(canonical_rows_all),
+        "canonical": current_canonical_rows[:20],
+        "current_rows": current_rows[:20],
+        "label": "Canonical: none" if not current_canonical_rows else f"Canonical: {len(current_canonical_rows)}",
+    }
+
+
+def _resolve_live_lightgbm_dir(source_root: Optional[Path]) -> Optional[Path]:
+    env_dir = os.environ.get("LGBM_DIR")
+    if env_dir:
+        candidate = Path(env_dir).expanduser().resolve()
+        if candidate.exists():
+            return candidate
+    if source_root is None:
+        return None
+    candidate = source_root / "output" / "LightGBM"
+    if candidate.exists():
+        return candidate
+    candidate = source_root / "LightGBM"
+    return candidate if candidate.exists() else None
+
+
+def _build_today_games_payload(source_root: Optional[Path]) -> Dict[str, object]:
+    lightgbm_dir = _resolve_live_lightgbm_dir(source_root)
+    if lightgbm_dir is None:
+        return {
+            "as_of_date": None,
+            "source": None,
+            "games": [],
+            "qualifying_bets": [],
+            "local_matched_games": [],
+        }
+
+    predict_path = _find_latest_file(lightgbm_dir, "nba_games_predict")
+    run_date = _extract_date_from_name(predict_path.name) if predict_path else None
+    shortlist_path = lightgbm_dir / f"bet_shortlist_{run_date}.csv" if run_date else None
+    if shortlist_path and not shortlist_path.exists() and run_date:
+        shortlist_path = lightgbm_dir / f"flat_bet_shortlist_{run_date}.csv"
+    local_matched_path = lightgbm_dir / f"local_matched_games_{run_date}.csv" if run_date else None
+    home_win_rates_path = lightgbm_dir / f"home_win_rates_sorted_{run_date}.csv" if run_date else None
+    home_win_rates = _load_home_win_rates(home_win_rates_path)
+    setup_scan_path = lightgbm_dir / f"setup_profitability_scan_{run_date}.csv" if run_date else None
+    setup_scan_summary_path = lightgbm_dir / f"setup_profitability_scan_summary_{run_date}.json" if run_date else None
+    setup_scan_matches_path = lightgbm_dir / f"setup_profitability_scan_matches_{run_date}.csv" if run_date else None
+    qualifying_bets = _read_csv_dicts(shortlist_path, max_rows=20)
+    canonical_model_signals = _load_canonical_model_signals(lightgbm_dir, run_date)
+    qualifying_by_game = {
+        (
+            str(row.get("date") or ""),
+            _safe_team(row.get("home_team")) or "",
+            _safe_team(row.get("away_team")) or "",
+        ): row
+        for row in qualifying_bets
+    }
+
+    games = []
+    for row in _read_csv_dicts(predict_path, max_rows=40):
+        home_prob = _safe_float(row.get("home_team_prob"))
+        home_team = row.get("home_team")
+        away_team = row.get("away_team")
+        home_rate = home_win_rates.get(_safe_team(home_team) or "", {})
+        odds_1 = _safe_float(row.get("odds 1") or row.get("odds_1"))
+        odds_2 = _safe_float(row.get("odds 2") or row.get("odds_2"))
+        candidate = qualifying_by_game.get(
+            (
+                str(row.get("date") or ""),
+                _safe_team(home_team) or "",
+                _safe_team(away_team) or "",
+            ),
+            {},
+        )
+        prob_used = _safe_float(candidate.get("prob_used"))
+        games.append(
+            {
+                "date": row.get("date"),
+                "home_team": home_team,
+                "away_team": away_team,
+                "home_team_prob": home_prob,
+                "away_team_prob": 1 - home_prob if home_prob is not None else None,
+                "prob_used": prob_used,
+                "prob_base": _safe_float(candidate.get("prob_base")),
+                "prob_live_oos_proxy": _safe_float(candidate.get("prob_live_oos_proxy")),
+                "prob_iso": _safe_float(candidate.get("prob_iso")),
+                "market_implied_p_devig": _safe_float(candidate.get("market_implied_p_devig")),
+                "model_market_gap": _safe_float(candidate.get("model_market_gap")),
+                "ev_live_eur_per_100": _safe_float(candidate.get("EV_live_€_per_100") or candidate.get("EV_€_per_100")),
+                "candidate_stake_eur": _safe_float(candidate.get("stake_eur")),
+                "home_win_rate": home_rate.get("home_win_rate"),
+                "home_wins": home_rate.get("home_wins"),
+                "home_games": home_rate.get("home_games"),
+                "last20_games": home_rate.get("last20_games"),
+                "hwr_source_file": home_rate.get("hwr_source_file"),
+                "hwr_source_label": home_rate.get("hwr_source_label"),
+                "hwr_window_label": home_rate.get("hwr_window_label"),
+                "home_odds": odds_1,
+                "away_odds": odds_2,
+            }
+        )
+
+    return {
+        "as_of_date": run_date,
+        "source": predict_path.name if predict_path else None,
+        "engine_state": canonical_model_signals.get("engine_state"),
+        "canonical_model_signals": canonical_model_signals,
+        "games": games,
+        "qualifying_bets": qualifying_bets,
+        "local_matched_games": _read_csv_dicts(local_matched_path, max_rows=20),
+        "setup_profitability": {
+            "summary": _read_json_object(setup_scan_summary_path),
+            "rows": _read_csv_dicts(setup_scan_path, max_rows=20),
+            "matches": _read_csv_dicts(setup_scan_matches_path, max_rows=50),
+        },
+        "ev_exception_profitability": None,
+    }
+
+
+def _historical_rows_with_prior_home_rate(
+    rows: List[Dict[str, object]],
+    prior_home_games: int = 20,
+) -> List[Dict[str, object]]:
+    history: Dict[str, List[int]] = defaultdict(list)
+    output: List[Dict[str, object]] = []
+    for row in sorted(rows, key=lambda item: item["date"]):
+        home_team = row.get("home_team")
+        home_team_won = row.get("home_team_won")
+        if not isinstance(home_team, str) or home_team_won not in (0, 1):
+            continue
+        prior = history[home_team][-prior_home_games:]
+        prior_rate = _safe_div(sum(prior), len(prior)) if prior else None
+        enriched = dict(row)
+        enriched["prior_home_win_rate"] = prior_rate
+        enriched["prior_home_games"] = len(prior)
+        output.append(enriched)
+        history[home_team].append(int(home_team_won))
+    return output
+
+
+def _build_ev_exception_profitability(
+    today_payload: Dict[str, object],
+    played_rows: List[Dict[str, object]],
+    active_params: Dict[str, float],
+    window_start_dt: Optional[datetime],
+    window_end_dt: Optional[datetime],
+    output_dir: Path,
+) -> Optional[Dict[str, object]]:
+    qualifying_rows = today_payload.get("qualifying_bets")
+    if not isinstance(qualifying_rows, list):
+        return None
+
+    min_ev = float(active_params.get("min_ev", 0.0))
+    home_win_rate_min = float(active_params.get("home_win_rate_min", 0.0))
+    odds_min = float(active_params.get("odds_min", 1.0))
+    odds_max = float(active_params.get("odds_max", DEFAULT_MAX_ODDS_FALLBACK))
+    prob_threshold = float(active_params.get("prob_threshold", 0.5))
+
+    current_candidates: List[Dict[str, object]] = []
+    for row in qualifying_rows:
+        if not isinstance(row, dict):
+            continue
+        home_win_rate = _safe_float(row.get("home_win_rate"))
+        odds_1 = _safe_float(row.get("odds_1"))
+        prob_used = _safe_float(row.get("prob_used"))
+        ev = _safe_float(row.get("EV_live_€_per_100") or row.get("EV_€_per_100"))
+        if home_win_rate is None or odds_1 is None or prob_used is None or ev is None:
+            continue
+        passes_non_ev = (
+            home_win_rate >= home_win_rate_min
+            and odds_min <= odds_1 <= odds_max
+            and prob_used >= prob_threshold
+        )
+        if passes_non_ev and ev <= min_ev:
+            current_candidates.append(
+                {
+                    "date": row.get("date"),
+                    "home_team": row.get("home_team"),
+                    "away_team": row.get("away_team"),
+                    "home_win_rate": home_win_rate,
+                    "odds_1": odds_1,
+                    "odds_2": _safe_float(row.get("odds_2")),
+                    "home_team_prob": _safe_float(row.get("home_team_prob")),
+                    "prob_used": prob_used,
+                    "ev_eur_per_100": ev,
+                    "stake_eur": _safe_float(row.get("stake_eur")),
+                    "kelly_full": _safe_float(row.get("kelly_full")),
+                    "hwr_source_file": next(
+                        (
+                            game.get("hwr_source_file")
+                            for game in today_payload.get("games", [])
+                            if isinstance(game, dict)
+                            and game.get("date") == row.get("date")
+                            and _safe_team(game.get("home_team")) == _safe_team(row.get("home_team"))
+                            and _safe_team(game.get("away_team")) == _safe_team(row.get("away_team"))
+                        ),
+                        None,
+                    ),
+                    "hwr_source_label": next(
+                        (
+                            game.get("hwr_source_label")
+                            for game in today_payload.get("games", [])
+                            if isinstance(game, dict)
+                            and game.get("date") == row.get("date")
+                            and _safe_team(game.get("home_team")) == _safe_team(row.get("home_team"))
+                            and _safe_team(game.get("away_team")) == _safe_team(row.get("away_team"))
+                        ),
+                        None,
+                    ),
+                    "hwr_window_label": next(
+                        (
+                            game.get("hwr_window_label")
+                            for game in today_payload.get("games", [])
+                            if isinstance(game, dict)
+                            and game.get("date") == row.get("date")
+                            and _safe_team(game.get("home_team")) == _safe_team(row.get("home_team"))
+                            and _safe_team(game.get("away_team")) == _safe_team(row.get("away_team"))
+                        ),
+                        None,
+                    ),
+                    "blocked_by": "min_ev",
+                }
+            )
+
+    if not current_candidates:
+        return None
+
+    historical_rows = _historical_rows_with_prior_home_rate(played_rows)
+    matches: List[Dict[str, object]] = []
+    for row in historical_rows:
+        date_value = row.get("date")
+        if not isinstance(date_value, datetime):
+            continue
+        if window_start_dt and date_value < window_start_dt:
+            continue
+        if window_end_dt and date_value > window_end_dt:
+            continue
+
+        prior_home_win_rate = _safe_float(row.get("prior_home_win_rate"))
+        odds_home = _safe_float(row.get("odds_home"))
+        prob = _safe_float(row.get("prob_used")) or _safe_float(row.get("prob_iso")) or _safe_float(row.get("prob_raw"))
+        home_team_won = row.get("home_team_won")
+        if (
+            prior_home_win_rate is None
+            or odds_home is None
+            or prob is None
+            or home_team_won not in (0, 1)
+        ):
+            continue
+        if prior_home_win_rate < home_win_rate_min:
+            continue
+        if odds_home < odds_min or odds_home > odds_max:
+            continue
+        if prob < prob_threshold:
+            continue
+
+        pnl = (odds_home - 1.0) * 100.0 if int(home_team_won) == 1 else -100.0
+        matches.append(
+            {
+                "date": date_value.strftime(DATE_FMT),
+                "home_team": row.get("home_team"),
+                "away_team": row.get("away_team"),
+                "home_win_rate": prior_home_win_rate,
+                "home_team_prob": _safe_float(row.get("prob_raw")),
+                "prob_used": prob,
+                "EV_€_per_100": None,
+                "EV_live_€_per_100": None,
+                "odds_1": odds_home,
+                "home_team_won": int(home_team_won),
+                "win": int(home_team_won),
+                "home_ml_pnl_100": pnl,
+                "pnl_100": pnl,
+            }
+        )
+
+    n = len(matches)
+    wins = sum(1 for row in matches if row["win"] == 1)
+    profit = float(sum(float(row["pnl_100"]) for row in matches))
+    first_candidate = current_candidates[0] if current_candidates else {}
+    current_home_team = str(first_candidate.get("home_team") or "HOME")
+    current_away_team = str(first_candidate.get("away_team") or "AWAY")
+    current_date = str(first_candidate.get("date") or "unknown")
+    current_odds = _safe_float(first_candidate.get("odds_1"))
+    current_prob_used = _safe_float(first_candidate.get("prob_used"))
+    current_ev = _safe_float(first_candidate.get("ev_eur_per_100"))
+    current_kelly = _safe_float(first_candidate.get("kelly_full"))
+    current_stake = _safe_float(first_candidate.get("stake_eur"))
+
+    price_low = (current_odds - 0.10) if current_odds is not None else None
+    price_high = (current_odds + 0.10) if current_odds is not None else None
+    prob_low = max(0.0, current_prob_used - 0.05) if current_prob_used is not None else None
+    prob_high = min(1.0, current_prob_used + 0.05) if current_prob_used is not None else None
+    price_matches = [
+        row
+        for row in matches
+        if price_low is not None
+        and price_high is not None
+        and prob_low is not None
+        and prob_high is not None
+        and price_low <= float(row["odds_1"]) <= price_high
+        and prob_low <= float(row["prob_used"]) <= prob_high
+    ]
+    price_n = len(price_matches)
+    price_wins = sum(1 for row in price_matches if row["win"] == 1)
+    price_profit = float(sum(float(row["pnl_100"]) for row in price_matches))
+    break_even = (1.0 / current_odds) if current_odds else None
+    price_win_rate = _safe_div(price_wins, price_n) if price_n else None
+    win_rate_minus_break_even = (
+        price_win_rate - break_even
+        if price_win_rate is not None and break_even is not None
+        else None
+    )
+    current_prob_minus_break_even = (
+        current_prob_used - break_even
+        if current_prob_used is not None and break_even is not None
+        else None
+    )
+    price_adjusted_supports_play = bool(
+        price_n
+        and win_rate_minus_break_even is not None
+        and win_rate_minus_break_even > 0
+        and price_profit > 0
+        and (current_ev is None or current_ev > min_ev)
+        and (current_kelly is None or current_kelly > 0)
+        and (current_stake is None or current_stake > 0)
+    )
+    warning = None
+    if profit > 0 and (
+        current_ev is not None and current_ev <= min_ev
+        or current_kelly is not None and current_kelly <= 0
+        or current_stake is not None and current_stake <= 0
+        or current_prob_minus_break_even is not None and current_prob_minus_break_even <= 0
+        or win_rate_minus_break_even is not None and win_rate_minus_break_even <= 0
+    ):
+        warning = (
+            f"Broad historical EV-exception group is profitable at avg odds "
+            f"{_safe_div(sum(float(row['odds_1']) for row in matches), n):.2f}, "
+            f"but today's price {current_odds:.2f} requires {break_even * 100:.1f}% break-even. "
+            f"Current prob_used is {current_prob_used * 100:.1f}%; Kelly is "
+            f"{current_kelly if current_kelly is not None else 'unavailable'}. Treat as watch-only, not a bet."
+        )
+
+    debug_filename = (
+        f"ev_exception_matches_{current_date}_{_safe_team(current_home_team) or current_home_team}_"
+        f"{_safe_team(current_away_team) or current_away_team}.csv"
+    )
+    debug_path = output_dir / debug_filename
+    _write_csv_dicts(
+        debug_path,
+        matches,
+        [
+            "date",
+            "home_team",
+            "away_team",
+            "home_win_rate",
+            "odds_1",
+            "home_team_prob",
+            "prob_used",
+            "EV_€_per_100",
+            "EV_live_€_per_100",
+            "win",
+            "home_team_won",
+            "pnl_100",
+            "home_ml_pnl_100",
+        ],
+    )
+    return {
+        "label": "Active setup without EV filter",
+        "classification": "historical_support_only",
+        "is_betting_signal": False,
+        "recommendation_label": "watch-only",
+        "warning": warning,
+        "note": "Historical scan applies HW, odds, and probability thresholds only; EV is intentionally ignored because the current row is blocked only by EV.",
+        "debug_csv": debug_filename,
+        "criteria": {
+            "home_win_rate_min": home_win_rate_min,
+            "odds_min": odds_min,
+            "odds_max": odds_max,
+            "prob_threshold": prob_threshold,
+            "ev_filter": "ignored",
+            "stake_model": "flat_100_home_ml",
+            "home_win_rate_basis": "prior_home_games",
+        },
+        "current_candidates": current_candidates,
+        "summary": {
+            "n": n,
+            "wins": wins,
+            "losses": n - wins,
+            "win_rate": _safe_div(wins, n) if n else None,
+            "avg_odds": _safe_div(sum(float(row["odds_1"]) for row in matches), n) if n else None,
+            "profit_100_flat": profit,
+            "roi_pct": _safe_div(profit, n * 100.0) * 100.0 if n else None,
+            "avg_prob_used": _safe_div(sum(float(row["prob_used"]) for row in matches), n) if n else None,
+            "avg_home_win_rate": _safe_div(sum(float(row["home_win_rate"]) for row in matches), n) if n else None,
+            "window_start": window_start_dt.strftime(DATE_FMT) if window_start_dt else None,
+            "window_end": window_end_dt.strftime(DATE_FMT) if window_end_dt else None,
+        },
+        "price_adjusted": {
+            "label": "Current-price EV-exception check",
+            "odds_band": [price_low, price_high],
+            "prob_used_band": [prob_low, prob_high],
+            "hwr_source_file": first_candidate.get("hwr_source_file"),
+            "hwr_source_label": first_candidate.get("hwr_source_label"),
+            "hwr_window_label": first_candidate.get("hwr_window_label"),
+            "current_odds": current_odds,
+            "current_prob_used": current_prob_used,
+            "current_ev_eur_per_100": current_ev,
+            "current_kelly": current_kelly,
+            "current_stake_eur": current_stake,
+            "break_even_probability": break_even,
+            "current_prob_minus_break_even": current_prob_minus_break_even,
+            "n": price_n,
+            "wins": price_wins,
+            "losses": price_n - price_wins,
+            "win_rate": price_win_rate,
+            "avg_odds": _safe_div(sum(float(row["odds_1"]) for row in price_matches), price_n) if price_n else None,
+            "profit_100_flat": price_profit,
+            "roi_pct": _safe_div(price_profit, price_n * 100.0) * 100.0 if price_n else None,
+            "win_rate_minus_break_even": win_rate_minus_break_even,
+            "supports_play": price_adjusted_supports_play,
+            "classification": "watch-only" if not price_adjusted_supports_play else "historical_support_only",
+        },
+        "matches": matches[-50:],
+    }
+
+
 def _find_strategy_params(lightgbm_dir: Path, as_of_date: Optional[str]) -> Optional[Path]:
     if as_of_date:
         dated_json = lightgbm_dir / f"strategy_params_{as_of_date}.json"
@@ -376,12 +877,13 @@ def _find_strategy_params(lightgbm_dir: Path, as_of_date: Optional[str]) -> Opti
         dated = lightgbm_dir / f"strategy_params_{as_of_date}.txt"
         if dated.exists():
             return dated
-    preferred_json = lightgbm_dir / "strategy_params.json"
-    if preferred_json.exists():
-        return preferred_json
-    preferred = lightgbm_dir / "strategy_params.txt"
-    if preferred.exists():
-        return preferred
+    preferred_candidates = [
+        path
+        for path in (lightgbm_dir / "strategy_params.json", lightgbm_dir / "strategy_params.txt")
+        if path.exists()
+    ]
+    if preferred_candidates:
+        return max(preferred_candidates, key=lambda path: path.stat().st_mtime)
     latest_json = _find_latest_by_mtime(lightgbm_dir, "strategy_params*.json")
     if latest_json:
         return latest_json
@@ -417,6 +919,10 @@ def _resolve_sources(root: Optional[Path], as_of_date: Optional[str]) -> SourceP
         )
 
     lightgbm_dir = root / "output" / "LightGBM"
+    if not lightgbm_dir.exists():
+        direct_lightgbm_dir = root / "LightGBM"
+        if direct_lightgbm_dir.exists():
+            lightgbm_dir = direct_lightgbm_dir
     kelly_dir = lightgbm_dir / "Kelly"
 
     combined_iso = _find_latest_file(kelly_dir, "combined_nba_predictions_iso")
@@ -434,7 +940,8 @@ def _resolve_sources(root: Optional[Path], as_of_date: Optional[str]) -> SourceP
     local_matched_games = _find_local_matched_games(lightgbm_dir, as_of_date)
     metrics_snapshot = lightgbm_dir / "metrics_snapshot.json"
     if not metrics_snapshot.exists():
-        metrics_snapshot = None
+        root_metrics_snapshot = root / "metrics_snapshot.json"
+        metrics_snapshot = root_metrics_snapshot if root_metrics_snapshot.exists() else None
 
     return SourcePaths(
         combined_iso=combined_iso,
@@ -573,6 +1080,8 @@ def load_played_games(path: Path) -> List[Dict[str, object]]:
         raw_s = str(result_raw).strip().upper()
         if raw_s in {"", "NA", "NAN", "NONE"}:
             continue
+        if raw_s in {"0", "0.0"} and not str(row.get("home_team_won") or row.get("home_win") or "").strip():
+            continue
 
         # Determine label: 1 if home won else 0
         if raw_s in {"1", "HOME", "H", "TRUE"}:
@@ -597,6 +1106,12 @@ def load_played_games(path: Path) -> List[Dict[str, object]]:
             or row.get("probability_iso")
             or row.get("iso_prob")
         )
+        prob_used = _safe_float(
+            row.get("prob_used")
+            or row.get("prob_live_safe")
+            or row.get("prob_live_oos_proxy")
+            or row.get("prob_base")
+        )
         odds = _safe_float(
             row.get("closing_home_odds")
             or row.get("odds_1")
@@ -618,6 +1133,7 @@ def load_played_games(path: Path) -> List[Dict[str, object]]:
                 "home_team_won": home_team_won,
                 "prob_raw": prob_raw,
                 "prob_iso": prob_iso,
+                "prob_used": prob_used,
                 "odds_home": odds,
                 "home_win_rate": home_win_rate,
             }
@@ -1147,33 +1663,43 @@ def _resolve_canonical_threshold_params(
         except (json.JSONDecodeError, OSError):
             metrics_thresholds = {}
 
-    canonical = dict(strategy_thresholds)
-    canonical.update(metrics_thresholds)
+    strategy_is_newer = False
+    if strategy_params_path and metrics_snapshot_path and strategy_params_path.exists() and metrics_snapshot_path.exists():
+        strategy_is_newer = strategy_params_path.stat().st_mtime >= metrics_snapshot_path.stat().st_mtime
+
+    if metrics_thresholds and not strategy_is_newer:
+        canonical = dict(strategy_thresholds)
+        canonical.update(metrics_thresholds)
+        params_source_file = _metadata_path(metrics_snapshot_path)
+        params_source_type = "metrics_snapshot"
+        params_used_value = "from_metrics_snapshot"
+    else:
+        canonical = dict(metrics_thresholds)
+        canonical.update(strategy_thresholds)
+        params_source_file = _metadata_path(strategy_params_path) if strategy_params_path else _metadata_path(metrics_snapshot_path)
+        params_source_type = (
+            "strategy_params_dated"
+            if strategy_params_path and re.search(r"strategy_params_\d{4}-\d{2}-\d{2}\.(json|txt)$", strategy_params_path.name)
+            else "strategy_params"
+            if strategy_params_path
+            else "metrics_snapshot"
+            if metrics_thresholds
+            else "default"
+        )
+        params_used_value = "from_file" if strategy_params_path else "from_metrics_snapshot" if metrics_thresholds else "fallback"
     missing = [
         key
         for key in ("home_win_rate_threshold", "odds_min", "odds_max", "prob_threshold", "min_ev")
         if key not in canonical
     ]
+    if missing and params_used_value == "from_metrics_snapshot":
+        params_used_value = "from_metrics_snapshot_with_strategy_fallback"
+    elif missing and params_used_value != "fallback":
+        params_used_value = f"{params_used_value}_with_fallback"
     metadata = {
-        "params_source_file": _metadata_path(metrics_snapshot_path) if metrics_thresholds else _metadata_path(strategy_params_path),
-        "params_source_type": (
-            "metrics_snapshot"
-            if metrics_thresholds
-            else "strategy_params_dated"
-            if strategy_params_path and re.search(r"strategy_params_\d{4}-\d{2}-\d{2}\.(json|txt)$", strategy_params_path.name)
-            else "strategy_params"
-            if strategy_params_path
-            else "default"
-        ),
-        "params_used": (
-            "from_metrics_snapshot"
-            if metrics_thresholds and not missing
-            else "from_metrics_snapshot_with_strategy_fallback"
-            if metrics_thresholds
-            else "from_file"
-            if strategy_params_path
-            else "fallback"
-        ),
+        "params_source_file": params_source_file,
+        "params_source_type": params_source_type,
+        "params_used": params_used_value,
         "fallback_used": bool(missing),
         "fallback_reason": "" if not missing else f"missing_threshold_keys:{','.join(missing)}",
         "strategy_invalid_keys": strategy_invalid_keys,
@@ -1550,10 +2076,11 @@ def main() -> None:
 
     repo_root = Path(__file__).resolve().parents[1]
     data_dir = Path(args.data_dir) if args.data_dir else None
-    source_root = None if data_dir else resolve_source_root(args.source_root, repo_root)
+    source_root = resolve_source_root(args.source_root, repo_root)
 
     output_dir = Path(args.output_dir) if args.output_dir else repo_root / "public" / "data"
     output_dir.mkdir(parents=True, exist_ok=True)
+    today_games_payload = _build_today_games_payload(source_root)
 
     # ----------------------------
     # Resolve sources
@@ -1766,14 +2293,12 @@ def main() -> None:
     defaults_used = False
     defaults_reason: Optional[str] = None
     params_payload_path: Optional[Path] = None
-    if sources.strategy_params and sources.strategy_params.exists() and sources.strategy_params.suffix.lower() == ".json":
+    if sources.strategy_params and sources.strategy_params.exists():
         params_payload_path = sources.strategy_params
     else:
         fallback_params = output_dir / "strategy_params.json"
         if fallback_params.exists():
             params_payload_path = fallback_params
-        elif sources.strategy_params and sources.strategy_params.exists():
-            params_payload_path = sources.strategy_params
 
     strategy_params_name = "fallback"
     params_used_label = "fallback"
@@ -1849,6 +2374,15 @@ def main() -> None:
         got = float(active_params.get(key, expected))
         if not math.isclose(got, expected, rel_tol=1e-9, abs_tol=1e-9):
             consistency_issues.append(f"active_params mismatch for {key}: expected {expected}, got {got}")
+
+    today_games_payload["ev_exception_profitability"] = _build_ev_exception_profitability(
+        today_games_payload,
+        played_rows,
+        active_params,
+        window_start_dt,
+        window_end_dt,
+        output_dir,
+    )
 
     # ----------------------------
     # Strategy matches (MUST match validate_dashboard_state.mjs)
@@ -2304,6 +2838,7 @@ def main() -> None:
     write_json(output_dir / "last_run.json", last_run_payload)
     write_json(output_dir / "dashboard_payload.json", dashboard_payload)
     write_json(output_dir / "local_matched_games_latest.json", {"rows": local_matched_subset})
+    write_json(output_dir / "today_games.json", today_games_payload)
     remove_legacy_typo_files(output_dir)
     verify_required_dashboard_json(output_dir)
 

@@ -50,7 +50,16 @@ def main() -> None:
     window = payload.get("window", {})
     if not isinstance(window, dict):
         raise ValueError("window must be an object.")
-    _assert(window.get("size") == 200, "window.size must be 200.")
+    state_path = path.with_name("dashboard_state.json")
+    if state_path.exists():
+        with state_path.open("r", encoding="utf-8") as f:
+            state = json.load(f)
+        _assert(
+            window.get("size") == state.get("window_size"),
+            "window.size must match dashboard_state.window_size.",
+        )
+    else:
+        _assert(isinstance(window.get("size"), int) and window.get("size") > 0, "window.size must be positive.")
     window_start = window.get("start")
     window_end = window.get("end")
     _assert(window_start not in (None, "", "—"), "window.start must be defined.")

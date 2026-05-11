@@ -213,9 +213,12 @@ def _resolve_strategy_params_for_snapshot(lightgbm: Path, snapshot_date: str) ->
             fallback_reasons.append("used_older_dated_strategy_params")
             return chosen, "dated_fallback_lte_snapshot", candidate_reasons, fallback_reasons
 
-    for undated_path in (lightgbm / "strategy_params.json", lightgbm / "strategy_params.txt"):
-        if not undated_path.exists():
-            continue
+    undated_candidates = [
+        path
+        for path in (lightgbm / "strategy_params.json", lightgbm / "strategy_params.txt")
+        if path.exists()
+    ]
+    for undated_path in sorted(undated_candidates, key=lambda path: path.stat().st_mtime, reverse=True):
         undated_date = _extract_date_from_json(undated_path) or _extract_date_from_text(undated_path)
         if undated_date and undated_date > snapshot_date:
             fallback_reasons.append("rejected_future_dated_strategy_params")
@@ -257,6 +260,57 @@ def _extract_max_date_from_csv(path: Path) -> Optional[str]:
                         if match:
                             found_dates.append(match.group(1))
                             break
+    except OSError:
+        return None
+    if not found_dates:
+        return None
+    return sorted(found_dates)[-1]
+
+
+def _resolve_lightgbm_dir(root: Path) -> Path:
+    nested = root / "output" / "LightGBM"
+    if nested.exists():
+        return nested
+    direct = root / "LightGBM"
+    if direct.exists():
+        return direct
+    return nested
+
+
+def _looks_like_unsettled_placeholder(row: dict[str, str]) -> bool:
+    result = (row.get("result") or row.get("result_raw") or "").strip().upper()
+    if result not in {"0", "0.0"}:
+        return False
+    home_team_won = (row.get("home_team_won") or row.get("home_win") or "").strip()
+    return home_team_won == ""
+
+
+def _extract_latest_settled_date_from_combined(path: Path) -> Optional[str]:
+    if not path.exists() or path.suffix.lower() != ".csv":
+        return None
+    found_dates: list[str] = []
+    try:
+        with path.open("r", encoding="utf-8") as handle:
+            reader = csv.DictReader(handle)
+            for row in reader:
+                if _looks_like_unsettled_placeholder(row):
+                    continue
+                result = (
+                    row.get("result")
+                    or row.get("result_raw")
+                    or row.get("winner")
+                    or row.get("winning_team")
+                    or row.get("team_won")
+                    or row.get("home_team_won")
+                    or row.get("home_win")
+                )
+                if result is None or str(result).strip().upper() in {"", "NA", "NAN", "NONE"}:
+                    continue
+                date_value = row.get("date") or row.get("game_date")
+                if isinstance(date_value, str):
+                    match = DATE_RE.search(date_value.strip())
+                    if match:
+                        found_dates.append(match.group(1))
     except OSError:
         return None
     if not found_dates:
@@ -324,7 +378,7 @@ def _select_bet_log_for_snapshot(lightgbm: Path, source_root: Path, snapshot_dat
 
 def resolve_snapshot_selection(source_root: Path) -> SnapshotSelection:
     root = source_root.expanduser().resolve()
-    lightgbm = root / "output" / "LightGBM"
+    lightgbm = _resolve_lightgbm_dir(root)
     kelly = lightgbm / "Kelly"
     if not lightgbm.exists():
         raise FileNotFoundError(f"Missing LightGBM directory: {lightgbm}")
@@ -338,14 +392,16 @@ def resolve_snapshot_selection(source_root: Path) -> SnapshotSelection:
             combined_candidates.append((date, path))
 
     fallback_reasons: list[str] = []
+    used_acc_fallback = False
     if not combined_candidates:
         for path in lightgbm.glob("combined_nba_predictions_acc_*.csv"):
             if not path.is_file():
                 continue
-            date = _extract_date_from_name(path.name)
+            date = _extract_latest_settled_date_from_combined(path) or _extract_date_from_name(path.name)
             if date:
                 combined_candidates.append((date, path))
         if combined_candidates:
+            used_acc_fallback = True
             fallback_reasons.append("combined_iso_missing_used_acc")
 
     if not combined_candidates:
@@ -372,6 +428,7 @@ def resolve_snapshot_selection(source_root: Path) -> SnapshotSelection:
             [
                 _exact_dated(lightgbm, "metrics_snapshot_", snapshot_date, ".json"),
                 lightgbm / "metrics_snapshot.json",
+                root / "metrics_snapshot.json",
             ]
         )
         if metrics_path is None:
@@ -384,6 +441,8 @@ def resolve_snapshot_selection(source_root: Path) -> SnapshotSelection:
                 )
             if _extract_date_from_name(metrics_path.name) is None:
                 candidate_fallback_reasons.append("used_undated_metrics_snapshot")
+        if used_acc_fallback and _extract_date_from_name(combined.name) != snapshot_date:
+            candidate_fallback_reasons.append("combined_acc_filename_newer_than_latest_settled_row")
 
         (
             bet_log_path,
@@ -404,7 +463,7 @@ def resolve_snapshot_selection(source_root: Path) -> SnapshotSelection:
 
         return SnapshotSelection(
             snapshot_as_of_date=snapshot_date,
-            run_date=snapshot_date,
+            run_date=_extract_date_from_name(combined.name) or snapshot_date,
             combined_source_file=combined.name,
             local_matched_source_file=local_matched.name,
             bet_log_source_file=bet_log_path.name if bet_log_path else "missing",

@@ -1,4 +1,5 @@
 import http from "http";
+import "./load_local_env.mjs";
 import { agentJsonHeaders, buildAgentResponse, methodNotAllowedBody } from "../api/agent_core.mjs";
 
 const port = Number.parseInt(process.env.PORT || process.env.AGENT_API_PORT || "5173", 10);

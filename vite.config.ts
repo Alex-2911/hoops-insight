@@ -1,4 +1,4 @@
-import { defineConfig, type PreviewServer, type ViteDevServer } from "vite";
+import { defineConfig, loadEnv, type PreviewServer, type ViteDevServer } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import type { IncomingMessage, ServerResponse } from "http";
@@ -56,24 +56,33 @@ const registerAgentMiddleware = (server: ViteDevServer | PreviewServer) => {
   });
 };
 
-export default defineConfig(({ mode }) => ({
-  base: process.env.BASE_URL ?? "/hoops-insight/",
-  server: {
-    host: "::",
-    port: 5173,
-  },
-  plugins: [
-    react(),
-    {
-      name: "hoops-agent-api",
-      configureServer: registerAgentMiddleware,
-      configurePreviewServer: registerAgentMiddleware,
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), "");
+  for (const key of ["HOOPS_AGENT_API_URL", "OPENAI_API_KEY", "HOOPS_AGENT_MODEL", "HOOPS_AGENT_ALLOWED_ORIGIN"]) {
+    if (process.env[key] === undefined && env[key] !== undefined) {
+      process.env[key] = env[key];
+    }
+  }
+
+  return {
+    base: process.env.BASE_URL ?? "/hoops-insight/",
+    server: {
+      host: "::",
+      port: 5173,
     },
-    mode === "development" && componentTagger(),
-  ].filter(Boolean),
-  resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
+    plugins: [
+      react(),
+      {
+        name: "hoops-agent-api",
+        configureServer: registerAgentMiddleware,
+        configurePreviewServer: registerAgentMiddleware,
+      },
+      mode === "development" && componentTagger(),
+    ].filter(Boolean),
+    resolve: {
+      alias: {
+        "@": path.resolve(__dirname, "./src"),
+      },
     },
-  },
-}));
+  };
+});

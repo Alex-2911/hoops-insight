@@ -1,10 +1,13 @@
-import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { StatCard } from "@/components/cards/StatCard";
 import type {
   DashboardPayload,
   DashboardState,
+  LastRunPayload,
   LocalMatchedGameRow,
+  SummaryPayload,
   TablesPayload,
+  TodayGamesPayload,
 } from "@/data/dashboardTypes";
 import { Target, TrendingUp, Activity, BarChart3, Info } from "lucide-react";
 import { fmtCurrencyEUR, fmtNumber, fmtPercent, formatSigned } from "@/lib/format";
@@ -21,6 +24,25 @@ type AgentResponse = {
   error?: string;
   used_sources?: string[];
   warnings?: string[];
+};
+
+type TodayDecisionCandidate = {
+  game: string;
+  home_team: string;
+  away_team: string;
+  odds_1: number | null;
+  odds_2: number | null;
+  raw_probability: number | null;
+  prob_used: number | null;
+  live_ev_per_100: number | null;
+  kelly: number | null;
+  stake: number | null;
+  blocked_by: string;
+  canonical_signal: boolean;
+  candidate_type: string;
+  break_even_probability: number | null;
+  edge_vs_break_even: number | null;
+  current_price_supported: boolean;
 };
 
 type ActualBetRow = {
@@ -54,6 +76,7 @@ const Index = () => {
   const [dashboardState, setDashboardState] = useState<DashboardState | null>(null);
   const [localMatchedLatestRows, setLocalMatchedLatestRows] = useState<LocalMatchedGameRow[]>([]);
   const [tablesFallback, setTablesFallback] = useState<TablesPayload | null>(null);
+  const [todayGames, setTodayGames] = useState<TodayGamesPayload | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [actualBetsRows, setActualBetsRows] = useState<ActualBetRow[]>([]);
@@ -68,6 +91,8 @@ const Index = () => {
   const [agentInput, setAgentInput] = useState("");
   const [agentStatus, setAgentStatus] = useState<"idle" | "sending" | "error">("idle");
   const [agentError, setAgentError] = useState<string | null>(null);
+  const agentScrollRef = useRef<HTMLDivElement | null>(null);
+  const agentInputRef = useRef<HTMLInputElement | null>(null);
   const baseUrl = import.meta.env.BASE_URL ?? "/";
   const staleMessage = dashboardState?.last_update_utc
     ? `Last update: ${dashboardState.last_update_utc}`
@@ -185,27 +210,49 @@ const Index = () => {
     );
   };
 
+  const readRecordString = (row: Record<string, unknown> | null | undefined, key: string) => {
+    const value = row?.[key];
+    return value === undefined || value === null ? "" : String(value);
+  };
+
+  const readRecordNumber = (row: Record<string, unknown> | null | undefined, key: string) => {
+    const value = row?.[key];
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value !== "string") return null;
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+
+  const isCanonicalSignal = (value: unknown) => {
+    if (value === true) return true;
+    if (typeof value === "number") return value > 0;
+    if (typeof value !== "string") return false;
+    return ["1", "true", "yes", "canonical", "stage1"].includes(value.trim().toLowerCase());
+  };
+
   useEffect(() => {
     let alive = true;
 
     const load = async () => {
       setFetchStarted(true);
       try {
-        const [summaryRes, tablesRes, lastRunRes, dashboardStateRes] = await Promise.all([
+        const [summaryRes, tablesRes, lastRunRes, dashboardStateRes, todayGamesRes] = await Promise.all([
           fetch(`${baseUrl}data/summary.json`),
           fetch(`${baseUrl}data/tables.json`),
           fetch(`${baseUrl}data/last_run.json`),
           fetch(`${baseUrl}data/dashboard_state.json`),
+          fetch(`${baseUrl}data/today_games.json`),
         ]);
 
         if (!summaryRes.ok || !tablesRes.ok) {
           throw new Error("Failed to load dashboard data.");
         }
 
-        const summaryJson = (await summaryRes.json()) as Record<string, any>;
+        const summaryJson = (await summaryRes.json()) as SummaryPayload;
         const tablesJson = (await tablesRes.json()) as TablesPayload;
-        const lastRunJson = lastRunRes.ok ? ((await lastRunRes.json()) as Record<string, any>) : null;
+        const lastRunJson = lastRunRes.ok ? ((await lastRunRes.json()) as LastRunPayload) : null;
         const dashboardStateJson = dashboardStateRes.ok ? ((await dashboardStateRes.json()) as DashboardState) : null;
+        const todayGamesJson = todayGamesRes.ok ? ((await todayGamesRes.json()) as TodayGamesPayload) : null;
 
         const normalizedPayload = {
           as_of_date: summaryJson.as_of_date ?? summaryJson.asOfDate ?? "—",
@@ -244,6 +291,7 @@ const Index = () => {
           setPayload(normalizedPayload);
           setDashboardState(normalizedState);
           setTablesFallback(tablesJson);
+          setTodayGames(todayGamesJson);
         }
 
         const localMatchedJsonRes = await fetch(`${baseUrl}data/local_matched_games_latest.json`);
@@ -281,7 +329,7 @@ const Index = () => {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [baseUrl]);
 
   const summary = payload?.summary ?? null;
 
@@ -327,19 +375,22 @@ const Index = () => {
     games_count: 0,
   };
 
-  const summaryStats =
-    summary?.summary_stats ??
-    (summary?.model?.calibration
-      ? {
-          total_games: summary.model.calibration.fittedGames ?? windowInfo.games_count ?? 0,
-          overall_accuracy: summary.model.calibration.actualWinPct ?? 0,
-          as_of_date: summary.model.calibration.asOfDate ?? "—",
-        }
-      : {
-          total_games: 0,
-          overall_accuracy: 0,
-          as_of_date: "—",
-        });
+  const summaryStats = useMemo(
+    () =>
+      summary?.summary_stats ??
+      (summary?.model?.calibration
+        ? {
+            total_games: summary.model.calibration.fittedGames ?? windowInfo.games_count ?? 0,
+            overall_accuracy: summary.model.calibration.actualWinPct ?? 0,
+            as_of_date: summary.model.calibration.asOfDate ?? "—",
+          }
+        : {
+            total_games: 0,
+            overall_accuracy: 0,
+            as_of_date: "—",
+          }),
+    [summary?.model?.calibration, summary?.summary_stats, windowInfo.games_count],
+  );
 
   const calibrationMetrics =
     tables?.calibration_metrics ??
@@ -359,14 +410,17 @@ const Index = () => {
       windowSize: 0,
     };
 
-  const homeWinRatesLast20 =
-    tables?.home_win_rates_last20 && tables.home_win_rates_last20.length > 0
-      ? tables.home_win_rates_last20
-      : summary?.model?.homeWinRatesLast20 ?? [];
-  const homeWinRatesWindow = tables?.home_win_rates_window ?? [];
+  const homeWinRatesLast20 = useMemo(
+    () =>
+      tables?.home_win_rates_last20 && tables.home_win_rates_last20.length > 0
+        ? tables.home_win_rates_last20
+        : summary?.model?.homeWinRatesLast20 ?? [],
+    [summary?.model?.homeWinRatesLast20, tables?.home_win_rates_last20],
+  );
+  const homeWinRatesWindow = useMemo(() => tables?.home_win_rates_window ?? [], [tables?.home_win_rates_window]);
   const localMatchedGamesRows = tables?.local_matched_games_rows ?? [];
   const localMatchedRowsDisplay = localMatchedLatestRows.length > 0 ? localMatchedLatestRows : localMatchedGamesRows;
-  const settledBetsRows = tables?.settled_bets_rows ?? [];
+  const settledBetsRows = useMemo(() => tables?.settled_bets_rows ?? [], [tables?.settled_bets_rows]);
 
   const START_BANKROLL_REAL = 1000;
   const START_BANKROLL_SIM = 1000;
@@ -417,28 +471,36 @@ const Index = () => {
 
   const localMatchedWins = localMatchedGamesRows.filter((row) => row.win === 1).length;
 
-  const kpis = summary?.kpis ?? {
-    total_bets: 0,
-    win_rate: 0,
-    roi_pct: 0,
-    avg_ev_per_100: 0,
-    avg_profit_per_bet_eur: 0,
-    max_drawdown_eur: null,
-    max_drawdown_pct: null,
-  };
+  const kpis = useMemo(
+    () =>
+      summary?.kpis ?? {
+        total_bets: 0,
+        win_rate: 0,
+        roi_pct: 0,
+        avg_ev_per_100: 0,
+        avg_profit_per_bet_eur: 0,
+        max_drawdown_eur: null,
+        max_drawdown_pct: null,
+      },
+    [summary?.kpis],
+  );
 
   // NOTE: in your payload, "strategy_summary" may only contain sharpeStyle.
   // "strategy" contains the full simulated strategy block (roiPct, totalProfitEur, etc).
-  const strategySummary = summary?.strategy_summary ?? {
-    totalBets: 0,
-    totalProfitEur: 0,
-    roiPct: 0,
-    avgEvPer100: 0,
-    winRate: 0,
-    sharpeStyle: null,
-    profitMetricsAvailable: false,
-    asOfDate: "—",
-  };
+  const strategySummary = useMemo(
+    () =>
+      summary?.strategy_summary ?? {
+        totalBets: 0,
+        totalProfitEur: 0,
+        roiPct: 0,
+        avgEvPer100: 0,
+        winRate: 0,
+        sharpeStyle: null,
+        profitMetricsAvailable: false,
+        asOfDate: "—",
+      },
+    [summary?.strategy_summary],
+  );
 
   const renderMetricTitle = (label: string, tooltipContent: React.ReactNode) => (
     <span className="inline-flex items-center gap-2">
@@ -481,6 +543,11 @@ const Index = () => {
     if (value === null) return "—";
     const percentValue = Math.abs(value) <= 1 ? value * 100 : value;
     return fmtPercent(percentValue, decimals);
+  };
+
+  const parseNumeric = (value: string) => {
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : null;
   };
 
   const localMatchedSourceLabel = dashboardState?.sources?.local_matched ?? "local_matched_games_latest.csv";
@@ -551,12 +618,15 @@ const Index = () => {
   const paramsUsedLabel =
     dashboardState?.params_used_label ??
     payload?.params_used_label ??
-    (strategyParams as any).params_used_label ??
+    strategyParams.params_used_label ??
     "Historical";
 
   const paramsSourceLabel = dashboardState?.params_source_label ?? "strategy_params.json";
   const dataConsistencyStatus = dashboardState?.data_consistency_status ?? "ok";
-  const dataConsistencyIssues = dashboardState?.data_consistency_issues ?? [];
+  const dataConsistencyIssues = useMemo(
+    () => dashboardState?.data_consistency_issues ?? [],
+    [dashboardState?.data_consistency_issues],
+  );
   const normalizedConsistencyIssues = dataConsistencyIssues.map((issue) => issue.toLowerCase());
   const hasBetLogStaleIssue = normalizedConsistencyIssues.some(
     (issue) => issue.includes("bet_log") && issue.includes("stale"),
@@ -668,8 +738,8 @@ const Index = () => {
   const strategyRoiPctValue =
     typeof summary?.kpis?.roi_pct === "number" && Number.isFinite(summary.kpis.roi_pct)
       ? summary.kpis.roi_pct
-      : typeof (summary as any)?.strategy?.roiPct === "number" && Number.isFinite((summary as any).strategy.roiPct)
-        ? (summary as any).strategy.roiPct
+      : typeof summary?.strategy?.roiPct === "number" && Number.isFinite(summary.strategy.roiPct)
+        ? summary.strategy.roiPct
         : 0;
 
   const strategyRoiDisplay = fmtPercent(strategyRoiPctValue, 2);
@@ -700,21 +770,64 @@ const Index = () => {
   const historicalFilterSourceDisplay = formatSourceLabel(historicalFilterSource);
   const paramsSourceDisplay = formatSourceLabel(paramsSourceLabel);
 
-  const todayShortlist = (payload?.last_run as any)?.today_shortlist;
-  const todayQualifyingGamesCountRaw = (payload?.last_run as any)?.qualifying_games_today;
+  const currentDate = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const availableTodayGames = useMemo(() => todayGames?.games ?? [], [todayGames?.games]);
+  const liveCandidateRows = useMemo(() => todayGames?.qualifying_bets ?? [], [todayGames?.qualifying_bets]);
+  const evExceptionProfitability = todayGames?.ev_exception_profitability ?? null;
+  const positiveStakeRows = useMemo(
+    () => liveCandidateRows.filter((row) => (parseNumeric(row.stake_eur ?? "") ?? 0) > 0),
+    [liveCandidateRows],
+  );
+  const availableGamesDate = todayGames?.as_of_date ?? currentDate;
+  const liveCandidateCount = liveCandidateRows.length;
+  const positiveStakeCount = positiveStakeRows.length;
+
+  const todayShortlist = payload?.last_run?.today_shortlist;
+  const todayQualifyingGamesCountRaw = payload?.last_run?.qualifying_games_today;
   const todayQualifyingGamesCount =
-    typeof todayQualifyingGamesCountRaw === "number" && Number.isFinite(todayQualifyingGamesCountRaw)
+    liveCandidateCount > 0
+      ? liveCandidateCount
+      : typeof todayQualifyingGamesCountRaw === "number" && Number.isFinite(todayQualifyingGamesCountRaw)
       ? todayQualifyingGamesCountRaw
       : Array.isArray(todayShortlist)
         ? todayShortlist.length
         : 0;
   const hasTodayQualifyingGames = todayQualifyingGamesCount > 0;
 
+  const dashboardDataAgeDays = useMemo(() => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(summaryAsOfDate) || !/^\d{4}-\d{2}-\d{2}$/.test(currentDate)) {
+      return null;
+    }
+
+    const asOfTime = Date.parse(`${summaryAsOfDate}T00:00:00Z`);
+    const currentTime = Date.parse(`${currentDate}T00:00:00Z`);
+    if (!Number.isFinite(asOfTime) || !Number.isFinite(currentTime)) return null;
+
+    return Math.max(0, Math.round((currentTime - asOfTime) / 86_400_000));
+  }, [currentDate, summaryAsOfDate]);
+
+  const liveHomeWinRateRows = useMemo(
+    () =>
+      availableTodayGames
+        .filter((game) => typeof game.home_win_rate === "number" && Number.isFinite(game.home_win_rate))
+        .map((game) => ({
+          team: game.home_team ?? "—",
+          homeWinRate: game.home_win_rate ?? 0,
+          homeWins: game.home_wins ?? "—",
+          homeGames: game.home_games ?? "—",
+          windowGames: game.last20_games ?? "—",
+        })),
+    [availableTodayGames],
+  );
+
   const homeWinRatesDiagnosticRows = useMemo(() => {
     if (homeWinRatesWindow.length > 0) {
       return [...homeWinRatesWindow]
         .filter((row) => row.homeWinRate > 0.5)
         .sort((a, b) => b.homeWinRate - a.homeWinRate);
+    }
+    if (liveHomeWinRateRows.length > 0) {
+      return liveHomeWinRateRows;
     }
     return [...homeWinRatesLast20]
       .filter((row) => row.homeWinRate > 0.5)
@@ -726,21 +839,174 @@ const Index = () => {
         homeGames: row.totalHomeGames,
         windowGames: row.totalLast20Games,
       }));
-  }, [homeWinRatesLast20, homeWinRatesWindow]);
+  }, [homeWinRatesLast20, homeWinRatesWindow, liveHomeWinRateRows]);
 
   const actualBetsRowsSorted = useMemo(
     () => [...actualBetsRows].sort((a, b) => `${b.bet_date}${b.bet_id}`.localeCompare(`${a.bet_date}${a.bet_id}`)),
     [actualBetsRows],
   );
 
+  const todayDecisionContext = useMemo(() => {
+    const evSummary = evExceptionProfitability?.summary ?? null;
+    const priceAdjusted = evExceptionProfitability?.price_adjusted ?? null;
+    const broadHistoricalSupport =
+      typeof evSummary?.roi_pct === "number" && evSummary.roi_pct > 0 && typeof evSummary?.n === "number" && evSummary.n > 0;
+
+    const candidates: TodayDecisionCandidate[] = liveCandidateRows.map((row) => {
+      const odds1 = readRecordNumber(row, "odds_1");
+      const probUsed = readRecordNumber(row, "prob_used");
+      const kelly = readRecordNumber(row, "kelly_full");
+      const stake = readRecordNumber(row, "stake_eur");
+      const breakEvenProbability = odds1 && odds1 > 0 ? 1 / odds1 : null;
+      const edgeVsBreakEven =
+        probUsed !== null && breakEvenProbability !== null ? probUsed - breakEvenProbability : null;
+      const liveEv =
+        readRecordNumber(row, "EV_€_per_100") ??
+        readRecordNumber(row, "EV_live_€_per_100") ??
+        readRecordNumber(row, "EV_live_€_per100");
+
+      return {
+        game: `${readRecordString(row, "home_team") || "—"} vs ${readRecordString(row, "away_team") || "—"}`,
+        home_team: readRecordString(row, "home_team"),
+        away_team: readRecordString(row, "away_team"),
+        odds_1: odds1,
+        odds_2: readRecordNumber(row, "odds_2"),
+        raw_probability: readRecordNumber(row, "home_team_prob"),
+        prob_used: probUsed,
+        live_ev_per_100: liveEv,
+        kelly,
+        stake,
+        blocked_by: readRecordString(row, "blocked_by"),
+        canonical_signal: isCanonicalSignal(row.canonical_signal),
+        candidate_type: readRecordString(row, "stage2_candidate_type") || readRecordString(row, "candidate_type") || "live_candidate",
+        break_even_probability: breakEvenProbability,
+        edge_vs_break_even: edgeVsBreakEven,
+        current_price_supported:
+          edgeVsBreakEven !== null &&
+          edgeVsBreakEven >= 0 &&
+          kelly !== null &&
+          kelly > 0 &&
+          (liveEv === null || liveEv >= 0),
+      };
+    });
+
+    const anyCandidateNegativeCurrentPrice = candidates.some(
+      (candidate) =>
+        candidate.current_price_supported === false &&
+        (candidate.edge_vs_break_even === null || candidate.edge_vs_break_even < 0 || (candidate.kelly ?? 0) <= 0),
+    );
+    const canonicalCount = todayGames?.canonical_model_signals?.canonical_count ?? 0;
+    const canonicalActive =
+      canonicalCount > 0 ||
+      candidates.some((candidate) => candidate.canonical_signal) ||
+      (todayGames?.canonical_model_signals?.canonical ?? []).some((row) => isCanonicalSignal(row.canonical_signal ?? true));
+    const engineState = todayGames?.engine_state ?? todayGames?.canonical_model_signals?.engine_state ?? null;
+    const positiveStakeBets = candidates.filter((candidate) => (candidate.stake ?? 0) > 0);
+    const latestManualBet = actualBetsRowsSorted[0] ?? null;
+    const manualSettled = actualBetsRows.filter((row) => ["Won", "Lost", "Void", "Cashout"].includes(row.status));
+    const manualStake = actualBetsRows.reduce((acc, row) => acc + (parseNumeric(row.stake_eur) ?? 0), 0);
+    const manualPnl = actualBetsRows.reduce((acc, row) => acc + (parseNumeric(row.pnl_eur) ?? 0), 0);
+
+    return {
+      run_date: todayGames?.as_of_date ?? currentDate,
+      engine_state: engineState,
+      live_strategy: liveStrategyLabel,
+      canonical_model_signals: todayGames?.canonical_model_signals ?? null,
+      games_available: availableTodayGames.length,
+      live_candidates: candidates,
+      positive_stake_bets: positiveStakeBets,
+      setup_profitability_summary: todayGames?.setup_profitability?.summary ?? null,
+      ev_exception_summary: evExceptionProfitability
+        ? {
+            label: evExceptionProfitability.label ?? null,
+            classification: evExceptionProfitability.classification ?? "historical_support_only",
+            is_betting_signal: evExceptionProfitability.is_betting_signal ?? false,
+            recommendation_label: evExceptionProfitability.recommendation_label ?? "watch-only",
+            criteria: evExceptionProfitability.criteria ?? null,
+            summary: evSummary,
+            price_adjusted: priceAdjusted,
+          }
+        : null,
+      price_adjusted_warning: evExceptionProfitability?.warning ?? null,
+      hwr_source_label:
+        evExceptionProfitability?.price_adjusted?.hwr_source_label ??
+        availableTodayGames.find((game) => game.hwr_source_label)?.hwr_source_label ??
+        null,
+      hwr_window_label:
+        evExceptionProfitability?.price_adjusted?.hwr_window_label ??
+        availableTodayGames.find((game) => game.hwr_window_label)?.hwr_window_label ??
+        null,
+      manual_actual_bets_summary: {
+        total: actualBetsRows.length,
+        settled: manualSettled.length,
+        pending: actualBetsRows.filter((row) => row.status === "Pending").length,
+        stake_eur: manualStake,
+        pnl_eur: manualPnl,
+        latest: latestManualBet
+          ? {
+              bet_date: latestManualBet.bet_date,
+              game: `${latestManualBet.away_team} @ ${latestManualBet.home_team}`,
+              selection: latestManualBet.selection,
+              odds: latestManualBet.odds,
+              stake_eur: latestManualBet.stake_eur,
+              pnl_eur: latestManualBet.pnl_eur,
+              status: latestManualBet.status,
+              note: latestManualBet.user_note || latestManualBet.model_note || "",
+            }
+          : null,
+      },
+      decision_labels: {
+        main_decision:
+          engineState === "NO_BET" || positiveStakeBets.length === 0 || !canonicalActive ? "NO_BET" : "REVIEW_REQUIRED",
+        canonical: canonicalActive,
+        canonical_label: canonicalActive ? "Canonical signal present" : "Canonical: none",
+        setup_profitability: broadHistoricalSupport ? "historical support only" : "no current setup support",
+        near_miss: Boolean(broadHistoricalSupport && anyCandidateNegativeCurrentPrice),
+        vibe_live_watch: Boolean(broadHistoricalSupport && anyCandidateNegativeCurrentPrice),
+        no_bet_reason:
+          broadHistoricalSupport && anyCandidateNegativeCurrentPrice
+            ? "negative current EV and/or negative Kelly despite broad historical support"
+            : engineState === "NO_BET" || positiveStakeBets.length === 0
+              ? "no positive-stake canonical signal"
+              : "",
+        steadivus_note:
+          engineState === "NO_BET" || positiveStakeBets.length === 0
+            ? "Good skip / no forced action."
+            : "Follow canonical staking discipline only.",
+      },
+    };
+  }, [
+    actualBetsRows,
+    actualBetsRowsSorted,
+    availableTodayGames,
+    currentDate,
+    evExceptionProfitability,
+    liveCandidateRows,
+    todayGames,
+  ]);
+
   const agentDashboardContext = useMemo(
     () => ({
+      current_date: currentDate,
       as_of_date: summaryAsOfDate,
+      dashboard_data_age_days: dashboardDataAgeDays,
       window_end: windowEndLabel,
       window_size: windowSize,
       active_filters: activeFiltersDisplay,
       data_consistency_status: dataConsistencyStatus,
       data_consistency_issues: dataConsistencyIssues,
+      today_qualifying_games_count: todayQualifyingGamesCount,
+      has_today_qualifying_games: hasTodayQualifyingGames,
+      available_games_date: todayGames?.as_of_date ?? null,
+      available_games_count: availableTodayGames.length,
+      available_games: availableTodayGames,
+      qualifying_bets: liveCandidateRows,
+      positive_stake_bets_count: positiveStakeCount,
+      engine_state: todayGames?.engine_state ?? todayGames?.canonical_model_signals?.engine_state ?? null,
+      canonical_model_signals: todayGames?.canonical_model_signals ?? null,
+      today_decision_context: todayDecisionContext,
+      setup_profitability: todayGames?.setup_profitability ?? null,
+      ev_exception_profitability: todayGames?.ev_exception_profitability ?? null,
       sources: dashboardState?.sources ?? null,
       summary_stats: summaryStats,
       strategy_summary: strategySummary,
@@ -753,18 +1019,32 @@ const Index = () => {
       activeFiltersDisplay,
       actualBetsRows.length,
       actualBetsRowsSorted,
+      currentDate,
       dashboardState?.sources,
+      dashboardDataAgeDays,
       dataConsistencyIssues,
       dataConsistencyStatus,
+      hasTodayQualifyingGames,
       kpis,
       localMatchedDisplayCount,
+      availableTodayGames,
+      liveCandidateRows,
+      positiveStakeCount,
       strategySummary,
       summaryAsOfDate,
       summaryStats,
+      todayDecisionContext,
+      todayGames,
+      todayQualifyingGamesCount,
       windowEndLabel,
       windowSize,
     ],
   );
+
+  useEffect(() => {
+    if (!todayDecisionContext) return;
+    console.info("Hoops today_decision_context", todayDecisionContext);
+  }, [todayDecisionContext]);
 
   const handleAgentSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -823,10 +1103,18 @@ const Index = () => {
       ]);
     }
   };
-  const parseNumeric = (value: string) => {
-    const parsed = Number.parseFloat(value);
-    return Number.isFinite(parsed) ? parsed : null;
-  };
+
+  useEffect(() => {
+    if (activeTab !== "agent-chat") return;
+    const scrollEl = agentScrollRef.current;
+    if (!scrollEl) return;
+    scrollEl.scrollTo({ top: scrollEl.scrollHeight, behavior: "smooth" });
+  }, [activeTab, agentMessages, agentStatus]);
+
+  useEffect(() => {
+    if (activeTab !== "agent-chat" || agentStatus === "sending") return;
+    agentInputRef.current?.focus();
+  }, [activeTab, agentMessages.length, agentStatus]);
   const actualSettledRows = actualBetsRows.filter((row) => ["Won", "Lost", "Void", "Cashout"].includes(row.status));
   const pendingBets = actualBetsRows.filter((row) => row.status === "Pending").length;
   const totalStake = actualBetsRows.reduce((acc, row) => acc + (parseNumeric(row.stake_eur) ?? 0), 0);
@@ -871,9 +1159,12 @@ const Index = () => {
       <section className="container mx-auto px-4 pt-6">
         <div className="glass-card p-6 space-y-2">
           <h1 className="text-3xl font-bold">Hoops Insight</h1>
-          <p className="text-sm text-muted-foreground">Latest settled: {summaryAsOfDate}</p>
-          <p className="text-sm text-muted-foreground">Run: {windowEndLabel}</p>
-          <p className="text-sm text-muted-foreground">Window: {windowSize} games</p>
+          <p className="text-sm text-muted-foreground">Live games feed: {availableGamesDate}</p>
+          <p className="text-sm text-muted-foreground">
+            Historical settled snapshot: {summaryAsOfDate}
+            {dashboardDataAgeDays !== null && dashboardDataAgeDays > 0 ? ` (${dashboardDataAgeDays} days old)` : ""}
+          </p>
+          <p className="text-sm text-muted-foreground">Historical window: {windowStartLabel} → {windowEndLabel} · {windowSize} games</p>
           <p className="text-sm text-muted-foreground">Live strategy: {liveStrategyLabel}</p>
           <p className="text-sm text-muted-foreground">Historical filter source: {historicalFilterSourceDisplay}</p>
         </div>
@@ -902,7 +1193,13 @@ const Index = () => {
               Use this as a dashboard explanation assistant, not as autonomous betting approval. Refresh the Basketball_prediction
               data first before relying on live recommendations.
             </div>
-            <div className="mb-4 max-h-96 space-y-3 overflow-y-auto rounded-lg border border-border p-4">
+            <details className="mb-4 rounded-lg border border-border p-3 text-xs">
+              <summary className="cursor-pointer font-medium text-foreground">Agent daily decision context</summary>
+              <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap rounded bg-muted p-3 text-muted-foreground">
+                {JSON.stringify(todayDecisionContext, null, 2)}
+              </pre>
+            </details>
+            <div ref={agentScrollRef} className="mb-4 max-h-96 space-y-3 overflow-y-auto rounded-lg border border-border p-4">
               {agentMessages.map((message, index) => (
                 <div
                   key={`${message.role}-${index}`}
@@ -920,6 +1217,7 @@ const Index = () => {
             {agentError && <p className="mb-3 text-sm text-red-400">{agentError}</p>}
             <form className="flex flex-col gap-3 md:flex-row" onSubmit={handleAgentSubmit}>
               <input
+                ref={agentInputRef}
                 className="min-h-11 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
                 value={agentInput}
                 onChange={(event) => setAgentInput(event.target.value)}
@@ -973,26 +1271,173 @@ const Index = () => {
       <section className="container mx-auto px-4 py-6">
         <div className="glass-card p-6">
           <h2 className="text-xl font-bold mb-3">Today Status</h2>
-          {strategyStatusTrustworthy ? (
-            hasTodayQualifyingGames ? (
-              <div className="space-y-2 text-sm">
-                <p className="text-foreground">{todayQualifyingGamesCount} qualifying games today</p>
-                <p className="text-muted-foreground">Shortlist is available for the current run.</p>
-              </div>
-            ) : (
-              <div className="space-y-2 text-sm">
-                <p className="text-foreground">No qualifying games today</p>
-                <p className="text-muted-foreground">No games qualify for today under the current live constraints.</p>
-              </div>
-            )
-          ) : (
-            <div className="space-y-2 text-sm">
-              <p className="text-foreground">Today status unavailable</p>
+          <div className="space-y-4 text-sm">
+            <div>
+              <p className="text-foreground">
+                {availableTodayGames.length} games available for {availableGamesDate}
+              </p>
               <p className="text-muted-foreground">
-                Strategy filters are missing or invalid in dashboard_state.json, so qualifying-game status is not reliable.
+                {liveCandidateCount} live candidate rows · {positiveStakeCount} positive-stake bets
               </p>
             </div>
-          )}
+            {availableTodayGames.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-left">
+                      <th className="py-2 pr-4">Game</th>
+                      <th className="py-2 pr-4">Home Win Rate</th>
+                      <th className="py-2 pr-4">Raw / Used Prob</th>
+                      <th className="py-2 pr-4">Live EV</th>
+                      <th className="py-2 pr-4">Odds</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {availableTodayGames.map((game) => (
+                      <tr key={`${game.date}-${game.home_team}-${game.away_team}`} className="border-b border-border/50">
+                        <td className="py-2 pr-4 font-medium">
+                          {game.home_team} vs {game.away_team}
+                        </td>
+                        <td className="py-2 pr-4">
+                          {typeof game.home_win_rate === "number" ? fmtPercent(game.home_win_rate * 100, 1) : "—"}
+                          {typeof game.home_wins === "number" && typeof game.home_games === "number"
+                            ? ` (${game.home_wins}/${game.home_games})`
+                            : ""}
+                          {game.hwr_window_label ? (
+                            <div className="text-xs text-muted-foreground">{game.hwr_window_label}</div>
+                          ) : null}
+                        </td>
+                        <td className="py-2 pr-4">
+                          {typeof game.home_team_prob === "number" ? fmtPercent(game.home_team_prob * 100, 1) : "—"}
+                          {" / "}
+                          {typeof game.prob_used === "number" ? fmtPercent(game.prob_used * 100, 1) : "—"}
+                        </td>
+                        <td className="py-2 pr-4">
+                          {typeof game.ev_live_eur_per_100 === "number" ? fmtNumber(game.ev_live_eur_per_100, 2) : "—"}
+                        </td>
+                        <td className="py-2 pr-4">
+                          {typeof game.home_odds === "number" ? fmtNumber(game.home_odds, 2) : "—"} /{" "}
+                          {typeof game.away_odds === "number" ? fmtNumber(game.away_odds, 2) : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-muted-foreground">No current games are available in today_games.json.</p>
+            )}
+            {liveCandidateRows.length > 0 ? (
+              <div className="rounded-lg border border-border p-3">
+                <p className="mb-2 font-medium text-foreground">Live candidates</p>
+                <div className="space-y-2">
+                  {liveCandidateRows.map((row) => (
+                    <div key={`${row.date}-${row.home_team}-${row.away_team}`} className="text-muted-foreground">
+                      <span className="text-foreground">
+                        {row.home_team} vs {row.away_team}
+                      </span>
+                      {" · "}EV/100: {row["EV_€_per_100"] || "—"}
+                      {" · "}prob used: {row.prob_used || "—"}
+                      {" · "}Kelly: {row.kelly_full || "—"}
+                      {" · "}Stake: {row.stake_eur || "—"}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="text-muted-foreground">No live candidate rows under the current live constraints.</p>
+            )}
+            {evExceptionProfitability?.summary ? (
+              <div className="rounded-lg border border-border p-3">
+                <p className="mb-1 font-medium text-foreground">EV exception historical profitability</p>
+                <p className="mb-2 text-xs text-muted-foreground">
+                  Broad historical support only · active setup without EV filter · window {evExceptionProfitability.summary.window_start || "—"} →{" "}
+                  {evExceptionProfitability.summary.window_end || "—"}
+                </p>
+                {evExceptionProfitability.warning ? (
+                  <div className="mb-3 rounded border border-amber-400/50 bg-amber-500/10 p-2 text-xs text-amber-200">
+                    {evExceptionProfitability.warning}
+                  </div>
+                ) : null}
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Matches</p>
+                    <p className="font-medium text-foreground">{evExceptionProfitability.summary.n ?? 0}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Wins / Win rate</p>
+                    <p className="font-medium text-foreground">
+                      {evExceptionProfitability.summary.wins ?? 0} /{" "}
+                      {typeof evExceptionProfitability.summary.win_rate === "number"
+                        ? fmtPercent(evExceptionProfitability.summary.win_rate * 100, 1)
+                        : "—"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Flat €100 P/L</p>
+                    <p className="font-medium text-foreground">
+                      {formatSigned(evExceptionProfitability.summary.profit_100_flat ?? 0)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">ROI / Avg odds</p>
+                    <p className="font-medium text-foreground">
+                      {typeof evExceptionProfitability.summary.roi_pct === "number"
+                        ? fmtPercent(evExceptionProfitability.summary.roi_pct, 1)
+                        : "—"}{" "}
+                      /{" "}
+                      {typeof evExceptionProfitability.summary.avg_odds === "number"
+                        ? fmtNumber(evExceptionProfitability.summary.avg_odds, 2)
+                        : "—"}
+                    </p>
+                  </div>
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {evExceptionProfitability.note || "EV is ignored only for this diagnostic scan."}
+                </p>
+                {evExceptionProfitability.price_adjusted ? (
+                  <div className="mt-3 rounded border border-border/70 p-3">
+                    <p className="mb-2 text-sm font-medium text-foreground">Current-price check</p>
+                    <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Matches</p>
+                        <p className="font-medium text-foreground">{evExceptionProfitability.price_adjusted.n ?? 0}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Win rate / BE</p>
+                        <p className="font-medium text-foreground">
+                          {typeof evExceptionProfitability.price_adjusted.win_rate === "number"
+                            ? fmtPercent(evExceptionProfitability.price_adjusted.win_rate * 100, 1)
+                            : "—"}{" "}
+                          /{" "}
+                          {typeof evExceptionProfitability.price_adjusted.break_even_probability === "number"
+                            ? fmtPercent(evExceptionProfitability.price_adjusted.break_even_probability * 100, 1)
+                            : "—"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Flat €100 P/L</p>
+                        <p className="font-medium text-foreground">
+                          {formatSigned(evExceptionProfitability.price_adjusted.profit_100_flat ?? 0)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Classification</p>
+                        <p className="font-medium text-foreground">
+                          {evExceptionProfitability.price_adjusted.supports_play ? "historical support" : "watch-only"}
+                        </p>
+                      </div>
+                    </div>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Odds band {evExceptionProfitability.price_adjusted.odds_band?.map((v) => typeof v === "number" ? fmtNumber(v, 2) : "—").join("–") || "—"} ·
+                      prob band {evExceptionProfitability.price_adjusted.prob_used_band?.map((v) => typeof v === "number" ? fmtPercent(v * 100, 1) : "—").join("–") || "—"} ·
+                      HWR source: {evExceptionProfitability.price_adjusted.hwr_source_file || "—"}
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
         </div>
       </section>
 

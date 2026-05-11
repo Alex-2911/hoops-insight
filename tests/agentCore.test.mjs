@@ -114,6 +114,174 @@ describe("agent backend response contract", () => {
     assert.equal(result.body.error, "Unsupported capability. Use read_only.");
   });
 
+  it("keeps broad positive ROI as watch-only when current CLE price economics are negative", async () => {
+    const oldOpenAIKey = process.env.OPENAI_API_KEY;
+    const oldAgentUrl = process.env.HOOPS_AGENT_API_URL;
+    delete process.env.OPENAI_API_KEY;
+    delete process.env.HOOPS_AGENT_API_URL;
+
+    try {
+      const result = await buildAgentResponse({
+        question: "explain today's decision",
+        capability: "read_only",
+        context: {
+          as_of_date: "2026-05-10",
+          sources: { today_games: "today_games.json" },
+          today_decision_context: {
+            run_date: "2026-05-11",
+            engine_state: "NO_BET",
+            canonical_model_signals: { label: "Canonical: none", canonical_count: 0 },
+            live_candidates: [
+              {
+                game: "CLE vs DET",
+                odds_1: 1.6,
+                prob_used: 0.575,
+                live_ev_per_100: -7.95,
+                kelly: -0.132,
+                stake: 0,
+                break_even_probability: 0.625,
+                edge_vs_break_even: -0.05,
+                current_price_supported: false,
+              },
+            ],
+            ev_exception_summary: {
+              classification: "historical_support_only",
+              is_betting_signal: false,
+              summary: {
+                n: 71,
+                wins: 44,
+                win_rate: 0.62,
+                avg_odds: 2.13,
+                profit_100_flat: 1976,
+                roi_pct: 27.8,
+              },
+            },
+            price_adjusted_warning:
+              "Broad historical EV-exception group is profitable at avg odds 2.13, but today's price 1.60 requires 62.5% break-even. Current prob_used is 57.5%; Kelly is -0.132. Treat as watch-only, not a bet.",
+            decision_labels: {
+              main_decision: "NO_BET",
+              canonical: false,
+              canonical_label: "Canonical: none",
+              setup_profitability: "historical support only",
+              near_miss: true,
+              vibe_live_watch: true,
+              no_bet_reason: "negative current EV and negative Kelly despite broad historical support",
+              steadivus_note: "Good skip / no forced action.",
+            },
+          },
+        },
+      });
+
+      assert.equal(result.status, 200);
+      assert.equal(typeof result.body.answer, "string");
+      assert.match(result.body.answer, /Main decision: NO_BET/);
+      assert.match(result.body.answer, /Canonical: none/);
+      assert.match(result.body.answer, /watch-only, not a bet/);
+      assert.match(result.body.answer, /negative current EV and negative Kelly/);
+      assert.match(result.body.answer, /Good skip/);
+      assert.deepEqual(result.body.used_sources, ["today_games.json"]);
+      assert.ok(Array.isArray(result.body.warnings));
+    } finally {
+      if (oldOpenAIKey === undefined) delete process.env.OPENAI_API_KEY;
+      else process.env.OPENAI_API_KEY = oldOpenAIKey;
+      if (oldAgentUrl === undefined) delete process.env.HOOPS_AGENT_API_URL;
+      else process.env.HOOPS_AGENT_API_URL = oldAgentUrl;
+    }
+  });
+
+  it("retries OpenAI 5xx responses and returns normal JSON fallback after repeated 502s", async () => {
+    const oldOpenAIKey = process.env.OPENAI_API_KEY;
+    const oldAgentUrl = process.env.HOOPS_AGENT_API_URL;
+    const oldRetryBaseMs = process.env.HOOPS_AGENT_OPENAI_RETRY_BASE_MS;
+    process.env.OPENAI_API_KEY = "test-key";
+    process.env.HOOPS_AGENT_OPENAI_RETRY_BASE_MS = "0";
+    delete process.env.HOOPS_AGENT_API_URL;
+    let calls = 0;
+
+    try {
+      const result = await buildAgentResponse(
+        {
+          question: "explain today's decision",
+          capability: "read_only",
+          context: {
+            as_of_date: "2026-05-10",
+            sources: { today_games: "today_games.json" },
+          },
+        },
+        {
+          runWorkflow: async () => {
+            calls += 1;
+            const error = new Error("OpenAI request failed with 502");
+            error.status = 502;
+            throw error;
+          },
+        },
+      );
+
+      assert.equal(result.status, 200);
+      assert.equal(calls, 3);
+      assert.equal(
+        result.body.answer,
+        "Agent backend reached OpenAI, but the provider returned a temporary 5xx error. Dashboard context is available, but no model answer was generated.",
+      );
+      assert.deepEqual(result.body.used_sources, ["dashboard context"]);
+      assert.deepEqual(result.body.warnings, ["OpenAI provider error: 502"]);
+      assert.equal(result.body.error, undefined);
+    } finally {
+      if (oldOpenAIKey === undefined) delete process.env.OPENAI_API_KEY;
+      else process.env.OPENAI_API_KEY = oldOpenAIKey;
+      if (oldAgentUrl === undefined) delete process.env.HOOPS_AGENT_API_URL;
+      else process.env.HOOPS_AGENT_API_URL = oldAgentUrl;
+      if (oldRetryBaseMs === undefined) delete process.env.HOOPS_AGENT_OPENAI_RETRY_BASE_MS;
+      else process.env.HOOPS_AGENT_OPENAI_RETRY_BASE_MS = oldRetryBaseMs;
+    }
+  });
+
+  it("prepends deterministic daily decision labels to OpenAI answers", async () => {
+    const oldOpenAIKey = process.env.OPENAI_API_KEY;
+    const oldAgentUrl = process.env.HOOPS_AGENT_API_URL;
+    process.env.OPENAI_API_KEY = "test-key";
+    delete process.env.HOOPS_AGENT_API_URL;
+
+    try {
+      const result = await buildAgentResponse(
+        {
+          question: "Should we bet?",
+          capability: "read_only",
+          context: {
+            today_decision_context: {
+              engine_state: "NO_BET",
+              decision_labels: {
+                main_decision: "NO_BET",
+                canonical: false,
+                canonical_label: "Canonical: none",
+                setup_profitability: "historical support only",
+                near_miss: true,
+                vibe_live_watch: true,
+                no_bet_reason: "negative current EV and negative Kelly despite broad historical support",
+                steadivus_note: "Good skip / no forced action.",
+              },
+            },
+          },
+        },
+        { runWorkflow: async () => ({ output_text: "Model detail follows." }) },
+      );
+
+      assert.equal(result.status, 200);
+      assert.match(result.body.answer, /^Main decision: NO_BET\.\nCanonical: none\./);
+      assert.match(result.body.answer, /Setup profitability: historical support only/);
+      assert.match(result.body.answer, /Near-miss\/watch: watch-only/);
+      assert.match(result.body.answer, /Steadivus: Good skip/);
+      assert.match(result.body.answer, /Model detail follows/);
+      assert.deepEqual(result.body.used_sources, ["dashboard context", "Hoops Insight Betting Agent workflow"]);
+    } finally {
+      if (oldOpenAIKey === undefined) delete process.env.OPENAI_API_KEY;
+      else process.env.OPENAI_API_KEY = oldOpenAIKey;
+      if (oldAgentUrl === undefined) delete process.env.HOOPS_AGENT_API_URL;
+      else process.env.HOOPS_AGENT_API_URL = oldAgentUrl;
+    }
+  });
+
   it("defines CORS and JSON method-not-allowed response", () => {
     assert.equal(agentJsonHeaders["Access-Control-Allow-Methods"], "POST, OPTIONS");
     assert.equal(methodNotAllowedBody.answer, "");

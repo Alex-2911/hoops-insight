@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import "./load_local_env.mjs";
 
 const args = new Set(process.argv.slice(2));
 const strict = args.has("--strict");
