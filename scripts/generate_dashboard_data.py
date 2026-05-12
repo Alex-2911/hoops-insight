@@ -2265,17 +2265,17 @@ def main() -> None:
     window_start_label = window_start_dt.strftime(DATE_FMT) if window_start_dt else None
     window_end_label = window_end_dt.strftime(DATE_FMT) if window_end_dt else None
 
-    snapshot_as_of_date = as_of_date
+    snapshot_as_of_date = selection_metadata.get("snapshot_as_of_date") or as_of_date
     combined_source_file = combined_path.name
     bet_log_latest_date_raw = selection_metadata.get("bet_log_latest_date_in_file")
-    if isinstance(bet_log_latest_date_raw, str) and as_of_date != "—":
+    if isinstance(bet_log_latest_date_raw, str) and snapshot_as_of_date != "—":
         try:
             bet_log_latest_dt = datetime.strptime(bet_log_latest_date_raw, DATE_FMT)
-            snapshot_dt = datetime.strptime(as_of_date, DATE_FMT)
+            snapshot_dt = datetime.strptime(snapshot_as_of_date, DATE_FMT)
             day_gap = (snapshot_dt - bet_log_latest_dt).days
             if day_gap > 14:
                 consistency_issues.append(
-                    f"bet_log appears stale versus snapshot ({day_gap} days behind: {bet_log_latest_date_raw} vs {as_of_date})"
+                    f"bet_log appears stale versus snapshot ({day_gap} days behind: {bet_log_latest_date_raw} vs {snapshot_as_of_date})"
                 )
         except ValueError:
             consistency_issues.append(
