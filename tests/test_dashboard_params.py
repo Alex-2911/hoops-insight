@@ -336,6 +336,55 @@ def test_dashboard_state_uses_converted_strategy_txt_alias_for_source_root(tmp_p
     assert dashboard_state["data_consistency_status"] == "ok"
 
 
+def test_snapshot_metadata_uses_selected_snapshot_when_window_end_lags(tmp_path: Path) -> None:
+    source_root = tmp_path / "Basketball_prediction" / "2026"
+    lightgbm = source_root / "output" / "LightGBM"
+    kelly = lightgbm / "Kelly"
+    out_dir = tmp_path / "out"
+    snapshot_date = "2026-04-04"
+
+    _write(
+        kelly / f"combined_nba_predictions_iso_{snapshot_date}.csv",
+        "date,home_team,away_team,result,pred_home_win_proba,prob_iso,closing_home_odds,home_win_rate\n"
+        "2026-04-03,LAL,BOS,HOME,0.61,0.62,2.20,0.66\n"
+        "2026-04-04,NYK,MIA,0,0.55,0.56,1.90,0.58\n",
+    )
+    _write(
+        lightgbm / f"local_matched_games_{snapshot_date}.csv",
+        "date,home_team,away_team,home_win_rate,prob_iso,prob_used,odds_1,ev_eur_per_100,win,pnl\n"
+        "2026-04-03,LAL,BOS,0.66,0.62,0.62,2.2,4.0,1,120\n",
+    )
+    _write(lightgbm / "bet_log_flat_live.csv", "date,stake,pnl,won\n2026-04-03,100,20,1\n")
+    _write(
+        lightgbm / f"strategy_params_{snapshot_date}.txt",
+        "as_of_date=2026-04-04\nhome_win_rate_threshold=0.65\nodds_min=2.0\nodds_max=3.0\nprob_threshold=0.6\nmin_ev=1.5\n",
+    )
+    (lightgbm / f"metrics_snapshot_{snapshot_date}.json").write_text(
+        json.dumps({"snapshot_as_of_date": snapshot_date}),
+        encoding="utf-8",
+    )
+
+    subprocess.run(
+        [
+            sys.executable,
+            "scripts/generate_dashboard_data.py",
+            "--source-root",
+            str(source_root),
+            "--output-dir",
+            str(out_dir),
+        ],
+        check=True,
+    )
+
+    dashboard_state = json.loads((out_dir / "dashboard_state.json").read_text(encoding="utf-8"))
+    last_run = json.loads((out_dir / "last_run.json").read_text(encoding="utf-8"))
+
+    assert dashboard_state["window_end"] == "2026-04-03"
+    assert dashboard_state["snapshot_as_of_date"] == snapshot_date
+    assert last_run["selection"]["snapshot_as_of_date"] == dashboard_state["snapshot_as_of_date"]
+    assert last_run["snapshotAsOfDate"] == dashboard_state["snapshot_as_of_date"]
+
+
 def test_local_matched_accepts_game_date_alias(tmp_path: Path) -> None:
     data_dir = tmp_path / "data"
     out_dir = tmp_path / "out"
