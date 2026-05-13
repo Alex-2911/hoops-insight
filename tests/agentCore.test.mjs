@@ -42,6 +42,9 @@ describe("agent backend response contract", () => {
       "setup_profitability_scan is historical support only",
       "script11_watchlist_history is watchlist context",
       "actual_bets_manual.csv is the source for real placed bets",
+      "Historical ROI Attack: a separate discretionary category",
+      "decision_class=discretionary_historical_roi_attack",
+      "not canonical, not Stage 1 model-approved",
       "robustness/engine_state NO_BET is the main decision",
       "Market-gap blocks are serious warnings",
       "Steadivus good skips are discipline wins",
@@ -395,6 +398,82 @@ describe("agent backend response contract", () => {
       assert.doesNotMatch(answer, /\bcanonical bet\b/i);
       assert.doesNotMatch(answer, /\brecommend(?:ed|s)? a bet\b/i);
       assert.doesNotMatch(answer, /\bbroad historical ROI is enough\b/i);
+      assert.deepEqual(result.body.used_sources, ["dashboard context", "Hoops Insight Betting Agent workflow"]);
+      assert.deepEqual(result.body.warnings, []);
+    } finally {
+      if (oldOpenAIKey === undefined) delete process.env.OPENAI_API_KEY;
+      else process.env.OPENAI_API_KEY = oldOpenAIKey;
+      if (oldAgentUrl === undefined) delete process.env.HOOPS_AGENT_API_URL;
+      else process.env.HOOPS_AGENT_API_URL = oldAgentUrl;
+    }
+  });
+
+  it("keeps Historical ROI Attack separate from canonical model bets", async () => {
+    const oldOpenAIKey = process.env.OPENAI_API_KEY;
+    const oldAgentUrl = process.env.HOOPS_AGENT_API_URL;
+    process.env.OPENAI_API_KEY = "test-key";
+    delete process.env.HOOPS_AGENT_API_URL;
+
+    try {
+      let workflowInput = "";
+      const result = await buildAgentResponse(
+        {
+          question: "How should we classify today's DET vs CLE historical ROI attack?",
+          capability: "read_only",
+          context: {
+            current_date: "2026-05-13",
+            historical_roi_attack: {
+              game: "DET vs CLE",
+              decision_class: "discretionary_historical_roi_attack",
+              canonical_signal: false,
+              stage1_bucket: "RAW_UNDERDOG_TEMPTATION",
+              official_setup_scan_candidate_count: 0,
+              script11_confirms_bet: false,
+              prob_used: null,
+              odds: 1.56,
+              break_even_probability: 0.641,
+              broad_bucket: { n: 100, roi_pct: 1.17 },
+              price_strict_bucket: { n: 36, roi_pct: 11.83 },
+              hwr_filtered_bucket: { n: 24, roi_pct: 13.46, win_rate: 0.75 },
+              stake_type: "small_fixed",
+              reason: "price_strict_and_hwr_filtered_history_profitable",
+              risk_note: "not canonical; official model did not approve",
+            },
+          },
+        },
+        {
+          runWorkflow: async ({ input_as_text }) => {
+            workflowInput = input_as_text;
+            return {
+              output_text:
+                "Historical ROI attack: DET vs CLE is discretionary, small stake only, not canonical, and not Stage 1 model-approved. The price-strict and HWR-filtered buckets are profitable and the HWR-filtered 75.00% win rate clears the 64.10% break-even at odds 1.56. This should be tracked separately with decision_class=discretionary_historical_roi_attack and canonical_signal=false.",
+            };
+          },
+        },
+      );
+
+      assert.equal(result.status, 200);
+      assert.match(workflowInput, /"decision_class": "discretionary_historical_roi_attack"/);
+      assert.match(workflowInput, /"canonical_signal": false/);
+      assert.match(workflowInput, /"stage1_bucket": "RAW_UNDERDOG_TEMPTATION"/);
+      assert.match(workflowInput, /"official_setup_scan_candidate_count": 0/);
+      assert.match(workflowInput, /"break_even_probability": 0\.641/);
+      assert.match(workflowInput, /"price_strict_bucket"/);
+      assert.match(workflowInput, /"hwr_filtered_bucket"/);
+
+      const answer = result.body.answer;
+      assert.match(answer, /Historical ROI attack/i);
+      assert.match(answer, /discretionary/);
+      assert.match(answer, /small stake only/);
+      assert.match(answer, /not canonical/);
+      assert.match(answer, /not Stage 1 model-approved/);
+      assert.match(answer, /75\.00% win rate clears the 64\.10% break-even/);
+      assert.match(answer, /decision_class=discretionary_historical_roi_attack/);
+      assert.match(answer, /canonical_signal=false/);
+      assert.doesNotMatch(answer, /\bcanonical model bet\b/i);
+      assert.doesNotMatch(answer, /\block\b/i);
+      assert.doesNotMatch(answer, /\bguaranteed\b/i);
+      assert.doesNotMatch(answer, /\bautomatic bet\b/i);
       assert.deepEqual(result.body.used_sources, ["dashboard context", "Hoops Insight Betting Agent workflow"]);
       assert.deepEqual(result.body.warnings, []);
     } finally {
