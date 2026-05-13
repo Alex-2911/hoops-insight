@@ -89,6 +89,16 @@ const buildDecisionContextPrefix = (context) => {
     `Main decision: ${decisionLabels.main_decision ?? decisionContext.engine_state ?? "unknown"}.`,
     `Canonical: ${canonicalLabel}.`,
     `Setup profitability: ${decisionLabels.setup_profitability ?? "historical context only"}.`,
+    decisionLabels.local_profitable_candidate != null
+      ? `Local profitable setup: ${decisionLabels.local_profitable_candidate ? "YES" : "NO"}.`
+      : null,
+    decisionLabels.robust_stability ? `Robust stability: ${decisionLabels.robust_stability}.` : null,
+    decisionLabels.historical_profitability_check
+      ? `Historical profitability check: ${decisionLabels.historical_profitability_check}.`
+      : null,
+    decisionLabels.local_profitability_rule_label
+      ? `Local rule label: ${decisionLabels.local_profitability_rule_label}.`
+      : null,
     `Near-miss/watch: ${decisionLabels.near_miss || decisionLabels.vibe_live_watch ? "watch-only" : "none"}.`,
     decisionLabels.no_bet_reason ? `No-bet reason: ${decisionLabels.no_bet_reason}.` : null,
     decisionLabels.steadivus_note ? `Steadivus: ${decisionLabels.steadivus_note}` : null,

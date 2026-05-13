@@ -2,12 +2,24 @@ import json
 import os
 import subprocess
 import sys
+import importlib.util
 from pathlib import Path
 
 
 def _write(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
+
+
+def _load_dashboard_generator():
+    module_path = Path("scripts/generate_dashboard_data.py").resolve()
+    sys.path.insert(0, str(module_path.parent))
+    spec = importlib.util.spec_from_file_location("generate_dashboard_data", module_path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
 
 
 def test_dashboard_state_uses_strategy_params_when_metrics_missing(tmp_path: Path) -> None:
@@ -561,3 +573,86 @@ def test_ev_exception_positive_broad_roi_negative_current_ev_stays_watch_only(tm
     debug_csv = out_dir / ev_exception["debug_csv"]
     assert debug_csv.exists()
     assert len(debug_csv.read_text(encoding="utf-8").splitlines()) == ev_exception["summary"]["n"] + 1
+
+
+def test_local_profitability_rule_requires_repeatable_scanner_and_writes_learning_case(tmp_path: Path) -> None:
+    generator = _load_dashboard_generator()
+    summary = {
+        "source_file": "historical_roi_attack_scan_2026-05-13_DET_CLE_summary.json",
+        "target_date": "2026-05-13",
+        "game": "DET vs CLE",
+        "historical_roi_attack_status": "reject_below_break_even",
+        "canonical_context": {
+            "canonical_signal": False,
+            "local_engine_state": "NO_BET",
+            "local_block_reason": "EV<=0.00",
+            "official_setup_scan_candidate_count": 0,
+            "official_shortlist_empty": True,
+        },
+        "target_row_values": {
+            "date": "2026-05-13",
+            "home_team": "DET",
+            "away_team": "CLE",
+            "home_win_rate": 0.73,
+            "odds_1": 1.56,
+            "prob_used": 0.591,
+            "home_team_prob": 0.505,
+            "EV_live_€_per_100": -7.87,
+            "blocked_by": "EV<=0.00",
+        },
+        "bucket_summaries": [
+            {
+                "bucket_name": "broad_similar_current_setup",
+                "tail": "all",
+                "n": 100,
+                "roi_pct": 1.17,
+                "win_rate_pct": 67.0,
+                "win_rate_minus_break_even_pp": 2.9,
+            },
+            {
+                "bucket_name": "price_strict_bucket",
+                "tail": "all",
+                "n": 63,
+                "roi_pct": -3.92,
+                "win_rate_pct": 61.9,
+                "win_rate_minus_break_even_pp": -2.2,
+            },
+            {
+                "bucket_name": "hwr_filtered_bucket",
+                "tail": "all",
+                "n": 39,
+                "roi_pct": -4.03,
+                "win_rate_pct": 61.5,
+                "win_rate_minus_break_even_pp": -2.56,
+            },
+        ],
+    }
+
+    payload = generator._build_local_profitability_rule_payload(
+        [summary],
+        {
+            "home_win_rate_min": 0.55,
+            "odds_min": 1.5,
+            "odds_max": 2.6,
+            "prob_threshold": 0.4,
+        },
+    )
+
+    assert payload["approval_source"] == "repeatable_local_historical_roi_attack_scanner_only"
+    assert payload["canonical_override_allowed"] is False
+    case = payload["cases"][0]
+    assert case["local_profitable_candidate"] is True
+    assert case["robust_stability_passed"] is False
+    assert case["historical_roi_attack_status"] == "reject_below_break_even"
+    assert case["agent_decision"] == "SKIP"
+    assert case["agent_label"] == "profitable_local_candidate_but_historical_rejected"
+    assert case["stake_class"] == "none"
+    assert case["canonical_override_allowed"] is False
+    assert "Historical scanner confirmation is required" in case["lesson"]
+
+    generator._write_agent_learning_cases(tmp_path, payload["cases"])
+    jsonl_path = tmp_path / "agent_learning_cases.jsonl"
+    written = [json.loads(line) for line in jsonl_path.read_text(encoding="utf-8").splitlines()]
+    assert len(written) == 1
+    assert written[0]["agent_label"] == "profitable_local_candidate_but_historical_rejected"
+    assert written[0]["canonical_signal"] is False

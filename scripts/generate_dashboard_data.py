@@ -869,6 +869,276 @@ def _build_ev_exception_profitability(
     }
 
 
+def _find_historical_roi_attack_summaries(lightgbm_dir: Optional[Path], run_date: Optional[str]) -> List[Dict[str, object]]:
+    if lightgbm_dir is None or not run_date:
+        return []
+    scan_dir = lightgbm_dir / "historical_roi_attack"
+    if not scan_dir.exists():
+        return []
+
+    summaries: List[Dict[str, object]] = []
+    for path in sorted(scan_dir.glob(f"historical_roi_attack_scan_{run_date}_*_summary.json")):
+        payload = _read_json_object(path)
+        if not payload:
+            continue
+        payload = dict(payload)
+        payload["source_file"] = path.name
+        summaries.append(payload)
+    return summaries
+
+
+def _bucket_summary(summary: Dict[str, object], bucket_name: str, tail: str = "all") -> Optional[Dict[str, object]]:
+    buckets = summary.get("bucket_summaries")
+    if not isinstance(buckets, list):
+        return None
+    for bucket in buckets:
+        if (
+            isinstance(bucket, dict)
+            and bucket.get("bucket_name") == bucket_name
+            and str(bucket.get("tail") or "") == tail
+        ):
+            return bucket
+    return None
+
+
+def _select_probability_for_local_rule(target_row: Dict[str, object]) -> Optional[float]:
+    for key in ("prob_used", "prob_live_safe", "prob_iso_oos_time", "prob_iso", "home_team_prob"):
+        value = _safe_float(target_row.get(key))
+        if value is not None:
+            return value
+    return None
+
+
+def _build_local_profitability_rule_case(
+    summary: Dict[str, object],
+    active_params: Dict[str, float],
+) -> Optional[Dict[str, object]]:
+    target = summary.get("target_row_values")
+    if not isinstance(target, dict):
+        return None
+
+    canonical_context = summary.get("canonical_context")
+    if not isinstance(canonical_context, dict):
+        canonical_context = {}
+
+    hwr_threshold = float(active_params.get("home_win_rate_min", 0.0))
+    odds_min = float(active_params.get("odds_min", 1.0))
+    odds_max = float(active_params.get("odds_max", DEFAULT_MAX_ODDS_FALLBACK))
+    prob_threshold = float(active_params.get("prob_threshold", 0.5))
+
+    home_win_rate = _safe_float(target.get("home_win_rate"))
+    odds_1 = _safe_float(target.get("odds_1"))
+    selected_probability = _select_probability_for_local_rule(target)
+    local_profitable_candidate = bool(
+        home_win_rate is not None
+        and odds_1 is not None
+        and selected_probability is not None
+        and home_win_rate >= hwr_threshold
+        and odds_min <= odds_1 <= odds_max
+        and selected_probability >= prob_threshold
+    )
+
+    canonical_signal = bool(canonical_context.get("canonical_signal"))
+    local_engine_state = str(canonical_context.get("local_engine_state") or "").upper()
+    robust_stability_passed = bool(canonical_signal or (local_engine_state and local_engine_state != "NO_BET"))
+    historical_status = str(summary.get("historical_roi_attack_status") or "unknown")
+    price_strict = _bucket_summary(summary, "price_strict_bucket") or {}
+    hwr_filtered = _bucket_summary(summary, "hwr_filtered_bucket") or {}
+    broad = _bucket_summary(summary, "broad_similar_current_setup") or {}
+
+    scanner_supported = bool(
+        historical_status == "supported_discretionary_only"
+        and (_safe_float(price_strict.get("roi_pct")) or 0.0) > 0
+        and (_safe_float(hwr_filtered.get("roi_pct")) or 0.0) > 0
+        and (_safe_float(price_strict.get("win_rate_minus_break_even_pp")) or 0.0) > 0
+        and (_safe_float(hwr_filtered.get("win_rate_minus_break_even_pp")) or 0.0) > 0
+        and (_safe_float(price_strict.get("n")) or 0.0) >= 30
+        and (_safe_float(hwr_filtered.get("n")) or 0.0) >= 20
+    )
+
+    if local_profitable_candidate and not robust_stability_passed and scanner_supported:
+        agent_decision = "SMALL_BET"
+        agent_label = "discretionary_local_profitability_confirmed"
+        stake_class = "small_fixed_only"
+        reason = (
+            "Game matched profitable local candidate params and the repeatable Historical ROI Attack scanner "
+            "confirmed price-strict and HWR-filtered profitability above break-even."
+        )
+        lesson = (
+            "Small discretionary bet allowed only after local profitable setup and historical profitability confirmation."
+        )
+    elif local_profitable_candidate and not robust_stability_passed:
+        agent_decision = "SKIP"
+        agent_label = "profitable_local_candidate_but_historical_rejected"
+        stake_class = "none"
+        reason = (
+            "Game matched profitable local candidate params, but the repeatable Historical ROI Attack scanner "
+            "did not clear break-even and profitability requirements."
+        )
+        lesson = (
+            "Profitable local params alone are insufficient. Historical scanner confirmation is required."
+        )
+    elif local_profitable_candidate:
+        agent_decision = "REVIEW_CANONICAL"
+        agent_label = "profitable_local_candidate_but_robust_rejected"
+        stake_class = "none"
+        reason = "Game matched local candidate params, but this rule never overrides canonical Robust++++ classification."
+        lesson = "Keep local profitability context separate from canonical model bets."
+    else:
+        agent_decision = "SKIP"
+        agent_label = "correct_no_bet_discipline"
+        stake_class = "none"
+        reason = "Game did not match the local profitable candidate trigger."
+        lesson = "No local override category fires without the local candidate trigger."
+
+    game = str(summary.get("game") or f"{target.get('home_team', 'HOME')} vs {target.get('away_team', 'AWAY')}")
+    case = {
+        "rule_name": "Profitable Local Candidate + Historical ROI Confirmation Rule",
+        "date": str(summary.get("target_date") or target.get("date") or ""),
+        "game": game,
+        "home_team": target.get("home_team"),
+        "away_team": target.get("away_team"),
+        "canonical_decision": "NO_BET" if not canonical_signal else "CANONICAL",
+        "canonical_signal": canonical_signal,
+        "local_profitable_candidate": local_profitable_candidate,
+        "robust_stability_passed": robust_stability_passed,
+        "local_params": {
+            "home_win_rate_threshold": hwr_threshold,
+            "odds_min": odds_min,
+            "odds_max": odds_max,
+            "prob_threshold": prob_threshold,
+        },
+        "target_values": {
+            "home_win_rate": home_win_rate,
+            "odds_1": odds_1,
+            "selected_probability": selected_probability,
+            "prob_used": _safe_float(target.get("prob_used")),
+            "EV_live_€_per_100": _safe_float(target.get("EV_live_€_per_100") or target.get("EV_€_per_100")),
+            "blocked_by": target.get("blocked_by") or canonical_context.get("local_block_reason"),
+        },
+        "historical_roi_attack_status": historical_status,
+        "historical_roi_attack_source_file": summary.get("source_file"),
+        "buckets": {
+            "broad_similar_current_setup": broad,
+            "price_strict_bucket": price_strict,
+            "hwr_filtered_bucket": hwr_filtered,
+        },
+        "agent_decision": agent_decision,
+        "agent_label": agent_label,
+        "stake_class": stake_class,
+        "reason": reason,
+        "outcome": None,
+        "pnl": None,
+        "lesson": lesson,
+        "canonical_override_allowed": False,
+    }
+    return case
+
+
+def _build_local_profitability_rule_payload(
+    summaries: List[Dict[str, object]],
+    active_params: Dict[str, float],
+) -> Dict[str, object]:
+    cases = [
+        case
+        for summary in summaries
+        if (case := _build_local_profitability_rule_case(summary, active_params)) is not None
+    ]
+    return {
+        "rule_name": "Profitable Local Candidate + Historical ROI Confirmation Rule",
+        "canonical_override_allowed": False,
+        "approval_source": "repeatable_local_historical_roi_attack_scanner_only",
+        "cases": cases,
+    }
+
+
+def _write_agent_learning_cases(output_dir: Path, cases: List[Dict[str, object]]) -> None:
+    path = output_dir / "agent_learning_cases.jsonl"
+    existing: Dict[Tuple[str, str, str], Dict[str, object]] = {}
+    if path.exists():
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            try:
+                payload = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(payload, dict):
+                continue
+            key = (
+                str(payload.get("date") or ""),
+                str(payload.get("game") or ""),
+                str(payload.get("rule_name") or ""),
+            )
+            existing[key] = payload
+    for case in cases:
+        key = (
+            str(case.get("date") or ""),
+            str(case.get("game") or ""),
+            str(case.get("rule_name") or ""),
+        )
+        existing[key] = case
+
+    ordered_cases = sorted(existing.values(), key=lambda item: (str(item.get("date") or ""), str(item.get("game") or "")))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as handle:
+        for case in ordered_cases:
+            handle.write(json.dumps(case, default=_serialize, ensure_ascii=False, sort_keys=True))
+            handle.write("\n")
+
+
+def _params_match_active_window_source(raw_params: Dict[str, object], active_params: Dict[str, float]) -> bool:
+    raw_thresholds = _normalize_params(raw_params)
+    comparisons = {
+        "home_win_rate_threshold": "home_win_rate_min",
+        "odds_min": "odds_min",
+        "odds_max": "odds_max",
+        "prob_threshold": "prob_threshold",
+    }
+    for raw_key, active_key in comparisons.items():
+        raw_value = _safe_float(raw_thresholds.get(raw_key))
+        active_value = _safe_float(active_params.get(active_key))
+        if raw_value is None or active_value is None:
+            return False
+        if not math.isclose(raw_value, active_value, rel_tol=1e-9, abs_tol=1e-9):
+            return False
+    return True
+
+
+def _build_local_strategy_evaluation_window(
+    raw_strategy_payload: Dict[str, object],
+    strategy_params_source: Optional[Path],
+    active_params: Dict[str, float],
+) -> Dict[str, object]:
+    local_tail_used = _safe_float(raw_strategy_payload.get("local_tail_used"))
+    hist_df_rows = _safe_float(raw_strategy_payload.get("hist_df_rows"))
+    local_eval_rows = _safe_float(raw_strategy_payload.get("local_eval_rows"))
+    valid_window_size = _safe_float(raw_strategy_payload.get("valid_window_size"))
+    raw_window_value = local_tail_used or hist_df_rows or local_eval_rows or valid_window_size
+    matches_active_params = _params_match_active_window_source(raw_strategy_payload, active_params) if raw_window_value is not None else False
+    authoritative_value = raw_window_value
+    if not matches_active_params:
+        authoritative_value = None
+
+    warning = None
+    if raw_window_value is not None and not matches_active_params:
+        warning = "strategy params metadata did not match the active local setup; local evaluation window hidden"
+    elif authoritative_value is None:
+        warning = "local Script 11 evaluation window is not available in generated artifacts"
+
+    return {
+        "label": "Script 11 local tail",
+        "local_tail_used": int(local_tail_used) if local_tail_used is not None and local_tail_used.is_integer() else local_tail_used,
+        "hist_df_rows": int(hist_df_rows) if hist_df_rows is not None and hist_df_rows.is_integer() else hist_df_rows,
+        "local_eval_rows": int(local_eval_rows) if local_eval_rows is not None and local_eval_rows.is_integer() else local_eval_rows,
+        "valid_window_size": int(valid_window_size) if valid_window_size is not None and valid_window_size.is_integer() else valid_window_size,
+        "display_window_games": int(authoritative_value) if authoritative_value is not None and authoritative_value.is_integer() else authoritative_value,
+        "source_file": strategy_params_source.name if strategy_params_source else None,
+        "matches_active_params": matches_active_params,
+        "warning": warning,
+    }
+
+
 def _find_strategy_params(lightgbm_dir: Path, as_of_date: Optional[str]) -> Optional[Path]:
     if as_of_date:
         dated_json = lightgbm_dir / f"strategy_params_{as_of_date}.json"
@@ -2293,6 +2563,7 @@ def main() -> None:
     defaults_used = False
     defaults_reason: Optional[str] = None
     params_payload_path: Optional[Path] = None
+    raw_strategy_payload: Dict[str, object] = {}
     if sources.strategy_params and sources.strategy_params.exists():
         params_payload_path = sources.strategy_params
     else:
@@ -2382,6 +2653,21 @@ def main() -> None:
         window_start_dt,
         window_end_dt,
         output_dir,
+    )
+    historical_roi_attack_summaries = _find_historical_roi_attack_summaries(
+        _resolve_live_lightgbm_dir(source_root),
+        today_games_payload.get("as_of_date") if isinstance(today_games_payload.get("as_of_date"), str) else None,
+    )
+    local_profitability_rule = _build_local_profitability_rule_payload(
+        historical_roi_attack_summaries,
+        active_params,
+    )
+    today_games_payload["historical_roi_attack_scans"] = historical_roi_attack_summaries
+    today_games_payload["local_profitability_rule"] = local_profitability_rule
+    today_games_payload["local_strategy_evaluation_window"] = _build_local_strategy_evaluation_window(
+        raw_strategy_payload,
+        strategy_params_source,
+        active_params,
     )
 
     # ----------------------------
@@ -2839,6 +3125,7 @@ def main() -> None:
     write_json(output_dir / "dashboard_payload.json", dashboard_payload)
     write_json(output_dir / "local_matched_games_latest.json", {"rows": local_matched_subset})
     write_json(output_dir / "today_games.json", today_games_payload)
+    _write_agent_learning_cases(output_dir, local_profitability_rule["cases"])
     remove_legacy_typo_files(output_dir)
     verify_required_dashboard_json(output_dir)
 

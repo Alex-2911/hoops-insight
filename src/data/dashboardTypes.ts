@@ -346,6 +346,24 @@ export interface TodayGamesPayload {
     rows?: Array<Record<string, string>>;
     matches?: Array<Record<string, string>>;
   };
+  historical_roi_attack_scans?: Array<Record<string, unknown>>;
+  local_profitability_rule?: {
+    rule_name?: string;
+    canonical_override_allowed?: boolean;
+    approval_source?: string;
+    cases?: Array<Record<string, unknown>>;
+  };
+  local_strategy_evaluation_window?: {
+    label?: string;
+    local_tail_used?: number | null;
+    hist_df_rows?: number | null;
+    local_eval_rows?: number | null;
+    valid_window_size?: number | null;
+    display_window_games?: number | null;
+    source_file?: string | null;
+    matches_active_params?: boolean;
+    warning?: string | null;
+  };
 }
 
 export interface BankrollSummary {

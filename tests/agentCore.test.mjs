@@ -43,6 +43,11 @@ describe("agent backend response contract", () => {
       "script11_watchlist_history is watchlist context",
       "actual_bets_manual.csv is the source for real placed bets",
       "Historical ROI Attack: a separate discretionary category",
+      "Profitable Local Candidate + Historical ROI Confirmation",
+      "repeatable local Historical ROI Attack scanner",
+      "discretionary_local_profitability_confirmed",
+      "profitable_local_candidate_but_historical_rejected",
+      "Manual one-off bucket checks can explain context but cannot approve",
       "decision_class=discretionary_historical_roi_attack",
       "not canonical, not Stage 1 model-approved",
       "robustness/engine_state NO_BET is the main decision",
@@ -476,6 +481,93 @@ describe("agent backend response contract", () => {
       assert.doesNotMatch(answer, /\bautomatic bet\b/i);
       assert.deepEqual(result.body.used_sources, ["dashboard context", "Hoops Insight Betting Agent workflow"]);
       assert.deepEqual(result.body.warnings, []);
+    } finally {
+      if (oldOpenAIKey === undefined) delete process.env.OPENAI_API_KEY;
+      else process.env.OPENAI_API_KEY = oldOpenAIKey;
+      if (oldAgentUrl === undefined) delete process.env.HOOPS_AGENT_API_URL;
+      else process.env.HOOPS_AGENT_API_URL = oldAgentUrl;
+    }
+  });
+
+  it("classifies DET local profitable candidate as skip when scanner rejects break-even", async () => {
+    const oldOpenAIKey = process.env.OPENAI_API_KEY;
+    const oldAgentUrl = process.env.HOOPS_AGENT_API_URL;
+    process.env.OPENAI_API_KEY = "test-key";
+    delete process.env.HOOPS_AGENT_API_URL;
+
+    try {
+      let workflowInput = "";
+      const result = await buildAgentResponse(
+        {
+          question: "Apply the profitable local candidate rule to DET vs CLE.",
+          capability: "read_only",
+          context: {
+            current_date: "2026-05-13",
+            today_decision_context: {
+              run_date: "2026-05-13",
+              engine_state: "NO_BET",
+              canonical_model_signals: { label: "Canonical: none", canonical_count: 0 },
+              local_profitability_case: {
+                rule_name: "Profitable Local Candidate + Historical ROI Confirmation Rule",
+                date: "2026-05-13",
+                game: "DET vs CLE",
+                canonical_decision: "NO_BET",
+                canonical_signal: false,
+                local_profitable_candidate: true,
+                robust_stability_passed: false,
+                historical_roi_attack_status: "reject_below_break_even",
+                agent_decision: "SKIP",
+                agent_label: "profitable_local_candidate_but_historical_rejected",
+                stake_class: "none",
+                reason:
+                  "Game matched profitable local candidate params, but the repeatable Historical ROI Attack scanner did not clear break-even.",
+              },
+              decision_labels: {
+                main_decision: "NO_BET",
+                canonical: false,
+                canonical_label: "Canonical: none",
+                setup_profitability: "historical support only",
+                local_profitable_candidate: true,
+                robust_stability: "FAILED",
+                historical_profitability_check: "FAILED",
+                local_profitability_rule_label: "profitable_local_candidate_but_historical_rejected",
+                local_profitability_rule_decision: "SKIP",
+                near_miss: false,
+                vibe_live_watch: false,
+                no_bet_reason:
+                  "profitable local setup matched, but the repeatable Historical ROI Attack scanner rejected it",
+                steadivus_note: "Good skip / no forced action.",
+              },
+            },
+          },
+        },
+        {
+          runWorkflow: async ({ input_as_text }) => {
+            workflowInput = input_as_text;
+            return {
+              output_text:
+                "Canonical model: NO_BET. Local profitable setup: YES. Robust stability: FAILED. Historical profitability check: FAILED. Decision: SKIP. Label: profitable_local_candidate_but_historical_rejected. This is a no-bet discipline case, not a canonical bet.",
+            };
+          },
+        },
+      );
+
+      assert.equal(result.status, 200);
+      assert.match(workflowInput, /"rule_name": "Profitable Local Candidate \+ Historical ROI Confirmation Rule"/);
+      assert.match(workflowInput, /"historical_roi_attack_status": "reject_below_break_even"/);
+      assert.match(workflowInput, /"agent_label": "profitable_local_candidate_but_historical_rejected"/);
+
+      const answer = result.body.answer;
+      assert.match(answer, /^Main decision: NO_BET\.\nCanonical: none\./);
+      assert.match(answer, /Local profitable setup: YES/);
+      assert.match(answer, /Robust stability: FAILED/);
+      assert.match(answer, /Historical profitability check: FAILED/);
+      assert.match(answer, /Local rule label: profitable_local_candidate_but_historical_rejected/);
+      assert.match(answer, /Decision: SKIP/);
+      assert.match(answer, /not a canonical bet/);
+      assert.doesNotMatch(answer, /\bSMALL_BET\b/);
+      assert.doesNotMatch(answer, /\block\b/i);
+      assert.doesNotMatch(answer, /\bguaranteed\b/i);
     } finally {
       if (oldOpenAIKey === undefined) delete process.env.OPENAI_API_KEY;
       else process.env.OPENAI_API_KEY = oldOpenAIKey;

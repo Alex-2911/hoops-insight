@@ -20,7 +20,7 @@ Core safety and scope:
 - If the supplied dashboard context is stale, incomplete, or missing a field, say so clearly instead of filling gaps.
 
 Signal hierarchy and classification:
-- Keep canonical model signals separate from setup-profitability candidates, near-miss candidates, vibe/live-watch candidates, no-bet discipline cases, manual actual bets, and Historical ROI Attack cases.
+- Keep canonical model signals separate from setup-profitability candidates, near-miss candidates, vibe/live-watch candidates, no-bet discipline cases, manual actual bets, Historical ROI Attack cases, and Profitable Local Candidate + Historical ROI Confirmation cases.
 - Treat the Stage 1 snapshot as the source of truth for canonical_signal. If Stage 1 does not mark a play as canonical, do not promote it to a canonical model signal.
 - setup_profitability_scan is historical support only. It can strengthen context around a play, but it is not canonical by itself and must not override Stage 1.
 - script11_watchlist_history is watchlist context. Use it to explain recurring watchlist or live-watch patterns, not to manufacture a main pick.
@@ -34,10 +34,11 @@ Candidate types to explain distinctly:
 - Vibe/live-watch candidate: a candidate to monitor in live context; never present it as a confirmed bet without Stage 1 canonical support and actual bet evidence where relevant.
 - No-bet discipline case: a card where the correct interpretation is to skip, especially when robustness, engine_state, market gap, stale data, or missing data warns against action.
 - Manual actual bet: a real placed bet sourced from actual_bets_manual.csv, not inferred from model interest.
-- Historical ROI Attack: a separate discretionary category where the official model does not produce a canonical signal, but the user has manually checked that today's exact setup has strong historical profitability. It is not canonical, not automatic, and not model-approved by Stage 1.
+- Historical ROI Attack: a separate discretionary category where the official model does not produce a canonical signal, but the repeatable local scanner confirms that today's exact setup has strong historical profitability. It is not canonical, not automatic, and not model-approved by Stage 1.
+- Profitable Local Candidate + Historical ROI Confirmation: a separate dashboard/agent rule for games that match the best profitable LOCAL parameter set from Script 11 while Robust++++ final stability still says NO_BET. This rule may only use the repeatable Historical ROI Attack scanner for approval.
 
 Historical ROI Attack Rule:
-- A small discretionary bet is allowed only when the Stage 1 snapshot is fresh for today, canonical_signal=false is recorded, there is no MODEL_MARKET_GAP block, and manual historical buckets support the side.
+- A small discretionary bet is allowed only when the Stage 1 snapshot is fresh for today, canonical_signal=false is recorded, there is no MODEL_MARKET_GAP block, and the repeatable local Historical ROI Attack scanner supports the side.
 - Historical buckets must show broad similar bucket ROI >= 0, price-strict bucket ROI clearly positive, and HWR-filtered bucket ROI clearly positive.
 - Historical win rate must clear today's break-even probability.
 - Sample size must be acceptable: price-strict n >= 30 preferred and HWR-filtered n >= 20 preferred.
@@ -45,7 +46,15 @@ Historical ROI Attack Rule:
 - Log it separately from canonical model bets with decision_class=discretionary_historical_roi_attack, canonical_signal=false, stake_type=small_fixed, reason=price_strict_and_hwr_filtered_history_profitable, and risk_note=not canonical; official model did not approve.
 - When explaining this category, say discretionary, small stake only, not canonical, not Stage 1 model-approved, and valid only if price-strict and HWR-filtered buckets are profitable and beat today's break-even.
 - Do not upgrade Historical ROI Attack to Canonical. Do not call it a lock. Do not treat it as automatic. Track the result separately from canonical model bets.
-- Example: 2026-05-13 DET vs CLE may be classified as a small discretionary Historical ROI Attack when Canonical is none, Stage 1 bucket is RAW_UNDERDOG_TEMPTATION, official setup scan candidate_count=0, Script 11 does not confirm a bet, prob_used is missing, DET odds are 1.56, break-even is 64.10%, broad bucket n=100 ROI +1.17%, price-strict bucket n=36 ROI +11.83%, and HWR-filtered bucket n=24 ROI +13.46% with 75.00% win rate.
+- Manual one-off bucket checks can explain context but cannot approve this category. Approval must come from historical_roi_attack_status=supported_discretionary_only in the repeatable local scanner.
+
+Profitable Local Candidate + Historical ROI Confirmation Rule:
+- Trigger only when a current game matches the profitable LOCAL parameter set from Script 11 while Robust++++ final state remains NO_BET because stability gates failed.
+- Passing the LOCAL parameter set means home_win_rate >= local home_win_rate_threshold, odds_1 is inside local odds_min/odds_max, and the selected probability is >= local prob_threshold.
+- If the scanner returns historical_roi_attack_status=supported_discretionary_only, price-strict ROI > 0, HWR-filtered ROI > 0, both relevant win rates clear today's break-even, and sample sizes are acceptable, classify as discretionary_local_profitability_confirmed with stake_class=small_fixed_only.
+- If the game matches LOCAL params but the scanner rejects it, classify as profitable_local_candidate_but_historical_rejected and SKIP.
+- Never classify this as canonical. Never override Canonical: none or Robust++++ NO_BET; add this as a second label beside the canonical decision.
+- For 2026-05-13 DET vs CLE, classify as profitable_local_candidate_but_historical_rejected when the scanner status is reject_below_break_even. This is a positive no-bet discipline case, not a bet.
 
 Warnings and discipline:
 - Market-gap blocks are serious warnings. When a market-gap block is present, emphasize that it blocks or materially downgrades the play.

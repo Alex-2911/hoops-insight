@@ -70,8 +70,10 @@ type ActualBetRow = {
   screenshot_ref: string;
 };
 
+type AgentLearningCase = Record<string, unknown>;
+
 const Index = () => {
-  const [activeTab, setActiveTab] = useState<"overview" | "actual-bets" | "agent-chat">("overview");
+  const [activeTab, setActiveTab] = useState<"play-today" | "overview" | "actual-bets" | "agent-chat">("play-today");
   const [payload, setPayload] = useState<DashboardPayload | null>(null);
   const [dashboardState, setDashboardState] = useState<DashboardState | null>(null);
   const [localMatchedLatestRows, setLocalMatchedLatestRows] = useState<LocalMatchedGameRow[]>([]);
@@ -80,6 +82,7 @@ const Index = () => {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [actualBetsRows, setActualBetsRows] = useState<ActualBetRow[]>([]);
+  const [agentLearningCases, setAgentLearningCases] = useState<AgentLearningCase[]>([]);
   const [fetchStarted, setFetchStarted] = useState(false);
   const [agentMessages, setAgentMessages] = useState<AgentMessage[]>([
     {
@@ -314,6 +317,24 @@ const Index = () => {
         if (alive && actualBetsRes.ok) {
           const actualBetsText = await actualBetsRes.text();
           setActualBetsRows(parseActualBetsCsv(actualBetsText));
+        }
+
+        const learningCasesRes = await fetch(`${baseUrl}data/agent_learning_cases.jsonl`);
+        if (alive && learningCasesRes.ok) {
+          const learningCasesText = await learningCasesRes.text();
+          const parsedCases = learningCasesText
+            .split(/\r?\n/)
+            .map((line) => line.trim())
+            .filter(Boolean)
+            .map((line) => {
+              try {
+                return JSON.parse(line) as AgentLearningCase;
+              } catch {
+                return null;
+              }
+            })
+            .filter((row): row is AgentLearningCase => row !== null);
+          setAgentLearningCases(parsedCases);
         }
 
       } catch (err) {
@@ -902,6 +923,22 @@ const Index = () => {
       (todayGames?.canonical_model_signals?.canonical ?? []).some((row) => isCanonicalSignal(row.canonical_signal ?? true));
     const engineState = todayGames?.engine_state ?? todayGames?.canonical_model_signals?.engine_state ?? null;
     const positiveStakeBets = candidates.filter((candidate) => (candidate.stake ?? 0) > 0);
+    const localProfitabilityCases = todayGames?.local_profitability_rule?.cases ?? [];
+    const localProfitabilityCase =
+      localProfitabilityCases.find((ruleCase) => ruleCase.agent_label === "discretionary_local_profitability_confirmed") ??
+      localProfitabilityCases.find((ruleCase) => ruleCase.local_profitable_candidate) ??
+      localProfitabilityCases[0] ??
+      null;
+    const localProfitabilityLabel =
+      typeof localProfitabilityCase?.agent_label === "string" ? localProfitabilityCase.agent_label : null;
+    const localProfitabilityDecision =
+      typeof localProfitabilityCase?.agent_decision === "string" ? localProfitabilityCase.agent_decision : null;
+    const localProfitableCandidate = Boolean(localProfitabilityCase?.local_profitable_candidate);
+    const robustStabilityPassed = Boolean(localProfitabilityCase?.robust_stability_passed);
+    const historicalRoiAttackStatus =
+      typeof localProfitabilityCase?.historical_roi_attack_status === "string"
+        ? localProfitabilityCase.historical_roi_attack_status
+        : null;
     const latestManualBet = actualBetsRowsSorted[0] ?? null;
     const manualSettled = actualBetsRows.filter((row) => ["Won", "Lost", "Void", "Cashout"].includes(row.status));
     const manualStake = actualBetsRows.reduce((acc, row) => acc + (parseNumeric(row.stake_eur) ?? 0), 0);
@@ -925,8 +962,12 @@ const Index = () => {
             criteria: evExceptionProfitability.criteria ?? null,
             summary: evSummary,
             price_adjusted: priceAdjusted,
-          }
+        }
         : null,
+      historical_roi_attack_scans: todayGames?.historical_roi_attack_scans ?? [],
+      local_profitability_rule: todayGames?.local_profitability_rule ?? null,
+      local_profitability_case: localProfitabilityCase,
+      local_strategy_evaluation_window: todayGames?.local_strategy_evaluation_window ?? null,
       price_adjusted_warning: evExceptionProfitability?.warning ?? null,
       hwr_source_label:
         evExceptionProfitability?.price_adjusted?.hwr_source_label ??
@@ -961,14 +1002,28 @@ const Index = () => {
         canonical: canonicalActive,
         canonical_label: canonicalActive ? "Canonical signal present" : "Canonical: none",
         setup_profitability: broadHistoricalSupport ? "historical support only" : "no current setup support",
+        local_profitable_candidate: localProfitableCandidate,
+        local_profitability_rule_label: localProfitabilityLabel,
+        local_profitability_rule_decision: localProfitabilityDecision,
+        robust_stability: robustStabilityPassed ? "PASSED" : localProfitableCandidate ? "FAILED" : "not_triggered",
+        historical_profitability_check:
+          localProfitableCandidate && historicalRoiAttackStatus === "supported_discretionary_only"
+            ? "PASSED"
+            : localProfitableCandidate
+              ? "FAILED"
+              : "not_triggered",
         near_miss: Boolean(broadHistoricalSupport && anyCandidateNegativeCurrentPrice),
         vibe_live_watch: Boolean(broadHistoricalSupport && anyCandidateNegativeCurrentPrice),
         no_bet_reason:
-          broadHistoricalSupport && anyCandidateNegativeCurrentPrice
-            ? "negative current EV and/or negative Kelly despite broad historical support"
-            : engineState === "NO_BET" || positiveStakeBets.length === 0
-              ? "no positive-stake canonical signal"
-              : "",
+          localProfitabilityLabel === "profitable_local_candidate_but_historical_rejected"
+            ? "profitable local setup matched, but the repeatable Historical ROI Attack scanner rejected it"
+            : localProfitabilityLabel === "discretionary_local_profitability_confirmed"
+              ? ""
+              : broadHistoricalSupport && anyCandidateNegativeCurrentPrice
+                ? "negative current EV and/or negative Kelly despite broad historical support"
+                : engineState === "NO_BET" || positiveStakeBets.length === 0
+                  ? "no positive-stake canonical signal"
+                  : "",
         steadivus_note:
           engineState === "NO_BET" || positiveStakeBets.length === 0
             ? "Good skip / no forced action."
@@ -1007,6 +1062,9 @@ const Index = () => {
       today_decision_context: todayDecisionContext,
       setup_profitability: todayGames?.setup_profitability ?? null,
       ev_exception_profitability: todayGames?.ev_exception_profitability ?? null,
+      historical_roi_attack_scans: todayGames?.historical_roi_attack_scans ?? [],
+      local_profitability_rule: todayGames?.local_profitability_rule ?? null,
+      local_strategy_evaluation_window: todayGames?.local_strategy_evaluation_window ?? null,
       sources: dashboardState?.sources ?? null,
       summary_stats: summaryStats,
       strategy_summary: strategySummary,
@@ -1115,6 +1173,83 @@ const Index = () => {
     if (activeTab !== "agent-chat" || agentStatus === "sending") return;
     agentInputRef.current?.focus();
   }, [activeTab, agentMessages.length, agentStatus]);
+
+  const playTodayCase = todayDecisionContext?.local_profitability_case as Record<string, unknown> | null | undefined;
+  const playTodayLabels = todayDecisionContext?.decision_labels as Record<string, unknown> | null | undefined;
+  const playTodayTarget = playTodayCase?.target_values as Record<string, unknown> | null | undefined;
+  const playTodayBuckets = playTodayCase?.buckets as Record<string, Record<string, unknown>> | null | undefined;
+  const playTodayPriceBucket = playTodayBuckets?.price_strict_bucket;
+  const playTodayHwrBucket = playTodayBuckets?.hwr_filtered_bucket;
+  const localStrategyEvaluationWindow = todayGames?.local_strategy_evaluation_window ?? null;
+  const playTodayGame =
+    readRecordString(playTodayCase, "game") ||
+    (availableTodayGames[0]
+      ? `${availableTodayGames[0].home_team ?? "—"} vs ${availableTodayGames[0].away_team ?? "—"}`
+      : "—");
+  const playTodayDecision = readRecordString(playTodayCase, "agent_decision") || readRecordString(playTodayLabels, "main_decision") || "NO_BET";
+  const playTodayLabel = readRecordString(playTodayCase, "agent_label") || readRecordString(playTodayLabels, "local_profitability_rule_label") || "—";
+  const playTodayBreakEven = readRecordNumber(playTodayHwrBucket, "break_even_pct") ?? readRecordNumber(playTodayPriceBucket, "break_even_pct");
+  const localStrategyWindowGames =
+    typeof localStrategyEvaluationWindow?.display_window_games === "number"
+      ? localStrategyEvaluationWindow.display_window_games
+      : null;
+  const playTodayCurrentGame = availableTodayGames.find((game) => {
+    const [home, away] = playTodayGame.split(" vs ").map((value) => value.trim());
+    return game.home_team === home && game.away_team === away;
+  });
+  const playTodayRawProbability =
+    readRecordNumber(playTodayTarget, "home_team_prob") ??
+    readRecordNumber(playTodayTarget, "home_prob_raw") ??
+    readRecordNumber(playTodayTarget, "raw_probability") ??
+    playTodayCurrentGame?.home_team_prob ??
+    null;
+  const playTodayUsedProbability =
+    readRecordNumber(playTodayTarget, "prob_used") ??
+    readRecordNumber(playTodayTarget, "selected_probability") ??
+    playTodayCurrentGame?.prob_used ??
+    null;
+  const formatProbabilityValue = (value: number | null | undefined) =>
+    typeof value === "number" && Number.isFinite(value) ? fmtPercent(value * 100, 1) : "—";
+  const previousLearningCases = agentLearningCases
+    .filter((learningCase) => {
+      const sameDate = readRecordString(learningCase, "date") === readRecordString(playTodayCase, "date");
+      const sameGame = readRecordString(learningCase, "game") === readRecordString(playTodayCase, "game");
+      return !(sameDate && sameGame);
+    })
+    .sort((a, b) => `${readRecordString(b, "date")} ${readRecordString(b, "game")}`.localeCompare(`${readRecordString(a, "date")} ${readRecordString(a, "game")}`));
+  const playTodayLines = [
+    {
+      label: "Canonical model",
+      value: readRecordString(playTodayCase, "canonical_decision") || readRecordString(playTodayLabels, "canonical_label").replace(/^Canonical:\s*/i, "") || "NO_BET",
+      detail: `Stage 1 canonical signal: ${readRecordString(playTodayCase, "canonical_signal") || "false"}.`,
+    },
+    {
+      label: "Local profitable setup",
+      value: playTodayLabels?.local_profitable_candidate || playTodayCase?.local_profitable_candidate ? "YES" : "NO",
+      detail: `HWR ${formatProbabilityValue(readRecordNumber(playTodayTarget, "home_win_rate"))} · odds ${fmtNumber(readRecordNumber(playTodayTarget, "odds_1"), 2)} · prob ${formatProbabilityValue(playTodayUsedProbability)}.`,
+    },
+    {
+      label: "Robust stability",
+      value: readRecordString(playTodayLabels, "robust_stability") || (playTodayCase?.robust_stability_passed ? "PASSED" : "FAILED"),
+      detail: `Engine state: ${todayDecisionContext?.engine_state ?? "unknown"}; Robust++++ did not create a canonical positive-stake bet.`,
+    },
+    {
+      label: "Historical profitability check",
+      value: readRecordString(playTodayLabels, "historical_profitability_check") || "not_triggered",
+      detail: `Scanner status: ${readRecordString(playTodayCase, "historical_roi_attack_status") || "—"}; price-strict ROI ${fmtPercent(readRecordNumber(playTodayPriceBucket, "roi_pct"), 2)}, HWR-filtered ROI ${fmtPercent(readRecordNumber(playTodayHwrBucket, "roi_pct"), 2)}.`,
+    },
+    {
+      label: "Decision",
+      value: playTodayDecision,
+      detail: `Live EV ${formatSigned(readRecordNumber(playTodayTarget, "EV_live_€_per_100"), 2)} per 100; stake class ${readRecordString(playTodayCase, "stake_class") || "none"}.`,
+    },
+    {
+      label: "Label",
+      value: playTodayLabel,
+      detail: readRecordString(playTodayCase, "reason") || readRecordString(playTodayLabels, "no_bet_reason") || "No forced action.",
+    },
+  ];
+
   const actualSettledRows = actualBetsRows.filter((row) => ["Won", "Lost", "Void", "Cashout"].includes(row.status));
   const pendingBets = actualBetsRows.filter((row) => row.status === "Pending").length;
   const totalStake = actualBetsRows.reduce((acc, row) => acc + (parseNumeric(row.stake_eur) ?? 0), 0);
@@ -1164,7 +1299,9 @@ const Index = () => {
             Historical settled snapshot: {summaryAsOfDate}
             {dashboardDataAgeDays !== null && dashboardDataAgeDays > 0 ? ` (${dashboardDataAgeDays} days old)` : ""}
           </p>
-          <p className="text-sm text-muted-foreground">Historical window: {windowStartLabel} → {windowEndLabel} · {windowSize} games</p>
+          <p className="text-sm text-muted-foreground">
+            Historical dashboard window: {windowStartLabel} → {windowEndLabel} · {windowSize} games
+          </p>
           <p className="text-sm text-muted-foreground">Live strategy: {liveStrategyLabel}</p>
           <p className="text-sm text-muted-foreground">Historical filter source: {historicalFilterSourceDisplay}</p>
         </div>
@@ -1172,13 +1309,124 @@ const Index = () => {
       <section className="container mx-auto px-4 py-4">
         <div className="glass-card p-3">
           <div className="flex gap-2">
+            <button className={`rounded px-3 py-1 text-sm ${activeTab === "play-today" ? "bg-primary text-primary-foreground" : "bg-muted"}`} onClick={() => setActiveTab("play-today")}>Play Today</button>
             <button className={`rounded px-3 py-1 text-sm ${activeTab === "overview" ? "bg-primary text-primary-foreground" : "bg-muted"}`} onClick={() => setActiveTab("overview")}>Overview</button>
             <button className={`rounded px-3 py-1 text-sm ${activeTab === "actual-bets" ? "bg-primary text-primary-foreground" : "bg-muted"}`} onClick={() => setActiveTab("actual-bets")}>Actual Bets</button>
             <button className={`rounded px-3 py-1 text-sm ${activeTab === "agent-chat" ? "bg-primary text-primary-foreground" : "bg-muted"}`} onClick={() => setActiveTab("agent-chat")}>Agent Chat</button>
           </div>
         </div>
       </section>
-      {activeTab === "agent-chat" ? (
+      {activeTab === "play-today" ? (
+        <section className="container mx-auto px-4 py-6">
+          <div className="mb-6">
+            <h2 className="text-3xl font-bold">Play Today</h2>
+            <p className="mt-1 text-base text-muted-foreground">
+              Daily decision console for {playTodayGame}. Canonical model bets stay separate from local discretionary checks.
+            </p>
+          </div>
+
+          <div className="glass-card p-6 md:p-7">
+            <div className="mb-5 grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div className="rounded-md border border-border bg-muted/30 p-4">
+                <div className="text-sm text-muted-foreground">Historical dashboard window</div>
+                <div className="mt-1 text-lg font-semibold text-foreground">{windowSize} games</div>
+                <div className="mt-1 text-sm text-muted-foreground">{windowStartLabel} → {windowEndLabel}</div>
+              </div>
+              <div className="rounded-md border border-border bg-muted/30 p-4">
+                <div className="text-sm text-muted-foreground">Local strategy evaluation window</div>
+                <div className="mt-1 text-lg font-semibold text-foreground">
+                  {localStrategyWindowGames !== null ? `${localStrategyWindowGames} games` : "—"}
+                </div>
+                <div className="mt-1 text-sm text-muted-foreground">
+                  {localStrategyWindowGames === null
+                    ? (localStrategyEvaluationWindow?.warning ?? "Script 11 local tail not available in current artifacts")
+                    : localStrategyEvaluationWindow?.source_file
+                    ? `Source: ${localStrategyEvaluationWindow.source_file}`
+                    : "Script 11 local tail not available in current artifacts"}
+                </div>
+              </div>
+            </div>
+            <div className="mb-5 rounded-md border border-border bg-muted/40 p-5 font-mono text-base">
+              <div className="mb-4 text-sm uppercase tracking-wide text-muted-foreground">Decision Console</div>
+              <div className="space-y-4">
+                {playTodayLines.map((line) => (
+                  <div key={line.label} className="grid gap-2 border-b border-border/60 pb-4 last:border-b-0 last:pb-0 md:grid-cols-[260px_1fr]">
+                    <div className="text-muted-foreground">{line.label}</div>
+                    <div>
+                      <div className="text-lg font-semibold text-foreground">{line.value}</div>
+                      <div className="mt-1 text-sm leading-6 text-muted-foreground">{line.detail}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+              <StatCard
+                title="Current price"
+                value={fmtNumber(readRecordNumber(playTodayTarget, "odds_1"), 2)}
+                subtitle={`Break-even: ${typeof playTodayBreakEven === "number" ? fmtPercent(playTodayBreakEven, 1) : "—"}`}
+                icon={<Target className="w-6 h-6" />}
+              />
+              <StatCard
+                title="Model / used prob"
+                value={formatProbabilityValue(playTodayUsedProbability)}
+                subtitle={`Raw: ${formatProbabilityValue(playTodayRawProbability)}`}
+                icon={<Activity className="w-6 h-6" />}
+              />
+              <StatCard
+                title="Price-strict bucket"
+                value={fmtPercent(readRecordNumber(playTodayPriceBucket, "roi_pct"), 2)}
+                subtitle={`n=${readRecordNumber(playTodayPriceBucket, "n") ?? 0} · WR ${fmtPercent(readRecordNumber(playTodayPriceBucket, "win_rate_pct"), 1)}`}
+                icon={<BarChart3 className="w-6 h-6" />}
+              />
+              <StatCard
+                title="HWR-filtered bucket"
+                value={fmtPercent(readRecordNumber(playTodayHwrBucket, "roi_pct"), 2)}
+                subtitle={`n=${readRecordNumber(playTodayHwrBucket, "n") ?? 0} · WR ${fmtPercent(readRecordNumber(playTodayHwrBucket, "win_rate_pct"), 1)}`}
+                icon={<TrendingUp className="w-6 h-6" />}
+              />
+            </div>
+
+            <div className="mt-5 rounded-md border border-amber-400/40 bg-amber-500/10 p-4 text-base leading-7 text-amber-100">
+              Profitable local params are only a trigger for scanner verification. If the repeatable Historical ROI
+              Attack scanner fails, the action is SKIP and the case is logged as positive discipline.
+            </div>
+
+            <details className="mt-5 rounded-md border border-border p-4">
+              <summary className="cursor-pointer text-base font-medium text-foreground">
+                Previous games / learning history ({previousLearningCases.length})
+              </summary>
+              {previousLearningCases.length > 0 ? (
+                <div className="mt-4 space-y-3">
+                  {previousLearningCases.map((learningCase) => (
+                    <div
+                      key={`${readRecordString(learningCase, "date")}-${readRecordString(learningCase, "game")}-${readRecordString(learningCase, "agent_label")}`}
+                      className="rounded-md border border-border/70 bg-muted/30 p-4 text-base"
+                    >
+                      <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+                        <div className="font-medium text-foreground">
+                          {readRecordString(learningCase, "date") || "—"} · {readRecordString(learningCase, "game") || "—"}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {readRecordString(learningCase, "agent_decision") || "—"} · {readRecordString(learningCase, "agent_label") || "—"}
+                        </div>
+                      </div>
+                      <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                        {readRecordString(learningCase, "lesson") || readRecordString(learningCase, "reason") || "—"}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-3 text-base text-muted-foreground">
+                  No previous learning cases yet. New cases will stay here after future dashboard generations.
+                </p>
+              )}
+            </details>
+          </div>
+        </section>
+      ) : activeTab === "agent-chat" ? (
         <section className="container mx-auto px-4 py-6">
           <div className="mb-6">
             <h2 className="text-2xl font-bold">Agent Chat</h2>
