@@ -490,6 +490,7 @@ def _build_today_games_payload(source_root: Optional[Path]) -> Dict[str, object]
     setup_scan_path = lightgbm_dir / f"setup_profitability_scan_{run_date}.csv" if run_date else None
     setup_scan_summary_path = lightgbm_dir / f"setup_profitability_scan_summary_{run_date}.json" if run_date else None
     setup_scan_matches_path = lightgbm_dir / f"setup_profitability_scan_matches_{run_date}.csv" if run_date else None
+    watchlist_path = lightgbm_dir / f"script11_watchlist_history_{run_date}.csv" if run_date else None
     qualifying_bets = _read_csv_dicts(shortlist_path, max_rows=20)
     canonical_model_signals = _load_canonical_model_signals(lightgbm_dir, run_date)
     qualifying_by_game = {
@@ -500,6 +501,26 @@ def _build_today_games_payload(source_root: Optional[Path]) -> Dict[str, object]
         ): row
         for row in qualifying_bets
     }
+    watchlist_by_game: Dict[Tuple[str, str, str], Dict[str, str]] = {}
+    for row in _read_csv_dicts(watchlist_path, max_rows=500):
+        key = (
+            str(row.get("date") or row.get("game_date") or ""),
+            _safe_team(row.get("home_team")) or "",
+            _safe_team(row.get("away_team")) or "",
+        )
+        if not all(key):
+            continue
+        existing = watchlist_by_game.get(key)
+        existing_score = 0 if existing is None else (
+            (2 if str(existing.get("source") or "") == "watchlist" else 0)
+            + (1 if _safe_float(existing.get("EV_€_per_100")) is not None else 0)
+        )
+        row_score = (
+            (2 if str(row.get("source") or "") == "watchlist" else 0)
+            + (1 if _safe_float(row.get("EV_€_per_100")) is not None else 0)
+        )
+        if existing is None or row_score >= existing_score:
+            watchlist_by_game[key] = row
 
     games = []
     for row in _read_csv_dicts(predict_path, max_rows=40):
@@ -517,7 +538,16 @@ def _build_today_games_payload(source_root: Optional[Path]) -> Dict[str, object]
             ),
             {},
         )
-        prob_used = _safe_float(candidate.get("prob_used"))
+        watchlist_row = watchlist_by_game.get(
+            (
+                str(row.get("date") or ""),
+                _safe_team(home_team) or "",
+                _safe_team(away_team) or "",
+            ),
+            {},
+        )
+        enriched = candidate if candidate else watchlist_row
+        prob_used = _safe_float(enriched.get("prob_used"))
         games.append(
             {
                 "date": row.get("date"),
@@ -526,13 +556,16 @@ def _build_today_games_payload(source_root: Optional[Path]) -> Dict[str, object]
                 "home_team_prob": home_prob,
                 "away_team_prob": 1 - home_prob if home_prob is not None else None,
                 "prob_used": prob_used,
-                "prob_base": _safe_float(candidate.get("prob_base")),
-                "prob_live_oos_proxy": _safe_float(candidate.get("prob_live_oos_proxy")),
-                "prob_iso": _safe_float(candidate.get("prob_iso")),
-                "market_implied_p_devig": _safe_float(candidate.get("market_implied_p_devig")),
-                "model_market_gap": _safe_float(candidate.get("model_market_gap")),
-                "ev_live_eur_per_100": _safe_float(candidate.get("EV_live_€_per_100") or candidate.get("EV_€_per_100")),
-                "candidate_stake_eur": _safe_float(candidate.get("stake_eur")),
+                "prob_base": _safe_float(enriched.get("prob_base")),
+                "prob_live_oos_proxy": _safe_float(enriched.get("prob_live_oos_proxy")),
+                "prob_iso": _safe_float(enriched.get("prob_iso")),
+                "market_implied_p_devig": _safe_float(enriched.get("market_implied_p_devig")),
+                "model_market_gap": _safe_float(enriched.get("model_market_gap")),
+                "ev_live_eur_per_100": _safe_float(enriched.get("EV_live_€_per_100") or enriched.get("EV_€_per_100")),
+                "candidate_stake_eur": _safe_float(enriched.get("stake_eur")),
+                "blocked_by": enriched.get("blocked_by") or None,
+                "stage2_candidate_type": enriched.get("stage2_candidate_type") or None,
+                "candidate_source": enriched.get("source") or ("shortlist" if candidate else "watchlist" if watchlist_row else None),
                 "home_win_rate": home_rate.get("home_win_rate"),
                 "home_wins": home_rate.get("home_wins"),
                 "home_games": home_rate.get("home_games"),
@@ -602,6 +635,7 @@ def _build_ev_exception_profitability(
     prob_threshold = float(active_params.get("prob_threshold", 0.5))
 
     current_candidates: List[Dict[str, object]] = []
+    current_candidate_keys = set()
     for row in qualifying_rows:
         if not isinstance(row, dict):
             continue
@@ -666,6 +700,62 @@ def _build_ev_exception_profitability(
                     "blocked_by": "min_ev",
                 }
             )
+            current_candidate_keys.add(
+                (
+                    str(row.get("date") or ""),
+                    _safe_team(row.get("home_team")) or "",
+                    _safe_team(row.get("away_team")) or "",
+                )
+            )
+
+    for game in today_payload.get("games", []):
+        if not isinstance(game, dict):
+            continue
+        game_key = (
+            str(game.get("date") or ""),
+            _safe_team(game.get("home_team")) or "",
+            _safe_team(game.get("away_team")) or "",
+        )
+        if game_key in current_candidate_keys:
+            continue
+        home_win_rate = _safe_float(game.get("home_win_rate"))
+        odds_1 = _safe_float(game.get("home_odds") or game.get("odds_1"))
+        prob_used = _safe_float(game.get("prob_used")) or _safe_float(game.get("home_team_prob"))
+        if home_win_rate is None or odds_1 is None or prob_used is None:
+            continue
+        rounded_prob_pass = round(prob_used, 2) >= prob_threshold
+        raw_prob_pass = prob_used >= prob_threshold
+        passes_non_ev = (
+            home_win_rate >= home_win_rate_min
+            and odds_min <= odds_1 <= odds_max
+            and (raw_prob_pass or rounded_prob_pass)
+        )
+        if passes_non_ev:
+            current_candidates.append(
+                {
+                    "date": game.get("date"),
+                    "home_team": game.get("home_team"),
+                    "away_team": game.get("away_team"),
+                    "home_win_rate": home_win_rate,
+                    "odds_1": odds_1,
+                    "odds_2": _safe_float(game.get("away_odds") or game.get("odds_2")),
+                    "home_team_prob": _safe_float(game.get("home_team_prob")),
+                    "prob_used": prob_used,
+                    "ev_eur_per_100": _safe_float(game.get("ev_live_eur_per_100")),
+                    "stake_eur": _safe_float(game.get("candidate_stake_eur")),
+                    "kelly_full": None,
+                    "hwr_source_file": game.get("hwr_source_file"),
+                    "hwr_source_label": game.get("hwr_source_label"),
+                    "hwr_window_label": game.get("hwr_window_label"),
+                    "blocked_by": game.get("blocked_by") or "missing_enriched_candidate_context",
+                    "stage2_candidate_type": game.get("stage2_candidate_type"),
+                    "candidate_source": game.get("candidate_source"),
+                    "probability_source": "prob_used" if _safe_float(game.get("prob_used")) is not None else "home_team_prob",
+                    "probability_threshold_pass_mode": "raw" if raw_prob_pass else "rounded_display",
+                    "borderline_probability_rounding": bool(not raw_prob_pass and rounded_prob_pass),
+                }
+            )
+            current_candidate_keys.add(game_key)
 
     if not current_candidates:
         return None
@@ -725,50 +815,136 @@ def _build_ev_exception_profitability(
     current_home_team = str(first_candidate.get("home_team") or "HOME")
     current_away_team = str(first_candidate.get("away_team") or "AWAY")
     current_date = str(first_candidate.get("date") or "unknown")
-    current_odds = _safe_float(first_candidate.get("odds_1"))
-    current_prob_used = _safe_float(first_candidate.get("prob_used"))
-    current_ev = _safe_float(first_candidate.get("ev_eur_per_100"))
-    current_kelly = _safe_float(first_candidate.get("kelly_full"))
-    current_stake = _safe_float(first_candidate.get("stake_eur"))
 
-    price_low = (current_odds - 0.10) if current_odds is not None else None
-    price_high = (current_odds + 0.10) if current_odds is not None else None
-    prob_low = max(0.0, current_prob_used - 0.05) if current_prob_used is not None else None
-    prob_high = min(1.0, current_prob_used + 0.05) if current_prob_used is not None else None
-    price_matches = [
-        row
-        for row in matches
-        if price_low is not None
-        and price_high is not None
-        and prob_low is not None
-        and prob_high is not None
-        and price_low <= float(row["odds_1"]) <= price_high
-        and prob_low <= float(row["prob_used"]) <= prob_high
-    ]
-    price_n = len(price_matches)
-    price_wins = sum(1 for row in price_matches if row["win"] == 1)
-    price_profit = float(sum(float(row["pnl_100"]) for row in price_matches))
-    break_even = (1.0 / current_odds) if current_odds else None
-    price_win_rate = _safe_div(price_wins, price_n) if price_n else None
-    win_rate_minus_break_even = (
-        price_win_rate - break_even
-        if price_win_rate is not None and break_even is not None
-        else None
-    )
-    current_prob_minus_break_even = (
-        current_prob_used - break_even
-        if current_prob_used is not None and break_even is not None
-        else None
-    )
-    price_adjusted_supports_play = bool(
-        price_n
-        and win_rate_minus_break_even is not None
-        and win_rate_minus_break_even > 0
-        and price_profit > 0
-        and (current_ev is None or current_ev > min_ev)
-        and (current_kelly is None or current_kelly > 0)
-        and (current_stake is None or current_stake > 0)
-    )
+    def _price_adjusted_check(candidate: Dict[str, object]) -> Dict[str, object]:
+        current_odds = _safe_float(candidate.get("odds_1"))
+        current_prob_used = _safe_float(candidate.get("prob_used"))
+        current_ev = _safe_float(candidate.get("ev_eur_per_100"))
+        current_kelly = _safe_float(candidate.get("kelly_full"))
+        current_stake = _safe_float(candidate.get("stake_eur"))
+
+        price_low = (current_odds - 0.10) if current_odds is not None else None
+        price_high = (current_odds + 0.10) if current_odds is not None else None
+        home_win_rate = _safe_float(candidate.get("home_win_rate"))
+        setup_hwr_min = max(0.0, home_win_rate - 0.10) if home_win_rate is not None else None
+        setup_odds_low = max(1.0, current_odds - 0.35) if current_odds is not None else None
+        setup_odds_high = current_odds + 0.35 if current_odds is not None else None
+        prob_low = max(0.0, current_prob_used - 0.05) if current_prob_used is not None else None
+        setup_prob_min = max(prob_threshold, prob_low) if prob_low is not None else None
+        prob_high = min(1.0, current_prob_used + 0.05) if current_prob_used is not None else None
+        setup_matches = [
+            row
+            for row in matches
+            if setup_hwr_min is not None
+            and setup_odds_low is not None
+            and setup_odds_high is not None
+            and setup_prob_min is not None
+            and float(row["home_win_rate"]) >= setup_hwr_min
+            and setup_odds_low <= float(row["odds_1"]) <= setup_odds_high
+            and float(row["prob_used"]) >= setup_prob_min
+        ]
+        setup_n = len(setup_matches)
+        setup_wins = sum(1 for row in setup_matches if row["win"] == 1)
+        setup_profit = float(sum(float(row["pnl_100"]) for row in setup_matches))
+        setup_win_rate = _safe_div(setup_wins, setup_n) if setup_n else None
+        price_matches = [
+            row
+            for row in matches
+            if price_low is not None
+            and price_high is not None
+            and prob_low is not None
+            and prob_high is not None
+            and price_low <= float(row["odds_1"]) <= price_high
+            and prob_low <= float(row["prob_used"]) <= prob_high
+        ]
+        price_n = len(price_matches)
+        price_wins = sum(1 for row in price_matches if row["win"] == 1)
+        price_profit = float(sum(float(row["pnl_100"]) for row in price_matches))
+        break_even = (1.0 / current_odds) if current_odds else None
+        price_win_rate = _safe_div(price_wins, price_n) if price_n else None
+        win_rate_minus_break_even = (
+            price_win_rate - break_even
+            if price_win_rate is not None and break_even is not None
+            else None
+        )
+        current_prob_minus_break_even = (
+            current_prob_used - break_even
+            if current_prob_used is not None and break_even is not None
+            else None
+        )
+        supports_play = bool(
+            price_n
+            and win_rate_minus_break_even is not None
+            and win_rate_minus_break_even > 0
+            and price_profit > 0
+            and current_ev is not None
+            and current_ev > min_ev
+            and current_kelly is not None
+            and current_kelly > 0
+            and current_stake is not None
+            and current_stake > 0
+        )
+        return {
+            "game": f"{candidate.get('home_team') or 'HOME'} vs {candidate.get('away_team') or 'AWAY'}",
+            "date": candidate.get("date"),
+            "home_team": candidate.get("home_team"),
+            "away_team": candidate.get("away_team"),
+            "label": "Current-price EV-exception check",
+            "odds_band": [price_low, price_high],
+            "setup_odds_band": [setup_odds_low, setup_odds_high],
+            "setup_hwr_min": setup_hwr_min,
+            "prob_used_band": [prob_low, prob_high],
+            "setup_prob_min": setup_prob_min,
+            "hwr_source_file": candidate.get("hwr_source_file"),
+            "hwr_source_label": candidate.get("hwr_source_label"),
+            "hwr_window_label": candidate.get("hwr_window_label"),
+            "current_odds": current_odds,
+            "current_prob_used": current_prob_used,
+            "current_ev_eur_per_100": current_ev,
+            "current_kelly": current_kelly,
+            "current_stake_eur": current_stake,
+            "blocked_by": candidate.get("blocked_by"),
+            "stage2_candidate_type": candidate.get("stage2_candidate_type"),
+            "candidate_source": candidate.get("candidate_source"),
+            "probability_source": candidate.get("probability_source") or "prob_used",
+            "probability_threshold_pass_mode": candidate.get("probability_threshold_pass_mode"),
+            "borderline_probability_rounding": candidate.get("borderline_probability_rounding"),
+            "missing_current_model_fields": bool(
+                current_ev is None
+                or current_kelly is None
+                or current_stake is None
+            ),
+            "break_even_probability": break_even,
+            "current_prob_minus_break_even": current_prob_minus_break_even,
+            "setup_n": setup_n,
+            "setup_wins": setup_wins,
+            "setup_losses": setup_n - setup_wins,
+            "setup_win_rate": setup_win_rate,
+            "setup_avg_odds": _safe_div(sum(float(row["odds_1"]) for row in setup_matches), setup_n) if setup_n else None,
+            "setup_profit_100_flat": setup_profit,
+            "setup_roi_pct": _safe_div(setup_profit, setup_n * 100.0) * 100.0 if setup_n else None,
+            "n": price_n,
+            "wins": price_wins,
+            "losses": price_n - price_wins,
+            "win_rate": price_win_rate,
+            "avg_odds": _safe_div(sum(float(row["odds_1"]) for row in price_matches), price_n) if price_n else None,
+            "profit_100_flat": price_profit,
+            "roi_pct": _safe_div(price_profit, price_n * 100.0) * 100.0 if price_n else None,
+            "win_rate_minus_break_even": win_rate_minus_break_even,
+            "supports_play": supports_play,
+            "classification": "watch-only" if not supports_play else "historical_support_only",
+        }
+
+    per_candidate_checks = [_price_adjusted_check(candidate) for candidate in current_candidates]
+    first_price_adjusted = per_candidate_checks[0] if per_candidate_checks else {}
+    current_odds = _safe_float(first_price_adjusted.get("current_odds"))
+    current_prob_used = _safe_float(first_price_adjusted.get("current_prob_used"))
+    current_ev = _safe_float(first_price_adjusted.get("current_ev_eur_per_100"))
+    current_kelly = _safe_float(first_price_adjusted.get("current_kelly"))
+    current_stake = _safe_float(first_price_adjusted.get("current_stake_eur"))
+    break_even = _safe_float(first_price_adjusted.get("break_even_probability"))
+    current_prob_minus_break_even = _safe_float(first_price_adjusted.get("current_prob_minus_break_even"))
+    win_rate_minus_break_even = _safe_float(first_price_adjusted.get("win_rate_minus_break_even"))
     warning = None
     if profit > 0 and (
         current_ev is not None and current_ev <= min_ev
@@ -827,6 +1003,7 @@ def _build_ev_exception_profitability(
             "home_win_rate_basis": "prior_home_games",
         },
         "current_candidates": current_candidates,
+        "per_candidate_checks": per_candidate_checks,
         "summary": {
             "n": n,
             "wins": wins,
@@ -840,31 +1017,7 @@ def _build_ev_exception_profitability(
             "window_start": window_start_dt.strftime(DATE_FMT) if window_start_dt else None,
             "window_end": window_end_dt.strftime(DATE_FMT) if window_end_dt else None,
         },
-        "price_adjusted": {
-            "label": "Current-price EV-exception check",
-            "odds_band": [price_low, price_high],
-            "prob_used_band": [prob_low, prob_high],
-            "hwr_source_file": first_candidate.get("hwr_source_file"),
-            "hwr_source_label": first_candidate.get("hwr_source_label"),
-            "hwr_window_label": first_candidate.get("hwr_window_label"),
-            "current_odds": current_odds,
-            "current_prob_used": current_prob_used,
-            "current_ev_eur_per_100": current_ev,
-            "current_kelly": current_kelly,
-            "current_stake_eur": current_stake,
-            "break_even_probability": break_even,
-            "current_prob_minus_break_even": current_prob_minus_break_even,
-            "n": price_n,
-            "wins": price_wins,
-            "losses": price_n - price_wins,
-            "win_rate": price_win_rate,
-            "avg_odds": _safe_div(sum(float(row["odds_1"]) for row in price_matches), price_n) if price_n else None,
-            "profit_100_flat": price_profit,
-            "roi_pct": _safe_div(price_profit, price_n * 100.0) * 100.0 if price_n else None,
-            "win_rate_minus_break_even": win_rate_minus_break_even,
-            "supports_play": price_adjusted_supports_play,
-            "classification": "watch-only" if not price_adjusted_supports_play else "historical_support_only",
-        },
+        "price_adjusted": first_price_adjusted,
         "matches": matches[-50:],
     }
 

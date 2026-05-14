@@ -314,7 +314,12 @@ export interface TodayGamesPayload {
       window_start?: string | null;
       window_end?: string | null;
     };
+    per_candidate_checks?: Array<Record<string, string | number | boolean | null>>;
     price_adjusted?: {
+      game?: string;
+      date?: string | null;
+      home_team?: string | null;
+      away_team?: string | null;
       label?: string;
       odds_band?: Array<number | null>;
       prob_used_band?: Array<number | null>;

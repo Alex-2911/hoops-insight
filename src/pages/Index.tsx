@@ -1181,8 +1181,11 @@ const Index = () => {
   const playTodayPriceBucket = playTodayBuckets?.price_strict_bucket;
   const playTodayHwrBucket = playTodayBuckets?.hwr_filtered_bucket;
   const localStrategyEvaluationWindow = todayGames?.local_strategy_evaluation_window ?? null;
+  const playTodayCandidate =
+    (todayDecisionContext?.live_candidates as TodayDecisionCandidate[] | undefined)?.[0] ?? null;
   const playTodayGame =
     readRecordString(playTodayCase, "game") ||
+    (playTodayCandidate ? `${playTodayCandidate.home_team ?? "—"} vs ${playTodayCandidate.away_team ?? "—"}` : "") ||
     (availableTodayGames[0]
       ? `${availableTodayGames[0].home_team ?? "—"} vs ${availableTodayGames[0].away_team ?? "—"}`
       : "—");
@@ -1197,19 +1200,44 @@ const Index = () => {
     const [home, away] = playTodayGame.split(" vs ").map((value) => value.trim());
     return game.home_team === home && game.away_team === away;
   });
+  const playTodayHomeWinRate =
+    readRecordNumber(playTodayTarget, "home_win_rate") ??
+    playTodayCurrentGame?.home_win_rate ??
+    null;
+  const playTodayOdds =
+    readRecordNumber(playTodayTarget, "odds_1") ??
+    playTodayCandidate?.odds_1 ??
+    playTodayCurrentGame?.home_odds ??
+    null;
   const playTodayRawProbability =
     readRecordNumber(playTodayTarget, "home_team_prob") ??
     readRecordNumber(playTodayTarget, "home_prob_raw") ??
     readRecordNumber(playTodayTarget, "raw_probability") ??
+    playTodayCandidate?.raw_probability ??
     playTodayCurrentGame?.home_team_prob ??
     null;
   const playTodayUsedProbability =
     readRecordNumber(playTodayTarget, "prob_used") ??
     readRecordNumber(playTodayTarget, "selected_probability") ??
+    playTodayCandidate?.prob_used ??
     playTodayCurrentGame?.prob_used ??
     null;
+  const playTodayLiveEv =
+    readRecordNumber(playTodayTarget, "EV_live_€_per_100") ??
+    playTodayCandidate?.live_ev_per_100 ??
+    playTodayCurrentGame?.ev_live_eur_per_100 ??
+    null;
+  const playTodayStakeClass = readRecordString(playTodayCase, "stake_class") || "none";
+  const playTodayBreakEvenDisplay =
+    playTodayBreakEven ?? (playTodayOdds && playTodayOdds > 0 ? (1 / playTodayOdds) * 100 : null);
+  const evExceptionCriteria = evExceptionProfitability?.criteria ?? null;
+  const evExceptionCandidateChecks =
+    (evExceptionProfitability?.per_candidate_checks as Array<Record<string, unknown>> | undefined) ??
+    (evExceptionProfitability?.price_adjusted ? [evExceptionProfitability.price_adjusted as Record<string, unknown>] : []);
   const formatProbabilityValue = (value: number | null | undefined) =>
     typeof value === "number" && Number.isFinite(value) ? fmtPercent(value * 100, 1) : "—";
+  const formatPercentValue = (value: number | null | undefined) =>
+    typeof value === "number" && Number.isFinite(value) ? fmtPercent(value, 1) : "—";
   const previousLearningCases = agentLearningCases
     .filter((learningCase) => {
       const sameDate = readRecordString(learningCase, "date") === readRecordString(playTodayCase, "date");
@@ -1226,7 +1254,7 @@ const Index = () => {
     {
       label: "Local profitable setup",
       value: playTodayLabels?.local_profitable_candidate || playTodayCase?.local_profitable_candidate ? "YES" : "NO",
-      detail: `HWR ${formatProbabilityValue(readRecordNumber(playTodayTarget, "home_win_rate"))} · odds ${fmtNumber(readRecordNumber(playTodayTarget, "odds_1"), 2)} · prob ${formatProbabilityValue(playTodayUsedProbability)}.`,
+      detail: `HWR ${formatProbabilityValue(playTodayHomeWinRate)} · odds ${fmtNumber(playTodayOdds, 2)} · prob ${formatProbabilityValue(playTodayUsedProbability)}.`,
     },
     {
       label: "Robust stability",
@@ -1241,7 +1269,7 @@ const Index = () => {
     {
       label: "Decision",
       value: playTodayDecision,
-      detail: `Live EV ${formatSigned(readRecordNumber(playTodayTarget, "EV_live_€_per_100"), 2)} per 100; stake class ${readRecordString(playTodayCase, "stake_class") || "none"}.`,
+      detail: `Live EV ${formatSigned(playTodayLiveEv, 2)} per 100; stake class ${playTodayStakeClass}.`,
     },
     {
       label: "Label",
@@ -1321,7 +1349,7 @@ const Index = () => {
           <div className="mb-6">
             <h2 className="text-3xl font-bold">Play Today</h2>
             <p className="mt-1 text-base text-muted-foreground">
-              Daily decision console for {playTodayGame}. Canonical model bets stay separate from local discretionary checks.
+              Daily decision console for available games. Canonical model bets stay separate from local discretionary checks.
             </p>
           </div>
 
@@ -1346,6 +1374,43 @@ const Index = () => {
                 </div>
               </div>
             </div>
+            <div className="mb-5 rounded-md border border-border bg-muted/30 p-4">
+              <div className="text-sm text-muted-foreground">Active filter params</div>
+              <div className="mt-2 grid grid-cols-2 gap-3 text-base md:grid-cols-5">
+                <div>
+                  <div className="text-xs text-muted-foreground">HWR min</div>
+                  <div className="font-semibold text-foreground">
+                    {typeof evExceptionCriteria?.home_win_rate_min === "number"
+                      ? fmtPercent(evExceptionCriteria.home_win_rate_min * 100, 0)
+                      : "—"}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Odds</div>
+                  <div className="font-semibold text-foreground">
+                    {typeof evExceptionCriteria?.odds_min === "number" && typeof evExceptionCriteria?.odds_max === "number"
+                      ? `${fmtNumber(evExceptionCriteria.odds_min, 2)}–${fmtNumber(evExceptionCriteria.odds_max, 2)}`
+                      : "—"}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Probability min</div>
+                  <div className="font-semibold text-foreground">
+                    {typeof evExceptionCriteria?.prob_threshold === "number"
+                      ? fmtPercent(evExceptionCriteria.prob_threshold * 100, 0)
+                      : "—"}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">EV filter</div>
+                  <div className="font-semibold text-foreground">≥ 0</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Historical scan</div>
+                  <div className="font-semibold text-foreground">EV ignored</div>
+                </div>
+              </div>
+            </div>
             <div className="mb-5 rounded-md border border-border bg-muted/40 p-5 font-mono text-base">
               <div className="mb-4 text-sm uppercase tracking-wide text-muted-foreground">Decision Console</div>
               <div className="space-y-4">
@@ -1364,8 +1429,8 @@ const Index = () => {
             <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
               <StatCard
                 title="Current price"
-                value={fmtNumber(readRecordNumber(playTodayTarget, "odds_1"), 2)}
-                subtitle={`Break-even: ${typeof playTodayBreakEven === "number" ? fmtPercent(playTodayBreakEven, 1) : "—"}`}
+                value={fmtNumber(playTodayOdds, 2)}
+                subtitle={`Break-even: ${formatPercentValue(playTodayBreakEvenDisplay)}`}
                 icon={<Target className="w-6 h-6" />}
               />
               <StatCard
@@ -1387,6 +1452,127 @@ const Index = () => {
                 icon={<TrendingUp className="w-6 h-6" />}
               />
             </div>
+
+            {evExceptionProfitability?.summary ? (
+              <div className="mt-5 rounded-md border border-border bg-muted/30 p-4">
+                <div className="flex flex-col gap-1 md:flex-row md:items-start md:justify-between">
+                  <div>
+                    <div className="text-base font-semibold text-foreground">Historical profitability for filter-matching games</div>
+                    <div className="text-sm text-muted-foreground">
+                      Each row uses that game's own setup: HWR floor, odds band, and probability floor. EV is ignored only to diagnose rows blocked by EV.
+                    </div>
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    Window {evExceptionProfitability.summary.window_start || "—"} → {evExceptionProfitability.summary.window_end || "—"}
+                  </div>
+                </div>
+
+                <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-5">
+                  <div>
+                    <div className="text-xs text-muted-foreground">Matches</div>
+                    <div className="text-lg font-semibold text-foreground">{evExceptionProfitability.summary.n ?? 0}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Wins / WR</div>
+                    <div className="text-lg font-semibold text-foreground">
+                      {evExceptionProfitability.summary.wins ?? 0} /{" "}
+                      {typeof evExceptionProfitability.summary.win_rate === "number"
+                        ? fmtPercent(evExceptionProfitability.summary.win_rate * 100, 1)
+                        : "—"}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Flat €100 P/L</div>
+                    <div className="text-lg font-semibold text-foreground">
+                      {formatSigned(evExceptionProfitability.summary.profit_100_flat ?? 0)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">ROI</div>
+                    <div className="text-lg font-semibold text-foreground">
+                      {typeof evExceptionProfitability.summary.roi_pct === "number"
+                        ? fmtPercent(evExceptionProfitability.summary.roi_pct, 1)
+                        : "—"}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Avg odds</div>
+                    <div className="text-lg font-semibold text-foreground">
+                      {typeof evExceptionProfitability.summary.avg_odds === "number"
+                        ? fmtNumber(evExceptionProfitability.summary.avg_odds, 2)
+                        : "—"}
+                    </div>
+                  </div>
+                </div>
+
+                {evExceptionCandidateChecks.length > 0 ? (
+                  <div className="mt-4 overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-border text-left">
+                          <th className="py-2 pr-4">Game</th>
+                          <th className="py-2 pr-4">Setup filter</th>
+                          <th className="py-2 pr-4">Setup n</th>
+                          <th className="py-2 pr-4">Setup WR / ROI</th>
+                          <th className="py-2 pr-4">Price n</th>
+                          <th className="py-2 pr-4">Price WR / ROI</th>
+                          <th className="py-2 pr-4">Current prob / EV</th>
+                          <th className="py-2 pr-4">Class</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {evExceptionCandidateChecks.map((check) => (
+                          <tr key={`${readRecordString(check, "date")}-${readRecordString(check, "game")}`} className="border-b border-border/50">
+                            <td className="py-2 pr-4 font-medium text-foreground">{readRecordString(check, "game") || "—"}</td>
+                            <td className="py-2 pr-4">
+                              HWR ≥ {formatProbabilityValue(readRecordNumber(check, "setup_hwr_min"))}
+                              <div className="text-xs text-muted-foreground">
+                                Odds {Array.isArray(check.setup_odds_band)
+                                  ? check.setup_odds_band.map((v) => fmtNumber(v, 2)).join("–")
+                                  : "—"} · prob ≥ {formatProbabilityValue(readRecordNumber(check, "setup_prob_min"))}
+                              </div>
+                            </td>
+                            <td className="py-2 pr-4">{readRecordNumber(check, "setup_n") ?? 0}</td>
+                            <td className="py-2 pr-4">
+                              {formatProbabilityValue(readRecordNumber(check, "setup_win_rate"))} /{" "}
+                              {fmtPercent(readRecordNumber(check, "setup_roi_pct"), 1)}
+                              <div className="text-xs text-muted-foreground">
+                                P/L {formatSigned(readRecordNumber(check, "setup_profit_100_flat"), 0)}
+                              </div>
+                            </td>
+                            <td className="py-2 pr-4">{readRecordNumber(check, "n") ?? 0}</td>
+                            <td className="py-2 pr-4">
+                              {formatProbabilityValue(readRecordNumber(check, "win_rate"))} /{" "}
+                              {fmtPercent(readRecordNumber(check, "roi_pct"), 1)}
+                              <div className="text-xs text-muted-foreground">
+                                odds {fmtNumber(readRecordNumber(check, "current_odds"), 2)} · BE{" "}
+                                {formatProbabilityValue(readRecordNumber(check, "break_even_probability"))}
+                              </div>
+                            </td>
+                            <td className="py-2 pr-4">
+                              {formatProbabilityValue(readRecordNumber(check, "current_prob_used"))} /{" "}
+                              {formatSigned(readRecordNumber(check, "current_ev_eur_per_100"), 2)}
+                              {readRecordString(check, "borderline_probability_rounding") === "true" || check.borderline_probability_rounding === true ? (
+                                <div className="text-xs text-amber-300">Rounded display clears the 40.0% filter; raw probability remains borderline</div>
+                              ) : null}
+                              {readRecordString(check, "blocked_by") ? (
+                                <div className="text-xs text-muted-foreground">Blocked: {readRecordString(check, "blocked_by")}</div>
+                              ) : null}
+                              {readRecordString(check, "stage2_candidate_type") === "LIVE_WATCH_ONLY" ? (
+                                <div className="text-xs text-muted-foreground">
+                                  LIVE_WATCH_ONLY: local setup layer differs from the broader watchlist block threshold
+                                </div>
+                              ) : null}
+                            </td>
+                            <td className="py-2 pr-4">{readRecordString(check, "classification") || "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
 
             <div className="mt-5 rounded-md border border-amber-400/40 bg-amber-500/10 p-4 text-base leading-7 text-amber-100">
               Profitable local params are only a trigger for scanner verification. If the repeatable Historical ROI
