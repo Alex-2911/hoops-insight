@@ -346,6 +346,20 @@ export interface TodayGamesPayload {
     };
     matches?: Array<Record<string, string | number | null>>;
   } | null;
+  upcoming_game_checks?: {
+    label?: string;
+    basis?: {
+      label?: string;
+      source?: string;
+      source_file?: string | null;
+      comparable_band?: string;
+      hwr_band_method?: string;
+      ev_included?: boolean;
+      stake_model?: string;
+      history_meta?: Record<string, unknown>;
+    };
+    rows?: Array<Record<string, string | number | boolean | Array<number | null> | null>>;
+  };
   setup_profitability?: {
     summary?: Record<string, unknown> | null;
     rows?: Array<Record<string, string>>;
@@ -365,7 +379,11 @@ export interface TodayGamesPayload {
     local_eval_rows?: number | null;
     valid_window_size?: number | null;
     display_window_games?: number | null;
+    start?: string | null;
+    end?: string | null;
+    source?: string | null;
     source_file?: string | null;
+    matches_script11_local_tail?: boolean;
     matches_active_params?: boolean;
     warning?: string | null;
   };

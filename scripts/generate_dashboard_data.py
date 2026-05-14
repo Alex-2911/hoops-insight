@@ -43,6 +43,7 @@ from strategy_logic import apply_strategy_filters, load_strategy_params as load_
 
 DATE_FMT = "%Y-%m-%d"
 CALIBRATION_WINDOW = int(os.environ.get("N_WINDOW", os.environ.get("DASHBOARD_WINDOW", "200")))
+PLAY_TODAY_LOCAL_EVAL_WINDOW = int(os.environ.get("PLAY_TODAY_LOCAL_EVAL_WINDOW", "300"))
 DEFAULT_MAX_ODDS_FALLBACK = 3.2
 RISK_MIN_SAMPLE = 5
 REQUIRED_DASHBOARD_JSON = (
@@ -344,6 +345,23 @@ def _find_latest_file(path: Path, prefix: str) -> Optional[Path]:
     return sorted(candidates, key=lambda x: x[0])[-1][1]
 
 
+def _dated_file_candidates(path: Path, prefix: str) -> List[Path]:
+    if not path.exists():
+        return []
+    pattern = re.compile(rf"{re.escape(prefix)}_(\d{{4}}-\d{{2}}-\d{{2}})\.csv$")
+    candidates: List[Tuple[datetime, Path]] = []
+    for item in path.iterdir():
+        if not item.is_file():
+            continue
+        match = pattern.match(item.name)
+        if not match:
+            continue
+        dt = _safe_date(match.group(1))
+        if dt:
+            candidates.append((dt, item))
+    return [item for _, item in sorted(candidates, key=lambda x: x[0], reverse=True)]
+
+
 def _resolve_combined_file_from_data_dir(data_dir: Path) -> Optional[Path]:
     combined_latest = data_dir / "combined_latest.csv"
     if combined_latest.exists():
@@ -614,6 +632,298 @@ def _historical_rows_with_prior_home_rate(
         output.append(enriched)
         history[home_team].append(int(home_team_won))
     return output
+
+
+def _select_probability_value(row: Dict[str, object]) -> Tuple[Optional[float], Optional[str]]:
+    for key in ("prob_used", "prob_live_safe", "prob_live_oos_proxy", "prob_iso_oos_time", "prob_iso", "home_team_prob", "prob_raw"):
+        value = _safe_float(row.get(key))
+        if value is not None:
+            return value, key
+    return None, None
+
+
+def _load_upcoming_comparable_history(path: Optional[Path]) -> Tuple[List[Dict[str, object]], Dict[str, object]]:
+    if path is None or not path.exists():
+        return [], {"source_file": None, "loaded_rows": 0, "usable_rows": 0, "skipped_rows": 0}
+
+    rows: List[Dict[str, object]] = []
+    loaded_rows = 0
+    skipped_rows = 0
+    fallback_columns = set()
+    for raw in _read_csv_normalized(path):
+        loaded_rows += 1
+        game_date = _safe_date(raw.get("date") or raw.get("game_date"))
+        home_team = _safe_team(raw.get("home_team"))
+        away_team = _safe_team(raw.get("away_team"))
+        odds_1 = _safe_float(raw.get("odds_1"))
+        prob_used = _safe_float(raw.get("prob_used"))
+        if prob_used is None:
+            prob_used = _safe_float(raw.get("home_team_prob"))
+            if prob_used is not None:
+                fallback_columns.add("prob_used<-home_team_prob")
+        home_win_rate = _safe_float(raw.get("home_win_rate"))
+        home_team_won_raw = _safe_float(raw.get("home_team_won"))
+        if home_team_won_raw is None:
+            result_team = _safe_team(raw.get("result") or raw.get("winner") or raw.get("winning_team"))
+            if result_team is not None and home_team is not None:
+                home_team_won_raw = 1.0 if result_team == home_team else 0.0
+                fallback_columns.add("home_team_won<-result")
+
+        if (
+            game_date is None
+            or home_team is None
+            or away_team is None
+            or odds_1 is None
+            or prob_used is None
+            or home_win_rate is None
+            or home_team_won_raw not in (0.0, 1.0)
+        ):
+            skipped_rows += 1
+            continue
+
+        rows.append(
+            {
+                "date": game_date,
+                "home_team": home_team,
+                "away_team": away_team,
+                "odds_1": odds_1,
+                "prob_used": prob_used,
+                "home_win_rate": home_win_rate,
+                "home_team_won": int(home_team_won_raw),
+            }
+        )
+
+    return rows, {
+        "source_file": path.name,
+        "loaded_rows": loaded_rows,
+        "usable_rows": len(rows),
+        "skipped_rows": skipped_rows,
+        "required_columns": ["date", "home_team", "away_team", "odds_1", "prob_used", "home_win_rate", "home_team_won"],
+        "fallback_columns": sorted(fallback_columns),
+    }
+
+
+def _select_upcoming_comparable_history_source(
+    lightgbm_dir: Optional[Path],
+) -> Tuple[List[Dict[str, object]], Dict[str, object]]:
+    required = ["odds_1", "prob_used", "home_win_rate", "home_team_won"]
+    if lightgbm_dir is None or not lightgbm_dir.exists():
+        return [], {
+            "source_file": None,
+            "selected_source_file": None,
+            "usable_rows": 0,
+            "skipped_sources": [],
+            "warning": "LightGBM directory is not available",
+        }
+
+    skipped_sources: List[Dict[str, object]] = []
+    latest_source = None
+    for candidate in _dated_file_candidates(lightgbm_dir, "combined_nba_predictions_acc"):
+        if latest_source is None:
+            latest_source = candidate.name
+        try:
+            header = pd.read_csv(candidate, nrows=0)
+        except Exception as exc:  # pragma: no cover - defensive source inspection
+            skipped_sources.append({"source_file": candidate.name, "reason": f"read_error: {exc}"})
+            continue
+        missing = [column for column in required if column not in header.columns]
+        if missing:
+            skipped_sources.append({"source_file": candidate.name, "reason": "missing_columns", "missing": missing})
+            continue
+
+        rows, meta = _load_upcoming_comparable_history(candidate)
+        if rows:
+            meta = dict(meta)
+            meta["selected_source_file"] = candidate.name
+            meta["latest_source_file"] = latest_source
+            meta["skipped_sources"] = skipped_sources[:20]
+            meta["skipped_sources_count"] = len(skipped_sources)
+            if latest_source and candidate.name != latest_source:
+                meta["warning"] = f"Latest combined file {latest_source} is not enriched; comparable history uses {candidate.name}."
+            else:
+                meta["warning"] = None
+            return rows, meta
+        skipped_sources.append({"source_file": candidate.name, "reason": "zero_usable_rows", "meta": meta})
+
+    return [], {
+        "source_file": None,
+        "selected_source_file": None,
+        "latest_source_file": latest_source,
+        "usable_rows": 0,
+        "skipped_sources": skipped_sources[:20],
+        "skipped_sources_count": len(skipped_sources),
+        "warning": "No usable enriched combined_nba_predictions_acc source found",
+    }
+
+
+def _build_upcoming_game_checks(
+    today_payload: Dict[str, object],
+    comparable_history_rows: List[Dict[str, object]],
+    comparable_history_meta: Dict[str, object],
+    active_params: Dict[str, float],
+) -> Dict[str, object]:
+    games = today_payload.get("games")
+    if not isinstance(games, list):
+        games = []
+
+    min_ev = float(active_params.get("min_ev", 0.0))
+    prob_threshold = float(active_params.get("prob_threshold", 0.0))
+    rows: List[Dict[str, object]] = []
+    historical_hwr_values = [
+        value
+        for value in (_safe_float(row.get("home_win_rate")) for row in comparable_history_rows)
+        if value is not None
+    ]
+    historical_hwr_min = min(historical_hwr_values) if historical_hwr_values else None
+    historical_hwr_max = max(historical_hwr_values) if historical_hwr_values else None
+
+    for game in games:
+        if not isinstance(game, dict):
+            continue
+        target_date = _safe_date(game.get("date"))
+        current_odds = _safe_float(game.get("home_odds") or game.get("odds_1"))
+        current_hwr = _safe_float(game.get("home_win_rate"))
+        current_prob, probability_source = _select_probability_value(game)
+        current_ev = _safe_float(game.get("ev_live_eur_per_100") or game.get("EV_live_€_per_100") or game.get("EV_€_per_100"))
+        if target_date is None or current_odds is None or current_hwr is None or current_prob is None:
+            continue
+
+        odds_band = [max(1.0, current_odds * 0.90), current_odds * 1.10]
+        probability_band = [max(0.0, current_prob * 0.90), min(1.0, current_prob * 1.10)]
+        raw_hwr_low = max(0.0, current_hwr - 0.10)
+        raw_hwr_high = min(1.0, current_hwr + 0.10)
+        hwr_low: Optional[float] = raw_hwr_low
+        hwr_high: Optional[float] = raw_hwr_high
+        hwr_filter_label = f"{raw_hwr_low * 100:.1f}%–{raw_hwr_high * 100:.1f}%"
+        high_hwr_lower_bound_only = current_hwr >= 0.80
+        if high_hwr_lower_bound_only:
+            hwr_high = None
+            hwr_filter_label = f"≥ {hwr_low * 100:.1f}%"
+        if historical_hwr_min is not None and historical_hwr_max is not None:
+            if current_hwr > historical_hwr_max:
+                hwr_low = min(raw_hwr_low, historical_hwr_max)
+                hwr_high = None
+                hwr_filter_label = f"≥ {hwr_low * 100:.1f}%"
+            elif current_hwr < historical_hwr_min:
+                hwr_low = None
+                hwr_high = max(raw_hwr_high, historical_hwr_min)
+                hwr_filter_label = f"≤ {hwr_high * 100:.1f}%"
+            elif not high_hwr_lower_bound_only:
+                hwr_low = max(raw_hwr_low, historical_hwr_min)
+                hwr_high = min(raw_hwr_high, historical_hwr_max)
+                hwr_filter_label = f"{hwr_low * 100:.1f}%–{hwr_high * 100:.1f}%"
+
+        comparable_rows: List[Dict[str, object]] = []
+        for row in comparable_history_rows:
+            row_date = row.get("date")
+            if not isinstance(row_date, datetime) or row_date >= target_date:
+                continue
+            odds_home = _safe_float(row.get("odds_1"))
+            hist_hwr = _safe_float(row.get("home_win_rate"))
+            hist_prob = _safe_float(row.get("prob_used"))
+            home_team_won = row.get("home_team_won")
+            if (
+                odds_home is None
+                or hist_hwr is None
+                or hist_prob is None
+                or home_team_won not in (0, 1)
+            ):
+                continue
+            if not (odds_band[0] <= odds_home <= odds_band[1]):
+                continue
+            if hwr_low is not None and hist_hwr < hwr_low:
+                continue
+            if hwr_high is not None and hist_hwr > hwr_high:
+                continue
+            if not (probability_band[0] <= hist_prob <= probability_band[1]):
+                continue
+            pnl = (odds_home - 1.0) * 100.0 if int(home_team_won) == 1 else -100.0
+            comparable_rows.append(
+                {
+                    "date": row_date,
+                    "home_team": row.get("home_team"),
+                    "away_team": row.get("away_team"),
+                    "odds_home": odds_home,
+                    "home_win_rate": hist_hwr,
+                    "probability": hist_prob,
+                    "probability_source": "prob_used",
+                    "home_team_won": int(home_team_won),
+                    "pnl_100": pnl,
+                }
+            )
+
+        n = len(comparable_rows)
+        wins = sum(1 for row in comparable_rows if row["home_team_won"] == 1)
+        profit = float(sum(float(row["pnl_100"]) for row in comparable_rows))
+        win_rate = _safe_div(wins, n) if n else None
+        roi_pct = _safe_div(profit, n * 100.0) * 100.0 if n else None
+        avg_odds = _safe_div(sum(float(row["odds_home"]) for row in comparable_rows), n) if n else None
+        blocked_by = str(game.get("blocked_by") or "").strip()
+        stage = str(game.get("stage2_candidate_type") or "").strip()
+
+        if stage == "LIVE_WATCH_ONLY":
+            decision = "NO_BET / LIVE_WATCH_ONLY"
+        elif current_ev is not None and current_ev <= min_ev:
+            decision = "NO_BET"
+        elif blocked_by:
+            decision = "NO_BET"
+        else:
+            decision = "REVIEW"
+
+        if blocked_by == "min_ev" or (current_ev is not None and current_ev <= min_ev):
+            reason = "current EV below threshold"
+        elif blocked_by == "Prob<0.55":
+            reason = "probability below broader watchlist threshold"
+        elif current_prob < prob_threshold:
+            reason = "probability below local threshold"
+        elif stage == "LIVE_WATCH_ONLY":
+            reason = "watch-only local setup; not canonical"
+        else:
+            reason = "diagnostic comparable-history check only"
+
+        rows.append(
+            {
+                "game": f"{game.get('home_team') or 'HOME'} vs {game.get('away_team') or 'AWAY'}",
+                "date": game.get("date"),
+                "home_team": game.get("home_team"),
+                "away_team": game.get("away_team"),
+                "home_odds": current_odds,
+                "home_win_rate": current_hwr,
+                "probability": current_prob,
+                "probability_source": probability_source,
+                "ev_eur_per_100": current_ev,
+                "blocked_by": blocked_by or None,
+                "stage2_candidate_type": stage or None,
+                "decision": decision,
+                "reason": reason,
+                "odds_band": odds_band,
+                "home_win_rate_band": [hwr_low, hwr_high],
+                "home_win_rate_filter_label": hwr_filter_label,
+                "probability_band": probability_band,
+                "n": n,
+                "wins": wins,
+                "losses": n - wins,
+                "win_rate": win_rate,
+                "avg_odds": avg_odds,
+                "profit_100_flat": profit,
+                "roi_pct": roi_pct,
+            }
+        )
+
+    return {
+        "label": "Upcoming game checks",
+        "basis": {
+            "label": "Historical comparable basis",
+            "source": "all played games this season",
+            "source_file": comparable_history_meta.get("source_file"),
+            "comparable_band": "±10% around current odds, HWR, and probability",
+            "hwr_band_method": "±10 percentage points, clipped to historical home_win_rate scale",
+            "ev_included": False,
+            "stake_model": "flat_100_home_ml",
+            "history_meta": comparable_history_meta,
+        },
+        "rows": rows,
+    }
 
 
 def _build_ev_exception_profitability(
@@ -1289,6 +1599,35 @@ def _build_local_strategy_evaluation_window(
         "source_file": strategy_params_source.name if strategy_params_source else None,
         "matches_active_params": matches_active_params,
         "warning": warning,
+    }
+
+
+def _build_play_today_evaluation_window(
+    played_rows: List[Dict[str, object]],
+    window_size: int = PLAY_TODAY_LOCAL_EVAL_WINDOW,
+) -> Dict[str, object]:
+    window_rows, window_start, window_end = compute_window_bounds(played_rows, window_size)
+    if not window_rows:
+        return {
+            "label": "Script 11 local tail",
+            "source": "Script 11 hist_df / LOCAL tail",
+            "display_window_games": None,
+            "start": None,
+            "end": None,
+            "matches_script11_local_tail": False,
+            "warning": "Play Today local evaluation window is not available",
+        }
+    return {
+        "label": "Play Today evaluation window",
+        "source": "Script 11 hist_df / LOCAL tail",
+        "display_window_games": len(window_rows),
+        "local_tail_used": len(window_rows),
+        "hist_df_rows": len(window_rows),
+        "local_eval_rows": len(window_rows),
+        "start": window_start.strftime(DATE_FMT) if window_start else None,
+        "end": window_end.strftime(DATE_FMT) if window_end else None,
+        "matches_script11_local_tail": True,
+        "warning": None,
     }
 
 
@@ -2687,6 +3026,9 @@ def main() -> None:
     as_of_date = window_end_dt.strftime(DATE_FMT) if window_end_dt else "—"
     window_start_label = window_start_dt.strftime(DATE_FMT) if window_start_dt else None
     window_end_label = window_end_dt.strftime(DATE_FMT) if window_end_dt else None
+    play_today_evaluation_window = _build_play_today_evaluation_window(played_rows)
+    play_today_window_start_dt = _safe_date(play_today_evaluation_window.get("start"))
+    play_today_window_end_dt = _safe_date(play_today_evaluation_window.get("end"))
 
     snapshot_as_of_date = selection_metadata.get("snapshot_as_of_date") or as_of_date
     combined_source_file = combined_path.name
@@ -2803,9 +3145,17 @@ def main() -> None:
         today_games_payload,
         played_rows,
         active_params,
-        window_start_dt,
-        window_end_dt,
+        play_today_window_start_dt or window_start_dt,
+        play_today_window_end_dt or window_end_dt,
         output_dir,
+    )
+    live_lightgbm_dir = _resolve_live_lightgbm_dir(source_root)
+    upcoming_comparable_rows, upcoming_comparable_meta = _select_upcoming_comparable_history_source(live_lightgbm_dir)
+    today_games_payload["upcoming_game_checks"] = _build_upcoming_game_checks(
+        today_games_payload,
+        upcoming_comparable_rows,
+        upcoming_comparable_meta,
+        active_params,
     )
     historical_roi_attack_summaries = _find_historical_roi_attack_summaries(
         _resolve_live_lightgbm_dir(source_root),
@@ -2817,11 +3167,7 @@ def main() -> None:
     )
     today_games_payload["historical_roi_attack_scans"] = historical_roi_attack_summaries
     today_games_payload["local_profitability_rule"] = local_profitability_rule
-    today_games_payload["local_strategy_evaluation_window"] = _build_local_strategy_evaluation_window(
-        raw_strategy_payload,
-        strategy_params_source,
-        active_params,
-    )
+    today_games_payload["local_strategy_evaluation_window"] = play_today_evaluation_window
 
     # ----------------------------
     # Strategy matches (MUST match validate_dashboard_state.mjs)

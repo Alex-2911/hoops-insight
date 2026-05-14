@@ -795,6 +795,9 @@ const Index = () => {
   const availableTodayGames = useMemo(() => todayGames?.games ?? [], [todayGames?.games]);
   const liveCandidateRows = useMemo(() => todayGames?.qualifying_bets ?? [], [todayGames?.qualifying_bets]);
   const evExceptionProfitability = todayGames?.ev_exception_profitability ?? null;
+  const upcomingGameChecks = todayGames?.upcoming_game_checks?.rows ?? [];
+  const upcomingGameChecksBasis = todayGames?.upcoming_game_checks?.basis ?? null;
+  const upcomingHistoryMeta = upcomingGameChecksBasis?.history_meta as Record<string, unknown> | undefined;
   const positiveStakeRows = useMemo(
     () => liveCandidateRows.filter((row) => (parseNumeric(row.stake_eur ?? "") ?? 0) > 0),
     [liveCandidateRows],
@@ -1019,8 +1022,10 @@ const Index = () => {
             ? "profitable local setup matched, but the repeatable Historical ROI Attack scanner rejected it"
             : localProfitabilityLabel === "discretionary_local_profitability_confirmed"
               ? ""
-              : broadHistoricalSupport && anyCandidateNegativeCurrentPrice
-                ? "negative current EV and/or negative Kelly despite broad historical support"
+              : candidates.length > 1
+                ? "no canonical pregame bets; game-specific watch-only reasons are shown separately"
+                : broadHistoricalSupport && anyCandidateNegativeCurrentPrice
+                  ? "negative current EV and/or negative Kelly despite broad historical support"
                 : engineState === "NO_BET" || positiveStakeBets.length === 0
                   ? "no positive-stake canonical signal"
                   : "",
@@ -1176,68 +1181,60 @@ const Index = () => {
 
   const playTodayCase = todayDecisionContext?.local_profitability_case as Record<string, unknown> | null | undefined;
   const playTodayLabels = todayDecisionContext?.decision_labels as Record<string, unknown> | null | undefined;
-  const playTodayTarget = playTodayCase?.target_values as Record<string, unknown> | null | undefined;
-  const playTodayBuckets = playTodayCase?.buckets as Record<string, Record<string, unknown>> | null | undefined;
-  const playTodayPriceBucket = playTodayBuckets?.price_strict_bucket;
-  const playTodayHwrBucket = playTodayBuckets?.hwr_filtered_bucket;
   const localStrategyEvaluationWindow = todayGames?.local_strategy_evaluation_window ?? null;
-  const playTodayCandidate =
-    (todayDecisionContext?.live_candidates as TodayDecisionCandidate[] | undefined)?.[0] ?? null;
-  const playTodayGame =
-    readRecordString(playTodayCase, "game") ||
-    (playTodayCandidate ? `${playTodayCandidate.home_team ?? "—"} vs ${playTodayCandidate.away_team ?? "—"}` : "") ||
-    (availableTodayGames[0]
-      ? `${availableTodayGames[0].home_team ?? "—"} vs ${availableTodayGames[0].away_team ?? "—"}`
-      : "—");
-  const playTodayDecision = readRecordString(playTodayCase, "agent_decision") || readRecordString(playTodayLabels, "main_decision") || "NO_BET";
-  const playTodayLabel = readRecordString(playTodayCase, "agent_label") || readRecordString(playTodayLabels, "local_profitability_rule_label") || "—";
-  const playTodayBreakEven = readRecordNumber(playTodayHwrBucket, "break_even_pct") ?? readRecordNumber(playTodayPriceBucket, "break_even_pct");
   const localStrategyWindowGames =
     typeof localStrategyEvaluationWindow?.display_window_games === "number"
       ? localStrategyEvaluationWindow.display_window_games
       : null;
-  const playTodayCurrentGame = availableTodayGames.find((game) => {
-    const [home, away] = playTodayGame.split(" vs ").map((value) => value.trim());
-    return game.home_team === home && game.away_team === away;
-  });
-  const playTodayHomeWinRate =
-    readRecordNumber(playTodayTarget, "home_win_rate") ??
-    playTodayCurrentGame?.home_win_rate ??
-    null;
-  const playTodayOdds =
-    readRecordNumber(playTodayTarget, "odds_1") ??
-    playTodayCandidate?.odds_1 ??
-    playTodayCurrentGame?.home_odds ??
-    null;
-  const playTodayRawProbability =
-    readRecordNumber(playTodayTarget, "home_team_prob") ??
-    readRecordNumber(playTodayTarget, "home_prob_raw") ??
-    readRecordNumber(playTodayTarget, "raw_probability") ??
-    playTodayCandidate?.raw_probability ??
-    playTodayCurrentGame?.home_team_prob ??
-    null;
-  const playTodayUsedProbability =
-    readRecordNumber(playTodayTarget, "prob_used") ??
-    readRecordNumber(playTodayTarget, "selected_probability") ??
-    playTodayCandidate?.prob_used ??
-    playTodayCurrentGame?.prob_used ??
-    null;
-  const playTodayLiveEv =
-    readRecordNumber(playTodayTarget, "EV_live_€_per_100") ??
-    playTodayCandidate?.live_ev_per_100 ??
-    playTodayCurrentGame?.ev_live_eur_per_100 ??
-    null;
-  const playTodayStakeClass = readRecordString(playTodayCase, "stake_class") || "none";
-  const playTodayBreakEvenDisplay =
-    playTodayBreakEven ?? (playTodayOdds && playTodayOdds > 0 ? (1 / playTodayOdds) * 100 : null);
+  const localStrategyWindowStart = localStrategyEvaluationWindow?.start || null;
+  const localStrategyWindowEnd = localStrategyEvaluationWindow?.end || null;
+  const localStrategyWindowSource = localStrategyEvaluationWindow?.source || localStrategyEvaluationWindow?.source_file || null;
   const evExceptionCriteria = evExceptionProfitability?.criteria ?? null;
   const evExceptionCandidateChecks =
     (evExceptionProfitability?.per_candidate_checks as Array<Record<string, unknown>> | undefined) ??
     (evExceptionProfitability?.price_adjusted ? [evExceptionProfitability.price_adjusted as Record<string, unknown>] : []);
+  const canonicalBetCount = evExceptionCandidateChecks.filter((check) => check.supports_play === true).length;
+  const watchOnlyCount = evExceptionCandidateChecks.filter((check) => readRecordString(check, "classification") === "watch-only").length;
+  const blockedGameSummary = evExceptionCandidateChecks
+    .map((check) => {
+      const game = readRecordString(check, "game");
+      const blockedBy = readRecordString(check, "blocked_by");
+      return game && blockedBy ? `${game.split(" vs ")[0]} blocked by ${blockedBy}` : "";
+    })
+    .filter(Boolean)
+    .join("; ");
   const formatProbabilityValue = (value: number | null | undefined) =>
     typeof value === "number" && Number.isFinite(value) ? fmtPercent(value * 100, 1) : "—";
-  const formatPercentValue = (value: number | null | undefined) =>
-    typeof value === "number" && Number.isFinite(value) ? fmtPercent(value, 1) : "—";
+  const validHistoricalSetupChecks = evExceptionCandidateChecks.filter((check) => {
+    const setupN = readRecordNumber(check, "setup_n");
+    const setupRoi = readRecordNumber(check, "setup_roi_pct");
+    const setupWinRate = readRecordNumber(check, "setup_win_rate");
+    return setupN !== null && setupN > 0 && setupRoi !== null && setupWinRate !== null;
+  });
+  const historicalSetupDetail = validHistoricalSetupChecks
+    .map((check) => {
+      const game = readRecordString(check, "game") || "Game";
+      return `${game}: n=${readRecordNumber(check, "setup_n") ?? 0}, WR ${formatProbabilityValue(readRecordNumber(check, "setup_win_rate"))}, ROI ${fmtPercent(readRecordNumber(check, "setup_roi_pct"), 1)}`;
+    })
+    .join("; ");
+  const gameSpecificLabel = (check: Record<string, unknown>) => {
+    const blockedBy = readRecordString(check, "blocked_by");
+    const stage = readRecordString(check, "stage2_candidate_type");
+    const currentEv = readRecordNumber(check, "current_ev_eur_per_100");
+    if (blockedBy === "min_ev" || (currentEv !== null && currentEv < 0)) {
+      return "price too short / negative EV despite historical setup";
+    }
+    if (stage === "LIVE_WATCH_ONLY" || blockedBy.includes("Prob")) {
+      return "borderline local setup / LIVE_WATCH_ONLY / probability threshold conflict";
+    }
+    return readRecordString(check, "classification") || "watch-only";
+  };
+  const formatBlockReason = (value: string) => {
+    if (value === "min_ev") return "current EV below threshold";
+    if (value === "Prob<0.55") return "broader probability threshold";
+    if (value === "missing_enriched_candidate_context") return "missing enriched candidate context";
+    return value.replaceAll("EV<=0.00", "EV <= 0").replaceAll("Prob<", "probability < ");
+  };
   const previousLearningCases = agentLearningCases
     .filter((learningCase) => {
       const sameDate = readRecordString(learningCase, "date") === readRecordString(playTodayCase, "date");
@@ -1252,29 +1249,43 @@ const Index = () => {
       detail: `Stage 1 canonical signal: ${readRecordString(playTodayCase, "canonical_signal") || "false"}.`,
     },
     {
-      label: "Local profitable setup",
-      value: playTodayLabels?.local_profitable_candidate || playTodayCase?.local_profitable_candidate ? "YES" : "NO",
-      detail: `HWR ${formatProbabilityValue(playTodayHomeWinRate)} · odds ${fmtNumber(playTodayOdds, 2)} · prob ${formatProbabilityValue(playTodayUsedProbability)}.`,
+      label: "Engine state",
+      value: String(todayDecisionContext?.engine_state ?? "NO_BET"),
+      detail: "No canonical positive-stake bet was produced for the slate.",
     },
     {
-      label: "Robust stability",
-      value: readRecordString(playTodayLabels, "robust_stability") || (playTodayCase?.robust_stability_passed ? "PASSED" : "FAILED"),
-      detail: `Engine state: ${todayDecisionContext?.engine_state ?? "unknown"}; Robust++++ did not create a canonical positive-stake bet.`,
+      label: "Available games",
+      value: String(availableTodayGames.length),
+      detail: `${canonicalBetCount} canonical bets; ${watchOnlyCount} watch-only candidates.`,
     },
     {
-      label: "Historical profitability check",
-      value: readRecordString(playTodayLabels, "historical_profitability_check") || "not_triggered",
-      detail: `Scanner status: ${readRecordString(playTodayCase, "historical_roi_attack_status") || "—"}; price-strict ROI ${fmtPercent(readRecordNumber(playTodayPriceBucket, "roi_pct"), 2)}, HWR-filtered ROI ${fmtPercent(readRecordNumber(playTodayHwrBucket, "roi_pct"), 2)}.`,
+      label: "Local setup status",
+      value: canonicalBetCount > 0 ? "canonical_present" : "no canonical local bet",
+      detail: "Game-specific setup checks are shown below.",
+    },
+    ...(validHistoricalSetupChecks.length > 0
+      ? [
+          {
+            label: "Historical profitability",
+            value: `${validHistoricalSetupChecks.length} game setup checks`,
+            detail: historicalSetupDetail,
+          },
+        ]
+      : []),
+    {
+      label: "Watchlist summary",
+      value: watchOnlyCount > 0 ? `${watchOnlyCount} watch-only` : "none",
+      detail: blockedGameSummary || "No game-specific blocks available.",
     },
     {
-      label: "Decision",
-      value: playTodayDecision,
-      detail: `Live EV ${formatSigned(playTodayLiveEv, 2)} per 100; stake class ${playTodayStakeClass}.`,
+      label: "Slate label",
+      value: canonicalBetCount > 0 ? "canonical rows require review" : "No canonical pregame bets",
+      detail: `${watchOnlyCount} watch-only games; pregame action: ${canonicalBetCount > 0 ? "review canonical rows" : "SKIP"}.`,
     },
     {
-      label: "Label",
-      value: playTodayLabel,
-      detail: readRecordString(playTodayCase, "reason") || readRecordString(playTodayLabels, "no_bet_reason") || "No forced action.",
+      label: "Slate decision",
+      value: canonicalBetCount > 0 ? "REVIEW_CANONICAL" : "SKIP",
+      detail: `Canonical bets: ${canonicalBetCount}; watch-only games: ${watchOnlyCount}; pregame action: ${canonicalBetCount > 0 ? "review canonical rows" : "SKIP"}.`,
     },
   ];
 
@@ -1328,7 +1339,7 @@ const Index = () => {
             {dashboardDataAgeDays !== null && dashboardDataAgeDays > 0 ? ` (${dashboardDataAgeDays} days old)` : ""}
           </p>
           <p className="text-sm text-muted-foreground">
-            Historical dashboard window: {windowStartLabel} → {windowEndLabel} · {windowSize} games
+            Settled dashboard stats window: {windowStartLabel} → {windowEndLabel} · {windowSize} games
           </p>
           <p className="text-sm text-muted-foreground">Live strategy: {liveStrategyLabel}</p>
           <p className="text-sm text-muted-foreground">Historical filter source: {historicalFilterSourceDisplay}</p>
@@ -1356,21 +1367,23 @@ const Index = () => {
           <div className="glass-card p-6 md:p-7">
             <div className="mb-5 grid grid-cols-1 gap-3 md:grid-cols-2">
               <div className="rounded-md border border-border bg-muted/30 p-4">
-                <div className="text-sm text-muted-foreground">Historical dashboard window</div>
-                <div className="mt-1 text-lg font-semibold text-foreground">{windowSize} games</div>
-                <div className="mt-1 text-sm text-muted-foreground">{windowStartLabel} → {windowEndLabel}</div>
-              </div>
-              <div className="rounded-md border border-border bg-muted/30 p-4">
-                <div className="text-sm text-muted-foreground">Local strategy evaluation window</div>
+                <div className="text-sm text-muted-foreground">Play Today evaluation window</div>
                 <div className="mt-1 text-lg font-semibold text-foreground">
                   {localStrategyWindowGames !== null ? `${localStrategyWindowGames} games` : "—"}
                 </div>
                 <div className="mt-1 text-sm text-muted-foreground">
-                  {localStrategyWindowGames === null
-                    ? (localStrategyEvaluationWindow?.warning ?? "Script 11 local tail not available in current artifacts")
-                    : localStrategyEvaluationWindow?.source_file
-                    ? `Source: ${localStrategyEvaluationWindow.source_file}`
-                    : "Script 11 local tail not available in current artifacts"}
+                  {localStrategyWindowStart && localStrategyWindowEnd
+                    ? `${localStrategyWindowStart} → ${localStrategyWindowEnd}`
+                    : localStrategyEvaluationWindow?.warning ?? "Script 11 local tail not available in current artifacts"}
+                </div>
+              </div>
+              <div className="rounded-md border border-border bg-muted/30 p-4">
+                <div className="text-sm text-muted-foreground">Historical basis</div>
+                <div className="mt-1 text-lg font-semibold text-foreground">
+                  {localStrategyEvaluationWindow?.matches_script11_local_tail ? "Matches Script 11 LOCAL tail" : "—"}
+                </div>
+                <div className="mt-1 text-sm text-muted-foreground">
+                  {localStrategyWindowSource || "Script 11 local tail not available in current artifacts"}
                 </div>
               </div>
             </div>
@@ -1411,6 +1424,102 @@ const Index = () => {
                 </div>
               </div>
             </div>
+            {upcomingGameChecks.length > 0 ? (
+              <div className="mb-5 rounded-md border border-border bg-muted/30 p-4">
+                <div className="flex flex-col gap-1 md:flex-row md:items-start md:justify-between">
+                  <div>
+                    <div className="text-base font-semibold text-foreground">Upcoming game checks</div>
+                    <div className="text-sm text-muted-foreground">
+                      {upcomingGameChecksBasis?.label || "Historical comparable basis"} ·{" "}
+                      {upcomingGameChecksBasis?.source || "all played games this season"} ·{" "}
+                      {upcomingGameChecksBasis?.comparable_band || "±10% around current odds, HWR, and probability"}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Source: {upcomingGameChecksBasis?.source_file || "—"}
+                      {typeof upcomingHistoryMeta?.usable_rows === "number"
+                        ? ` · usable rows ${upcomingHistoryMeta.usable_rows}`
+                        : ""}
+                    </div>
+                  </div>
+                  <div className="text-sm text-muted-foreground">Diagnostic comparable-game profitability; not canonical selection.</div>
+                </div>
+                {upcomingHistoryMeta && upcomingHistoryMeta.usable_rows === 0 ? (
+                  <div className="mt-3 rounded-md border border-amber-400/40 bg-amber-500/10 p-3 text-sm text-amber-100">
+                    Comparable history did not run because the selected source file has no usable rows with
+                    odds_1, prob_used, home_win_rate, and home_team_won. Regenerate or copy the enriched
+                    combined_nba_predictions_acc source to populate this diagnostic.
+                  </div>
+                ) : null}
+                {upcomingHistoryMeta?.warning ? (
+                  <div className="mt-3 rounded-md border border-amber-400/40 bg-amber-500/10 p-3 text-sm text-amber-100">
+                    {String(upcomingHistoryMeta.warning)}
+                  </div>
+                ) : null}
+
+                <div className="mt-4 overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border text-left">
+                        <th className="py-2 pr-4">Game</th>
+                        <th className="py-2 pr-4">Home odds</th>
+                        <th className="py-2 pr-4">HWR</th>
+                        <th className="py-2 pr-4">Prob</th>
+                        <th className="py-2 pr-4">EV /100</th>
+                        <th className="py-2 pr-4">Comparable history</th>
+                        <th className="py-2 pr-4">Decision</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {upcomingGameChecks.map((check) => (
+                        <tr key={`${readRecordString(check, "date")}-${readRecordString(check, "game")}-upcoming-check`} className="border-b border-border/50">
+                          <td className="py-2 pr-4 font-medium text-foreground">
+                            {readRecordString(check, "game") || "—"}
+                            <div className="text-xs text-muted-foreground">
+                              Band: odds{" "}
+                              {Array.isArray(check.odds_band)
+                                ? check.odds_band.map((v) => fmtNumber(typeof v === "number" ? v : null, 2)).join("–")
+                                : "—"}{" "}
+                              · HWR{" "}
+                              {readRecordString(check, "home_win_rate_filter_label") ||
+                                (Array.isArray(check.home_win_rate_band)
+                                  ? check.home_win_rate_band.map((v) => formatProbabilityValue(typeof v === "number" ? v : null)).join("–")
+                                  : "—")}{" "}
+                              · prob{" "}
+                              {Array.isArray(check.probability_band)
+                                ? check.probability_band.map((v) => formatProbabilityValue(typeof v === "number" ? v : null)).join("–")
+                                : "—"}
+                            </div>
+                          </td>
+                          <td className="py-2 pr-4">{fmtNumber(readRecordNumber(check, "home_odds"), 2)}</td>
+                          <td className="py-2 pr-4">{formatProbabilityValue(readRecordNumber(check, "home_win_rate"))}</td>
+                          <td className="py-2 pr-4">
+                            {formatProbabilityValue(readRecordNumber(check, "probability"))}
+                            <div className="text-xs text-muted-foreground">{readRecordString(check, "probability_source") || "—"}</div>
+                          </td>
+                          <td className="py-2 pr-4">{formatSigned(readRecordNumber(check, "ev_eur_per_100"), 2)}</td>
+                          <td className="py-2 pr-4">
+                            n={readRecordNumber(check, "n") ?? 0}, WR {formatProbabilityValue(readRecordNumber(check, "win_rate"))}, ROI{" "}
+                            {fmtPercent(readRecordNumber(check, "roi_pct"), 1)}
+                            <div className="text-xs text-muted-foreground">
+                              {readRecordNumber(check, "wins") ?? 0}W-{readRecordNumber(check, "losses") ?? 0}L · P/L{" "}
+                              {formatSigned(readRecordNumber(check, "profit_100_flat"), 0)} · avg odds{" "}
+                              {fmtNumber(readRecordNumber(check, "avg_odds"), 2)}
+                            </div>
+                          </td>
+                          <td className="py-2 pr-4">
+                            {readRecordString(check, "decision") || "—"}
+                            <div className="text-xs text-muted-foreground">{readRecordString(check, "reason") || "—"}</div>
+                            {readRecordString(check, "blocked_by") ? (
+                              <div className="text-xs text-muted-foreground">Blocked: {formatBlockReason(readRecordString(check, "blocked_by"))}</div>
+                            ) : null}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : null}
             <div className="mb-5 rounded-md border border-border bg-muted/40 p-5 font-mono text-base">
               <div className="mb-4 text-sm uppercase tracking-wide text-muted-foreground">Decision Console</div>
               <div className="space-y-4">
@@ -1428,27 +1537,27 @@ const Index = () => {
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
               <StatCard
-                title="Current price"
-                value={fmtNumber(playTodayOdds, 2)}
-                subtitle={`Break-even: ${formatPercentValue(playTodayBreakEvenDisplay)}`}
+                title="Available games"
+                value={`${availableTodayGames.length}`}
+                subtitle="Current slate rows"
                 icon={<Target className="w-6 h-6" />}
               />
               <StatCard
-                title="Model / used prob"
-                value={formatProbabilityValue(playTodayUsedProbability)}
-                subtitle={`Raw: ${formatProbabilityValue(playTodayRawProbability)}`}
+                title="Canonical bets"
+                value={`${canonicalBetCount}`}
+                subtitle="Official positive-stake rows"
                 icon={<Activity className="w-6 h-6" />}
               />
               <StatCard
-                title="Price-strict bucket"
-                value={fmtPercent(readRecordNumber(playTodayPriceBucket, "roi_pct"), 2)}
-                subtitle={`n=${readRecordNumber(playTodayPriceBucket, "n") ?? 0} · WR ${fmtPercent(readRecordNumber(playTodayPriceBucket, "win_rate_pct"), 1)}`}
+                title="Watch-only"
+                value={`${watchOnlyCount}`}
+                subtitle="Game-specific checks below"
                 icon={<BarChart3 className="w-6 h-6" />}
               />
               <StatCard
-                title="HWR-filtered bucket"
-                value={fmtPercent(readRecordNumber(playTodayHwrBucket, "roi_pct"), 2)}
-                subtitle={`n=${readRecordNumber(playTodayHwrBucket, "n") ?? 0} · WR ${fmtPercent(readRecordNumber(playTodayHwrBucket, "win_rate_pct"), 1)}`}
+                title="Evaluation window"
+                value={localStrategyWindowGames !== null ? `${localStrategyWindowGames}` : "—"}
+                subtitle={localStrategyWindowStart && localStrategyWindowEnd ? `${localStrategyWindowStart} → ${localStrategyWindowEnd}` : "Script 11 local tail"}
                 icon={<TrendingUp className="w-6 h-6" />}
               />
             </div>
@@ -1457,51 +1566,16 @@ const Index = () => {
               <div className="mt-5 rounded-md border border-border bg-muted/30 p-4">
                 <div className="flex flex-col gap-1 md:flex-row md:items-start md:justify-between">
                   <div>
-                    <div className="text-base font-semibold text-foreground">Historical profitability for filter-matching games</div>
+                    <div className="text-base font-semibold text-foreground">Historical profitability for today's game setups</div>
                     <div className="text-sm text-muted-foreground">
                       Each row uses that game's own setup: HWR floor, odds band, and probability floor. EV is ignored only to diagnose rows blocked by EV.
                     </div>
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    Window {evExceptionProfitability.summary.window_start || "—"} → {evExceptionProfitability.summary.window_end || "—"}
-                  </div>
-                </div>
-
-                <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-5">
-                  <div>
-                    <div className="text-xs text-muted-foreground">Matches</div>
-                    <div className="text-lg font-semibold text-foreground">{evExceptionProfitability.summary.n ?? 0}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">Wins / WR</div>
-                    <div className="text-lg font-semibold text-foreground">
-                      {evExceptionProfitability.summary.wins ?? 0} /{" "}
-                      {typeof evExceptionProfitability.summary.win_rate === "number"
-                        ? fmtPercent(evExceptionProfitability.summary.win_rate * 100, 1)
-                        : "—"}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">Flat €100 P/L</div>
-                    <div className="text-lg font-semibold text-foreground">
-                      {formatSigned(evExceptionProfitability.summary.profit_100_flat ?? 0)}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">ROI</div>
-                    <div className="text-lg font-semibold text-foreground">
-                      {typeof evExceptionProfitability.summary.roi_pct === "number"
-                        ? fmtPercent(evExceptionProfitability.summary.roi_pct, 1)
-                        : "—"}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">Avg odds</div>
-                    <div className="text-lg font-semibold text-foreground">
-                      {typeof evExceptionProfitability.summary.avg_odds === "number"
-                        ? fmtNumber(evExceptionProfitability.summary.avg_odds, 2)
-                        : "—"}
-                    </div>
+                    Window {localStrategyWindowGames !== null ? `${localStrategyWindowGames} games · ` : ""}
+                    {localStrategyWindowStart || evExceptionProfitability.summary.window_start || "—"} →{" "}
+                    {localStrategyWindowEnd || evExceptionProfitability.summary.window_end || "—"}
+                    {localStrategyEvaluationWindow?.matches_script11_local_tail ? " · Script 11 LOCAL tail" : ""}
                   </div>
                 </div>
 
@@ -1514,10 +1588,10 @@ const Index = () => {
                           <th className="py-2 pr-4">Setup filter</th>
                           <th className="py-2 pr-4">Setup n</th>
                           <th className="py-2 pr-4">Setup WR / ROI</th>
-                          <th className="py-2 pr-4">Price n</th>
-                          <th className="py-2 pr-4">Price WR / ROI</th>
+                          <th className="py-2 pr-4">Price-only n</th>
+                          <th className="py-2 pr-4">Price-only WR / ROI</th>
                           <th className="py-2 pr-4">Current prob / EV</th>
-                          <th className="py-2 pr-4">Class</th>
+                          <th className="py-2 pr-4">Decision / stage</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1556,7 +1630,7 @@ const Index = () => {
                                 <div className="text-xs text-amber-300">Rounded display clears the 40.0% filter; raw probability remains borderline</div>
                               ) : null}
                               {readRecordString(check, "blocked_by") ? (
-                                <div className="text-xs text-muted-foreground">Blocked: {readRecordString(check, "blocked_by")}</div>
+                                <div className="text-xs text-muted-foreground">Blocked: {formatBlockReason(readRecordString(check, "blocked_by"))}</div>
                               ) : null}
                               {readRecordString(check, "stage2_candidate_type") === "LIVE_WATCH_ONLY" ? (
                                 <div className="text-xs text-muted-foreground">
@@ -1564,7 +1638,18 @@ const Index = () => {
                                 </div>
                               ) : null}
                             </td>
-                            <td className="py-2 pr-4">{readRecordString(check, "classification") || "—"}</td>
+                            <td className="py-2 pr-4">
+                              {check.supports_play === true ? "REVIEW" : "NO_BET"}
+                              <div className="text-xs text-muted-foreground">
+                                {readRecordString(check, "stage2_candidate_type") || readRecordString(check, "classification") || "—"}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                Stake: {check.supports_play === true ? "review" : "none pregame"}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                Label: {gameSpecificLabel(check)}
+                              </div>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -1575,8 +1660,8 @@ const Index = () => {
             ) : null}
 
             <div className="mt-5 rounded-md border border-amber-400/40 bg-amber-500/10 p-4 text-base leading-7 text-amber-100">
-              Profitable local params are only a trigger for scanner verification. If the repeatable Historical ROI
-              Attack scanner fails, the action is SKIP and the case is logged as positive discipline.
+              Historical setup profitability is diagnostic only. It does not create a canonical bet unless the
+              Robust++++ stability layer and repeatable scanner verification both pass.
             </div>
 
             <details className="mt-5 rounded-md border border-border p-4">
