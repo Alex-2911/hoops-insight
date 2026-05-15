@@ -47,7 +47,7 @@
   "fallback_reason": "bet_log_lags_snapshot",
   "snapshot_fallback_used": true,
   "snapshot_fallback_reason": "bet_log_lags_snapshot",
-  "last_update_utc": "2026-05-15T17:35:21Z",
+  "last_update_utc": "2026-05-15T17:36:32Z",
   "sources": {
     "combined": "combined_nba_predictions_iso_2026-04-10.csv",
     "local_matched": "local_matched_games_latest.csv",
