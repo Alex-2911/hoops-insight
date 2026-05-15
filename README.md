@@ -53,13 +53,14 @@ npm run dev
 ```
 
 The exporter reads defaults from `hoops_insight_config.toml` and writes to `public/data` by default.
-If `dashboard_payload.json`, `dashboard_state.json`, or `tables.json` are missing from `public/data`, the dashboard will show a data-unavailable message until data generation succeeds.
+If `dashboard_payload.json`, `dashboard_state.json`, `tables.json`, or `today_games.json` are missing from `public/data`, the dashboard will show a data-unavailable message until data generation succeeds.
 
 Legacy typo artifacts such as `dashoard_payload.json` and `dashoard_state.json` are automatically cleaned up by the exporter and deploy workflow. The canonical runtime paths are always:
 
 - `public/data/dashboard_payload.json`
 - `public/data/dashboard_state.json`
 - `public/data/tables.json`
+- `public/data/today_games.json`
 
 If those files are missing, run `npm run gen:data` locally to regenerate canonical JSON outputs in `public/data`.
 
@@ -185,15 +186,20 @@ Config keys are loaded from `hoops_insight_config.toml` (`paths.*`, `dashboard.*
 
 ## Deployment data sync note
 
-The GitHub deployment workflow triggers the cross-repo `Basketball_prediction` pipeline, syncs source CSV/JSON artifacts into `public/data`, runs `python scripts/generate_dashboard_data.py ...`, and then executes a relocation step that:
+The GitHub deployment workflow has two data-source modes:
 
-- materializes dated snapshot artifacts from safe aliases when possible (`local_matched_games_latest.csv` and `strategy_params.{json,txt}`),
-- prints the latest available dated sets (combined, local_matched, strategy_params) for CI visibility,
-- renames legacy typo files (`dashoard_*.json`) to canonical names,
-- moves any generated dashboard JSON left in the repo root into `public/data`, and
-- fails the build if `dashboard_payload.json`, `dashboard_state.json`, or `tables.json` are still missing.
+- Manual `workflow_dispatch` runs default to `use_committed_public_data=true`, which publishes the already committed `public/data` files without triggering, waiting for, checking out, or regenerating data from the cross-repo `Basketball_prediction` pipeline.
+- Scheduled runs, and manual runs with `use_committed_public_data=false`, keep the regeneration path: trigger the cross-repo `Basketball_prediction` pipeline, sync source CSV/JSON artifacts into `public/data`, run `python scripts/generate_dashboard_data.py ...`, and then execute the relocation step.
 
-Vite copies `public/` into `dist/` during build, so successful deploys include `dist/data/dashboard_payload.json`, `dist/data/dashboard_state.json`, and `dist/data/tables.json`.
+In both modes, the relocation and validation steps:
+
+- rename legacy typo files (`dashoard_*.json`) to canonical names,
+- move any generated dashboard JSON left in the repo root into `public/data`, and
+- fail the build if `dashboard_payload.json`, `dashboard_state.json`, `tables.json`, or `today_games.json` are still missing.
+
+When the regeneration path is enabled, the workflow also materializes dated snapshot artifacts from safe aliases when possible (`local_matched_games_latest.csv` and `strategy_params.{json,txt}`) and prints the latest available dated sets (combined, local_matched, strategy_params) for CI visibility.
+
+Vite copies `public/` into `dist/` during build, so successful deploys include `dist/data/dashboard_payload.json`, `dist/data/dashboard_state.json`, `dist/data/tables.json`, and `dist/data/today_games.json`.
 
 ## Tech stack
 
