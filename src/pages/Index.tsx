@@ -12,6 +12,7 @@ import type {
 import { Target, TrendingUp, Activity, BarChart3, Info } from "lucide-react";
 import { fmtCurrencyEUR, fmtNumber, fmtPercent, formatSigned } from "@/lib/format";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 
 type AgentMessage = {
   role: "user" | "assistant";
@@ -1190,6 +1191,15 @@ const Index = () => {
   const localStrategyWindowEnd = localStrategyEvaluationWindow?.end || null;
   const localStrategyWindowSource = localStrategyEvaluationWindow?.source || localStrategyEvaluationWindow?.source_file || null;
   const evExceptionCriteria = evExceptionProfitability?.criteria ?? null;
+  const playTodayFilterParams = {
+    home_win_rate_min:
+      typeof evExceptionCriteria?.home_win_rate_min === "number" ? evExceptionCriteria.home_win_rate_min : homeWinRateMin,
+    odds_min: typeof evExceptionCriteria?.odds_min === "number" ? evExceptionCriteria.odds_min : oddsMin,
+    odds_max: typeof evExceptionCriteria?.odds_max === "number" ? evExceptionCriteria.odds_max : oddsMax,
+    prob_threshold:
+      typeof evExceptionCriteria?.prob_threshold === "number" ? evExceptionCriteria.prob_threshold : probThreshold,
+    min_ev: minEv,
+  };
   const evExceptionCandidateChecks =
     (evExceptionProfitability?.per_candidate_checks as Array<Record<string, unknown>> | undefined) ??
     (evExceptionProfitability?.price_adjusted ? [evExceptionProfitability.price_adjusted as Record<string, unknown>] : []);
@@ -1234,6 +1244,25 @@ const Index = () => {
     if (value === "Prob<0.55") return "broader probability threshold";
     if (value === "missing_enriched_candidate_context") return "missing enriched candidate context";
     return value.replaceAll("EV<=0.00", "EV <= 0").replaceAll("Prob<", "probability < ");
+  };
+  const numberToneClass = (value: number | null | undefined) => {
+    if (typeof value !== "number" || !Number.isFinite(value)) return "text-foreground";
+    if (value > 0) return "text-green-300";
+    if (value < 0) return "text-red-300";
+    return "text-foreground";
+  };
+  const decisionBadgeClass = (decision: string) => {
+    const normalized = decision.trim().toUpperCase();
+    if (normalized.includes("LIVE_WATCH") || normalized.includes("WATCH")) {
+      return "border-amber-400/50 bg-amber-500/15 text-amber-100";
+    }
+    if (normalized.includes("NO_BET")) {
+      return "border-red-400/60 bg-red-500/15 text-red-200";
+    }
+    if (normalized.includes("BET") && !normalized.includes("NO_BET")) {
+      return "border-green-400/50 bg-green-500/15 text-green-200";
+    }
+    return "border-border bg-muted/60 text-foreground";
   };
   const previousLearningCases = agentLearningCases
     .filter((learningCase) => {
@@ -1366,82 +1395,84 @@ const Index = () => {
 
           <div className="glass-card p-6 md:p-7">
             <div className="mb-5 grid grid-cols-1 gap-3 md:grid-cols-2">
-              <div className="rounded-md border border-border bg-muted/30 p-4">
-                <div className="text-sm text-muted-foreground">Play Today evaluation window</div>
+              <div className="readable-panel p-5">
+                <div className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Play Today evaluation window</div>
                 <div className="mt-1 text-lg font-semibold text-foreground">
                   {localStrategyWindowGames !== null ? `${localStrategyWindowGames} games` : "—"}
                 </div>
-                <div className="mt-1 text-sm text-muted-foreground">
+                <div className="mt-2 text-sm leading-6 text-muted-foreground">
                   {localStrategyWindowStart && localStrategyWindowEnd
                     ? `${localStrategyWindowStart} → ${localStrategyWindowEnd}`
                     : localStrategyEvaluationWindow?.warning ?? "Script 11 local tail not available in current artifacts"}
                 </div>
               </div>
-              <div className="rounded-md border border-border bg-muted/30 p-4">
-                <div className="text-sm text-muted-foreground">Historical basis</div>
+              <div className="readable-panel p-5">
+                <div className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Historical basis</div>
                 <div className="mt-1 text-lg font-semibold text-foreground">
                   {localStrategyEvaluationWindow?.matches_script11_local_tail ? "Matches Script 11 LOCAL tail" : "—"}
                 </div>
-                <div className="mt-1 text-sm text-muted-foreground">
+                <div className="mt-2 text-sm leading-6 text-muted-foreground">
                   {localStrategyWindowSource || "Script 11 local tail not available in current artifacts"}
                 </div>
               </div>
             </div>
-            <div className="mb-5 rounded-md border border-border bg-muted/30 p-4">
-              <div className="text-sm text-muted-foreground">Active filter params</div>
-              <div className="mt-2 grid grid-cols-2 gap-3 text-base md:grid-cols-5">
+            <div className="readable-panel mb-5 p-5">
+              <div className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Active filter params</div>
+              <div className="mt-4 grid grid-cols-2 gap-4 text-base md:grid-cols-5">
                 <div>
-                  <div className="text-xs text-muted-foreground">HWR min</div>
-                  <div className="font-semibold text-foreground">
-                    {typeof evExceptionCriteria?.home_win_rate_min === "number"
-                      ? fmtPercent(evExceptionCriteria.home_win_rate_min * 100, 0)
+                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">HWR min</div>
+                  <div className="mt-1 text-lg font-bold text-foreground">
+                    {typeof playTodayFilterParams.home_win_rate_min === "number"
+                      ? fmtPercent(playTodayFilterParams.home_win_rate_min * 100, 0)
                       : "—"}
                   </div>
                 </div>
                 <div>
-                  <div className="text-xs text-muted-foreground">Odds</div>
-                  <div className="font-semibold text-foreground">
-                    {typeof evExceptionCriteria?.odds_min === "number" && typeof evExceptionCriteria?.odds_max === "number"
-                      ? `${fmtNumber(evExceptionCriteria.odds_min, 2)}–${fmtNumber(evExceptionCriteria.odds_max, 2)}`
+                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Odds</div>
+                  <div className="mt-1 text-lg font-bold text-foreground">
+                    {typeof playTodayFilterParams.odds_min === "number" && typeof playTodayFilterParams.odds_max === "number"
+                      ? `${fmtNumber(playTodayFilterParams.odds_min, 2)}–${fmtNumber(playTodayFilterParams.odds_max, 2)}`
                       : "—"}
                   </div>
                 </div>
                 <div>
-                  <div className="text-xs text-muted-foreground">Probability min</div>
-                  <div className="font-semibold text-foreground">
-                    {typeof evExceptionCriteria?.prob_threshold === "number"
-                      ? fmtPercent(evExceptionCriteria.prob_threshold * 100, 0)
+                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Probability min</div>
+                  <div className="mt-1 text-lg font-bold text-foreground">
+                    {typeof playTodayFilterParams.prob_threshold === "number"
+                      ? fmtPercent(playTodayFilterParams.prob_threshold * 100, 0)
                       : "—"}
                   </div>
                 </div>
                 <div>
-                  <div className="text-xs text-muted-foreground">EV filter</div>
-                  <div className="font-semibold text-foreground">≥ 0</div>
+                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">EV filter</div>
+                  <div className="mt-1 text-lg font-bold text-foreground">
+                    {typeof playTodayFilterParams.min_ev === "number" ? `≥ ${fmtNumber(playTodayFilterParams.min_ev, 0)}` : "≥ 0"}
+                  </div>
                 </div>
                 <div>
-                  <div className="text-xs text-muted-foreground">Historical scan</div>
-                  <div className="font-semibold text-foreground">EV ignored</div>
+                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Historical scan</div>
+                  <div className="mt-1 text-lg font-bold text-foreground">EV ignored</div>
                 </div>
               </div>
             </div>
             {upcomingGameChecks.length > 0 ? (
-              <div className="mb-5 rounded-md border border-border bg-muted/30 p-4">
+              <div className="readable-panel mb-5 p-5">
                 <div className="flex flex-col gap-1 md:flex-row md:items-start md:justify-between">
                   <div>
-                    <div className="text-base font-semibold text-foreground">Upcoming game checks</div>
-                    <div className="text-sm text-muted-foreground">
+                    <div className="text-xl font-bold text-foreground">Upcoming game checks</div>
+                    <div className="mt-1 text-sm leading-6 text-muted-foreground">
                       {upcomingGameChecksBasis?.label || "Historical comparable basis"} ·{" "}
                       {upcomingGameChecksBasis?.source || "all played games this season"} ·{" "}
                       {upcomingGameChecksBasis?.comparable_band || "±10% around current odds, HWR, and probability"}
                     </div>
-                    <div className="text-xs text-muted-foreground">
+                    <div className="mt-1 text-xs font-medium text-muted-foreground">
                       Source: {upcomingGameChecksBasis?.source_file || "—"}
                       {typeof upcomingHistoryMeta?.usable_rows === "number"
                         ? ` · usable rows ${upcomingHistoryMeta.usable_rows}`
                         : ""}
                     </div>
                   </div>
-                  <div className="text-sm text-muted-foreground">Diagnostic comparable-game profitability; not canonical selection.</div>
+                  <div className="text-sm font-medium leading-6 text-muted-foreground">Diagnostic comparable-game profitability; not canonical selection.</div>
                 </div>
                 {upcomingHistoryMeta && upcomingHistoryMeta.usable_rows === 0 ? (
                   <div className="mt-3 rounded-md border border-amber-400/40 bg-amber-500/10 p-3 text-sm text-amber-100">
@@ -1456,208 +1487,230 @@ const Index = () => {
                   </div>
                 ) : null}
 
-                <div className="mt-4 overflow-x-auto">
-                  <table className="w-full text-sm">
+                <div className="mt-5 overflow-x-auto">
+                  <table className="w-full border-separate border-spacing-0 text-sm">
                     <thead>
-                      <tr className="border-b border-border text-left">
-                        <th className="py-2 pr-4">Game</th>
-                        <th className="py-2 pr-4">Home odds</th>
-                        <th className="py-2 pr-4">HWR</th>
-                        <th className="py-2 pr-4">Prob</th>
-                        <th className="py-2 pr-4">EV /100</th>
-                        <th className="py-2 pr-4">Comparable history</th>
-                        <th className="py-2 pr-4">Decision</th>
+                      <tr className="border-b border-border text-left text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                        <th className="border-b border-border/80 py-3 pr-5">Game</th>
+                        <th className="border-b border-border/80 py-3 pr-5 text-right">Home odds</th>
+                        <th className="border-b border-border/80 py-3 pr-5 text-right">HWR</th>
+                        <th className="border-b border-border/80 py-3 pr-5 text-right">Prob</th>
+                        <th className="border-b border-border/80 py-3 pr-5 text-right">EV /100</th>
+                        <th className="border-b border-border/80 py-3 pr-5">Comparable history</th>
+                        <th className="border-b border-border/80 py-3 pr-5">Decision</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {upcomingGameChecks.map((check) => (
-                        <tr key={`${readRecordString(check, "date")}-${readRecordString(check, "game")}-upcoming-check`} className="border-b border-border/50">
-                          <td className="py-2 pr-4 font-medium text-foreground">
-                            {readRecordString(check, "game") || "—"}
-                            <div className="text-xs text-muted-foreground">
-                              Band: odds{" "}
-                              {Array.isArray(check.odds_band)
-                                ? check.odds_band.map((v) => fmtNumber(typeof v === "number" ? v : null, 2)).join("–")
-                                : "—"}{" "}
-                              · HWR{" "}
-                              {readRecordString(check, "home_win_rate_filter_label") ||
-                                (Array.isArray(check.home_win_rate_band)
-                                  ? check.home_win_rate_band.map((v) => formatProbabilityValue(typeof v === "number" ? v : null)).join("–")
-                                  : "—")}{" "}
-                              · prob{" "}
-                              {Array.isArray(check.probability_band)
-                                ? check.probability_band.map((v) => formatProbabilityValue(typeof v === "number" ? v : null)).join("–")
-                                : "—"}
-                            </div>
-                          </td>
-                          <td className="py-2 pr-4">{fmtNumber(readRecordNumber(check, "home_odds"), 2)}</td>
-                          <td className="py-2 pr-4">{formatProbabilityValue(readRecordNumber(check, "home_win_rate"))}</td>
-                          <td className="py-2 pr-4">
-                            {formatProbabilityValue(readRecordNumber(check, "probability"))}
-                            <div className="text-xs text-muted-foreground">{readRecordString(check, "probability_source") || "—"}</div>
-                          </td>
-                          <td className="py-2 pr-4">{formatSigned(readRecordNumber(check, "ev_eur_per_100"), 2)}</td>
-                          <td className="py-2 pr-4">
-                            n={readRecordNumber(check, "n") ?? 0}, WR {formatProbabilityValue(readRecordNumber(check, "win_rate"))}, ROI{" "}
-                            {fmtPercent(readRecordNumber(check, "roi_pct"), 1)}
-                            <div className="text-xs text-muted-foreground">
-                              {readRecordNumber(check, "wins") ?? 0}W-{readRecordNumber(check, "losses") ?? 0}L · P/L{" "}
-                              {formatSigned(readRecordNumber(check, "profit_100_flat"), 0)} · avg odds{" "}
-                              {fmtNumber(readRecordNumber(check, "avg_odds"), 2)}
-                            </div>
-                          </td>
-                          <td className="py-2 pr-4">
-                            {readRecordString(check, "decision") || "—"}
-                            <div className="text-xs text-muted-foreground">{readRecordString(check, "reason") || "—"}</div>
-                            {readRecordString(check, "blocked_by") ? (
-                              <div className="text-xs text-muted-foreground">Blocked: {formatBlockReason(readRecordString(check, "blocked_by"))}</div>
-                            ) : null}
-                          </td>
-                        </tr>
-                      ))}
+                      {upcomingGameChecks.map((check) => {
+                        const evValue = readRecordNumber(check, "ev_eur_per_100");
+                        const roiValue = readRecordNumber(check, "roi_pct");
+                        const decision = readRecordString(check, "decision") || "—";
+                        return (
+                          <tr key={`${readRecordString(check, "date")}-${readRecordString(check, "game")}-upcoming-check`} className="border-b border-border/50 odd:bg-background/10 even:bg-muted/20">
+                            <td className="border-b border-border/50 py-4 pr-5 align-top font-semibold text-foreground">
+                              <div className="text-base">{readRecordString(check, "game") || "—"}</div>
+                              <div className="mt-2 text-xs font-medium leading-5 text-muted-foreground">
+                                Band: odds{" "}
+                                {Array.isArray(check.odds_band)
+                                  ? check.odds_band.map((v) => fmtNumber(typeof v === "number" ? v : null, 2)).join("–")
+                                  : "—"}{" "}
+                                · HWR{" "}
+                                {readRecordString(check, "home_win_rate_filter_label") ||
+                                  (Array.isArray(check.home_win_rate_band)
+                                    ? check.home_win_rate_band.map((v) => formatProbabilityValue(typeof v === "number" ? v : null)).join("–")
+                                    : "—")}{" "}
+                                · prob{" "}
+                                {Array.isArray(check.probability_band)
+                                  ? check.probability_band.map((v) => formatProbabilityValue(typeof v === "number" ? v : null)).join("–")
+                                  : "—"}
+                              </div>
+                            </td>
+                            <td className="border-b border-border/50 py-4 pr-5 text-right align-top font-semibold tabular-nums text-foreground">{fmtNumber(readRecordNumber(check, "home_odds"), 2)}</td>
+                            <td className="border-b border-border/50 py-4 pr-5 text-right align-top font-semibold tabular-nums text-foreground">{formatProbabilityValue(readRecordNumber(check, "home_win_rate"))}</td>
+                            <td className="border-b border-border/50 py-4 pr-5 text-right align-top">
+                              <div className="font-semibold tabular-nums text-foreground">{formatProbabilityValue(readRecordNumber(check, "probability"))}</div>
+                              <div className="mt-1 text-xs font-medium text-muted-foreground">{readRecordString(check, "probability_source") || "—"}</div>
+                            </td>
+                            <td className={cn("border-b border-border/50 py-4 pr-5 text-right align-top font-bold tabular-nums", numberToneClass(evValue))}>
+                              {formatSigned(evValue, 2)}
+                            </td>
+                            <td className="border-b border-border/50 py-4 pr-5 align-top">
+                              <div className="font-semibold tabular-nums text-foreground">
+                                n={readRecordNumber(check, "n") ?? 0}, WR {formatProbabilityValue(readRecordNumber(check, "win_rate"))}, ROI{" "}
+                                <span className={numberToneClass(roiValue)}>{fmtPercent(roiValue, 1)}</span>
+                              </div>
+                              <div className="mt-1 text-xs font-medium leading-5 text-muted-foreground">
+                                {readRecordNumber(check, "wins") ?? 0}W-{readRecordNumber(check, "losses") ?? 0}L · P/L{" "}
+                                <span className={numberToneClass(readRecordNumber(check, "profit_100_flat"))}>
+                                  {formatSigned(readRecordNumber(check, "profit_100_flat"), 0)}
+                                </span>{" "}
+                                · avg odds {fmtNumber(readRecordNumber(check, "avg_odds"), 2)}
+                              </div>
+                            </td>
+                            <td className="border-b border-border/50 py-4 pr-5 align-top">
+                              <span className={cn("inline-flex rounded-full border px-2.5 py-1 text-xs font-bold uppercase tracking-wide", decisionBadgeClass(decision))}>
+                                {decision}
+                              </span>
+                              <div className="mt-2 text-xs font-medium leading-5 text-muted-foreground">{readRecordString(check, "reason") || "—"}</div>
+                              {readRecordString(check, "blocked_by") ? (
+                                <div className="mt-1 text-xs font-semibold text-muted-foreground">Blocked: {formatBlockReason(readRecordString(check, "blocked_by"))}</div>
+                              ) : null}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
               </div>
             ) : null}
-            <div className="mb-5 rounded-md border border-border bg-muted/40 p-5 font-mono text-base">
-              <div className="mb-4 text-sm uppercase tracking-wide text-muted-foreground">Decision Console</div>
-              <div className="space-y-4">
-                {playTodayLines.map((line) => (
-                  <div key={line.label} className="grid gap-2 border-b border-border/60 pb-4 last:border-b-0 last:pb-0 md:grid-cols-[260px_1fr]">
-                    <div className="text-muted-foreground">{line.label}</div>
-                    <div>
-                      <div className="text-lg font-semibold text-foreground">{line.value}</div>
-                      <div className="mt-1 text-sm leading-6 text-muted-foreground">{line.detail}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-              <StatCard
-                title="Available games"
-                value={`${availableTodayGames.length}`}
-                subtitle="Current slate rows"
-                icon={<Target className="w-6 h-6" />}
-              />
-              <StatCard
-                title="Canonical bets"
-                value={`${canonicalBetCount}`}
-                subtitle="Official positive-stake rows"
-                icon={<Activity className="w-6 h-6" />}
-              />
-              <StatCard
-                title="Watch-only"
-                value={`${watchOnlyCount}`}
-                subtitle="Game-specific checks below"
-                icon={<BarChart3 className="w-6 h-6" />}
-              />
-              <StatCard
-                title="Evaluation window"
-                value={localStrategyWindowGames !== null ? `${localStrategyWindowGames}` : "—"}
-                subtitle={localStrategyWindowStart && localStrategyWindowEnd ? `${localStrategyWindowStart} → ${localStrategyWindowEnd}` : "Script 11 local tail"}
-                icon={<TrendingUp className="w-6 h-6" />}
-              />
-            </div>
-
-            {evExceptionProfitability?.summary ? (
-              <div className="mt-5 rounded-md border border-border bg-muted/30 p-4">
-                <div className="flex flex-col gap-1 md:flex-row md:items-start md:justify-between">
-                  <div>
-                    <div className="text-base font-semibold text-foreground">Historical profitability for today's game setups</div>
-                    <div className="text-sm text-muted-foreground">
-                      Each row uses that game's own setup: HWR floor, odds band, and probability floor. EV is ignored only to diagnose rows blocked by EV.
-                    </div>
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    Window {localStrategyWindowGames !== null ? `${localStrategyWindowGames} games · ` : ""}
-                    {localStrategyWindowStart || evExceptionProfitability.summary.window_start || "—"} →{" "}
-                    {localStrategyWindowEnd || evExceptionProfitability.summary.window_end || "—"}
-                    {localStrategyEvaluationWindow?.matches_script11_local_tail ? " · Script 11 LOCAL tail" : ""}
+            <details className="mb-5 rounded-md border border-border/80 bg-muted/25 p-5">
+              <summary className="cursor-pointer text-base font-bold text-foreground">
+                Decision console and historical setup diagnostics
+              </summary>
+              <div className="mt-4">
+                <div className="mb-5 rounded-md border border-border/80 bg-muted/45 p-5 font-mono text-base">
+                  <div className="mb-4 text-sm uppercase tracking-wide text-muted-foreground">Decision Console</div>
+                  <div className="space-y-4">
+                    {playTodayLines.map((line) => (
+                      <div key={line.label} className="grid gap-2 border-b border-border/60 pb-4 last:border-b-0 last:pb-0 md:grid-cols-[260px_1fr]">
+                        <div className="font-semibold text-muted-foreground">{line.label}</div>
+                        <div>
+                          <div className="text-lg font-semibold text-foreground">{line.value}</div>
+                          <div className="mt-1 text-sm leading-6 text-muted-foreground">{line.detail}</div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
-                {evExceptionCandidateChecks.length > 0 ? (
-                  <div className="mt-4 overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-border text-left">
-                          <th className="py-2 pr-4">Game</th>
-                          <th className="py-2 pr-4">Setup filter</th>
-                          <th className="py-2 pr-4">Setup n</th>
-                          <th className="py-2 pr-4">Setup WR / ROI</th>
-                          <th className="py-2 pr-4">Price-only n</th>
-                          <th className="py-2 pr-4">Price-only WR / ROI</th>
-                          <th className="py-2 pr-4">Current prob / EV</th>
-                          <th className="py-2 pr-4">Decision / stage</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {evExceptionCandidateChecks.map((check) => (
-                          <tr key={`${readRecordString(check, "date")}-${readRecordString(check, "game")}`} className="border-b border-border/50">
-                            <td className="py-2 pr-4 font-medium text-foreground">{readRecordString(check, "game") || "—"}</td>
-                            <td className="py-2 pr-4">
-                              HWR ≥ {formatProbabilityValue(readRecordNumber(check, "setup_hwr_min"))}
-                              <div className="text-xs text-muted-foreground">
-                                Odds {Array.isArray(check.setup_odds_band)
-                                  ? check.setup_odds_band.map((v) => fmtNumber(v, 2)).join("–")
-                                  : "—"} · prob ≥ {formatProbabilityValue(readRecordNumber(check, "setup_prob_min"))}
-                              </div>
-                            </td>
-                            <td className="py-2 pr-4">{readRecordNumber(check, "setup_n") ?? 0}</td>
-                            <td className="py-2 pr-4">
-                              {formatProbabilityValue(readRecordNumber(check, "setup_win_rate"))} /{" "}
-                              {fmtPercent(readRecordNumber(check, "setup_roi_pct"), 1)}
-                              <div className="text-xs text-muted-foreground">
-                                P/L {formatSigned(readRecordNumber(check, "setup_profit_100_flat"), 0)}
-                              </div>
-                            </td>
-                            <td className="py-2 pr-4">{readRecordNumber(check, "n") ?? 0}</td>
-                            <td className="py-2 pr-4">
-                              {formatProbabilityValue(readRecordNumber(check, "win_rate"))} /{" "}
-                              {fmtPercent(readRecordNumber(check, "roi_pct"), 1)}
-                              <div className="text-xs text-muted-foreground">
-                                odds {fmtNumber(readRecordNumber(check, "current_odds"), 2)} · BE{" "}
-                                {formatProbabilityValue(readRecordNumber(check, "break_even_probability"))}
-                              </div>
-                            </td>
-                            <td className="py-2 pr-4">
-                              {formatProbabilityValue(readRecordNumber(check, "current_prob_used"))} /{" "}
-                              {formatSigned(readRecordNumber(check, "current_ev_eur_per_100"), 2)}
-                              {readRecordString(check, "borderline_probability_rounding") === "true" || check.borderline_probability_rounding === true ? (
-                                <div className="text-xs text-amber-300">Rounded display clears the 40.0% filter; raw probability remains borderline</div>
-                              ) : null}
-                              {readRecordString(check, "blocked_by") ? (
-                                <div className="text-xs text-muted-foreground">Blocked: {formatBlockReason(readRecordString(check, "blocked_by"))}</div>
-                              ) : null}
-                              {readRecordString(check, "stage2_candidate_type") === "LIVE_WATCH_ONLY" ? (
-                                <div className="text-xs text-muted-foreground">
-                                  LIVE_WATCH_ONLY: local setup layer differs from the broader watchlist block threshold
-                                </div>
-                              ) : null}
-                            </td>
-                            <td className="py-2 pr-4">
-                              {check.supports_play === true ? "REVIEW" : "NO_BET"}
-                              <div className="text-xs text-muted-foreground">
-                                {readRecordString(check, "stage2_candidate_type") || readRecordString(check, "classification") || "—"}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                Stake: {check.supports_play === true ? "review" : "none pregame"}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                Label: {gameSpecificLabel(check)}
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+                  <StatCard
+                    title="Available games"
+                    value={`${availableTodayGames.length}`}
+                    subtitle="Current slate rows"
+                    icon={<Target className="w-6 h-6" />}
+                  />
+                  <StatCard
+                    title="Canonical bets"
+                    value={`${canonicalBetCount}`}
+                    subtitle="Official positive-stake rows"
+                    icon={<Activity className="w-6 h-6" />}
+                  />
+                  <StatCard
+                    title="Watch-only"
+                    value={`${watchOnlyCount}`}
+                    subtitle="Game-specific checks below"
+                    icon={<BarChart3 className="w-6 h-6" />}
+                  />
+                  <StatCard
+                    title="Evaluation window"
+                    value={localStrategyWindowGames !== null ? `${localStrategyWindowGames}` : "—"}
+                    subtitle={localStrategyWindowStart && localStrategyWindowEnd ? `${localStrategyWindowStart} → ${localStrategyWindowEnd}` : "Script 11 local tail"}
+                    icon={<TrendingUp className="w-6 h-6" />}
+                  />
+                </div>
+
+                {evExceptionProfitability?.summary ? (
+                  <div className="mt-5 rounded-md border border-border/80 bg-muted/40 p-5">
+                    <div className="flex flex-col gap-1 md:flex-row md:items-start md:justify-between">
+                      <div>
+                        <div className="text-lg font-bold text-foreground">Historical profitability for today's game setups</div>
+                        <div className="mt-1 text-sm leading-6 text-muted-foreground">
+                          Each row uses that game's own setup: HWR floor, odds band, and probability floor. EV is ignored only to diagnose rows blocked by EV.
+                        </div>
+                      </div>
+                      <div className="text-sm font-medium leading-6 text-muted-foreground">
+                        Window {localStrategyWindowGames !== null ? `${localStrategyWindowGames} games · ` : ""}
+                        {localStrategyWindowStart || evExceptionProfitability.summary.window_start || "—"} →{" "}
+                        {localStrategyWindowEnd || evExceptionProfitability.summary.window_end || "—"}
+                        {localStrategyEvaluationWindow?.matches_script11_local_tail ? " · Script 11 LOCAL tail" : ""}
+                      </div>
+                    </div>
+
+                    {evExceptionCandidateChecks.length > 0 ? (
+                      <div className="mt-5 overflow-x-auto">
+                        <table className="w-full border-separate border-spacing-0 text-sm">
+                          <thead>
+                            <tr className="border-b border-border text-left text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                              <th className="border-b border-border/80 py-3 pr-5">Game</th>
+                              <th className="border-b border-border/80 py-3 pr-5">Setup filter</th>
+                              <th className="border-b border-border/80 py-3 pr-5 text-right">Setup n</th>
+                              <th className="border-b border-border/80 py-3 pr-5">Setup WR / ROI</th>
+                              <th className="border-b border-border/80 py-3 pr-5 text-right">Price-only n</th>
+                              <th className="border-b border-border/80 py-3 pr-5">Price-only WR / ROI</th>
+                              <th className="border-b border-border/80 py-3 pr-5">Current prob / EV</th>
+                              <th className="border-b border-border/80 py-3 pr-5">Decision / stage</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {evExceptionCandidateChecks.map((check) => (
+                              <tr key={`${readRecordString(check, "date")}-${readRecordString(check, "game")}`} className="odd:bg-background/10 even:bg-muted/20">
+                                <td className="border-b border-border/50 py-4 pr-5 align-top text-base font-semibold text-foreground">{readRecordString(check, "game") || "—"}</td>
+                                <td className="border-b border-border/50 py-4 pr-5 align-top font-medium text-foreground">
+                                  HWR ≥ {formatProbabilityValue(readRecordNumber(check, "setup_hwr_min"))}
+                                  <div className="mt-1 text-xs font-medium leading-5 text-muted-foreground">
+                                    Odds {Array.isArray(check.setup_odds_band)
+                                      ? check.setup_odds_band.map((v) => fmtNumber(v, 2)).join("–")
+                                      : "—"} · prob ≥ {formatProbabilityValue(readRecordNumber(check, "setup_prob_min"))}
+                                  </div>
+                                </td>
+                                <td className="border-b border-border/50 py-4 pr-5 text-right align-top font-semibold tabular-nums text-foreground">{readRecordNumber(check, "setup_n") ?? 0}</td>
+                                <td className="border-b border-border/50 py-4 pr-5 align-top">
+                                  <span className="font-semibold tabular-nums text-foreground">{formatProbabilityValue(readRecordNumber(check, "setup_win_rate"))}</span>{" "}
+                                  / <span className={cn("font-semibold tabular-nums", numberToneClass(readRecordNumber(check, "setup_roi_pct")))}>{fmtPercent(readRecordNumber(check, "setup_roi_pct"), 1)}</span>
+                                  <div className="mt-1 text-xs font-medium leading-5 text-muted-foreground">
+                                    P/L {formatSigned(readRecordNumber(check, "setup_profit_100_flat"), 0)}
+                                  </div>
+                                </td>
+                                <td className="border-b border-border/50 py-4 pr-5 text-right align-top font-semibold tabular-nums text-foreground">{readRecordNumber(check, "n") ?? 0}</td>
+                                <td className="border-b border-border/50 py-4 pr-5 align-top">
+                                  <span className="font-semibold tabular-nums text-foreground">{formatProbabilityValue(readRecordNumber(check, "win_rate"))}</span>{" "}
+                                  / <span className={cn("font-semibold tabular-nums", numberToneClass(readRecordNumber(check, "roi_pct")))}>{fmtPercent(readRecordNumber(check, "roi_pct"), 1)}</span>
+                                  <div className="mt-1 text-xs font-medium leading-5 text-muted-foreground">
+                                    odds {fmtNumber(readRecordNumber(check, "current_odds"), 2)} · BE{" "}
+                                    {formatProbabilityValue(readRecordNumber(check, "break_even_probability"))}
+                                  </div>
+                                </td>
+                                <td className="border-b border-border/50 py-4 pr-5 align-top">
+                                  <span className="font-semibold tabular-nums text-foreground">{formatProbabilityValue(readRecordNumber(check, "current_prob_used"))}</span>{" "}
+                                  / <span className={cn("font-semibold tabular-nums", numberToneClass(readRecordNumber(check, "current_ev_eur_per_100")))}>{formatSigned(readRecordNumber(check, "current_ev_eur_per_100"), 2)}</span>
+                                  {readRecordString(check, "borderline_probability_rounding") === "true" || check.borderline_probability_rounding === true ? (
+                                    <div className="mt-1 text-xs font-medium leading-5 text-amber-200">Rounded display clears the 40.0% filter; raw probability remains borderline</div>
+                                  ) : null}
+                                  {readRecordString(check, "blocked_by") ? (
+                                    <div className="mt-1 text-xs font-semibold leading-5 text-muted-foreground">Blocked: {formatBlockReason(readRecordString(check, "blocked_by"))}</div>
+                                  ) : null}
+                                  {readRecordString(check, "stage2_candidate_type") === "LIVE_WATCH_ONLY" ? (
+                                    <div className="mt-1 text-xs font-medium leading-5 text-muted-foreground">
+                                      LIVE_WATCH_ONLY: local setup layer differs from the broader watchlist block threshold
+                                    </div>
+                                  ) : null}
+                                </td>
+                                <td className="border-b border-border/50 py-4 pr-5 align-top">
+                                  <span className={cn("inline-flex rounded-full border px-2.5 py-1 text-xs font-bold uppercase tracking-wide", decisionBadgeClass(check.supports_play === true ? "BET" : readRecordString(check, "stage2_candidate_type") || "NO_BET"))}>
+                                    {check.supports_play === true ? "REVIEW" : "NO_BET"}
+                                  </span>
+                                  <div className="mt-2 text-xs font-semibold leading-5 text-muted-foreground">
+                                    {readRecordString(check, "stage2_candidate_type") || readRecordString(check, "classification") || "—"}
+                                  </div>
+                                  <div className="mt-1 text-xs font-medium leading-5 text-muted-foreground">
+                                    Stake: {check.supports_play === true ? "review" : "none pregame"}
+                                  </div>
+                                  <div className="mt-1 text-xs font-medium leading-5 text-muted-foreground">
+                                    Label: {gameSpecificLabel(check)}
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : null}
                   </div>
                 ) : null}
               </div>
-            ) : null}
+            </details>
 
             <div className="mt-5 rounded-md border border-amber-400/40 bg-amber-500/10 p-4 text-base leading-7 text-amber-100">
               Historical setup profitability is diagnostic only. It does not create a canonical bet unless the

@@ -85,7 +85,7 @@
     --secondary-foreground: 40 15% 85%;
 
     --muted: 20 15% 15%;
-    --muted-foreground: 30 10% 55%;
+    --muted-foreground: 32 14% 70%;
 
     /* Warm accent */
     --accent: 30 40% 22%;
@@ -148,6 +148,14 @@
     @apply backdrop-blur-sm border border-border/50 rounded-xl;
     background: var(--gradient-card);
     box-shadow: var(--shadow-card);
+  }
+
+  .readable-panel {
+    @apply rounded-md border border-border/80 bg-muted/40 shadow-sm;
+  }
+
+  .readable-help {
+    @apply text-muted-foreground;
   }
 
   .gradient-text {
