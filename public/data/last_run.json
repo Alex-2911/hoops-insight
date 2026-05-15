@@ -1,45 +1,48 @@
 {
-  "last_run": "2026-05-15T17:11:13Z",
-  "as_of_date": "2026-05-13",
+  "last_run": "2026-05-15T17:35:21Z",
+  "as_of_date": "2026-04-09",
   "records": {
-    "played_games": 1299,
+    "played_games": 1086,
     "strategy_subset_rows": 0,
-    "settled_bets_2026": 0
+    "settled_bets_2026": 14
   },
-  "lastUpdateUtc": "2026-05-15T17:11:13Z",
-  "asOfDate": "2026-05-13",
-  "snapshotAsOfDate": "2026-05-13",
-  "windowStart": "2026-03-14",
-  "windowEnd": "2026-05-13",
-  "dataConsistencyStatus": "ok",
-  "dataConsistencyIssues": [],
+  "lastUpdateUtc": "2026-05-15T17:35:21Z",
+  "asOfDate": "2026-04-09",
+  "snapshotAsOfDate": "2026-04-10",
+  "windowStart": "2026-03-03",
+  "windowEnd": "2026-04-09",
+  "dataConsistencyStatus": "out_of_sync",
+  "dataConsistencyIssues": [
+    "bet_log appears stale versus snapshot (27 days behind: 2026-03-14 vs 2026-04-10)",
+    "local_matched_games parse error: Error tokenizing data. C error: Expected 11 fields in line 4, saw 13\n"
+  ],
   "dataWarnings": [],
   "sources": {
-    "combined": "combined_nba_predictions_acc_2026-05-15.csv",
+    "combined": "combined_nba_predictions_iso_2026-04-10.csv",
     "local_matched": "local_matched_games_latest.csv",
     "bet_log_flat": "bet_log_flat_live.csv",
-    "strategy_params": "strategy_params.txt",
-    "metrics_snapshot": "metrics_snapshot.json"
+    "strategy_params": "strategy_params_2026-04-10.json",
+    "metrics_snapshot": "metrics_snapshot_2026-04-10.json"
   },
   "selection": {
-    "snapshot_as_of_date": "2026-05-13",
-    "run_date": "2026-05-15",
-    "combined_source_file": "combined_nba_predictions_acc_2026-05-15.csv",
-    "local_matched_source_file": "local_matched_games_2026-05-13.csv",
-    "bet_log_source_file": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/bet_log_flat_live.csv",
+    "snapshot_as_of_date": "2026-04-10",
+    "run_date": "2026-04-10",
+    "combined_source_file": "combined_nba_predictions_iso_2026-04-10.csv",
+    "local_matched_source_file": "local_matched_games_2026-04-10.csv",
+    "bet_log_source_file": "/Users/alexanderrazmyslov/1. Python/Basketball_prediction/2026/output/LightGBM/bet_log_flat_live.csv",
     "bet_log_source_type": "lightgbm_live",
-    "bet_log_latest_date_in_file": "2026-05-05",
+    "bet_log_latest_date_in_file": "2026-03-14",
     "bet_log_trimmed_to_snapshot": false,
-    "metrics_source_file": "metrics_snapshot.json",
-    "strategy_params_source_file": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/strategy_params.txt",
+    "metrics_source_file": "metrics_snapshot_2026-04-10.json",
+    "strategy_params_source_file": "/Users/alexanderrazmyslov/1. Python/Basketball_prediction/2026/output/LightGBM/strategy_params_2026-04-10.json",
     "strategy_params_source_type": "file",
     "strategy_params_parsed_ok": true,
-    "params_source_file": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/strategy_params.txt",
-    "params_source_type": "strategy_params",
+    "params_source_file": "/Users/alexanderrazmyslov/1. Python/Basketball_prediction/2026/output/LightGBM/strategy_params_2026-04-10.json",
+    "params_source_type": "strategy_params_dated",
     "params_used": "from_file",
     "fallback_used": true,
-    "fallback_reason": "combined_iso_missing_used_acc; used_undated_strategy_params; used_undated_metrics_snapshot; combined_acc_filename_newer_than_latest_settled_row; bet_log_lags_snapshot",
+    "fallback_reason": "bet_log_lags_snapshot",
     "snapshot_fallback_used": true,
-    "snapshot_fallback_reason": "combined_iso_missing_used_acc; used_undated_strategy_params; used_undated_metrics_snapshot; combined_acc_filename_newer_than_latest_settled_row; bet_log_lags_snapshot"
+    "snapshot_fallback_reason": "bet_log_lags_snapshot"
   }
 }
