@@ -1,10 +1,6 @@
 {
-  "params_used_label": "Historical",
-  "params_used": {
-    "home_win_rate_threshold": 0.55,
-    "odds_min": 2.1,
-    "odds_max": 3.1,
-    "prob_threshold": 0.4,
-    "min_ev_per_100": -5
-  }
+  "version": 1,
+  "params": {},
+  "min_ev_applied": 0,
+  "": "== STRATEGY PARAMS (LOCAL (GRID SEARCH)) ==="
 }
