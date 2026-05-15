@@ -210,18 +210,27 @@ jobs:
           fi
 
           # Move dashboard artifacts from repo root into public/data when needed.
-          for file in dashboard_payload.json dashboard_state.json tables.json last_run.json summary.json; do
-            if [[ -f "$GITHUB_WORKSPACE/$file" ]]; then
-              mv "$GITHUB_WORKSPACE/$file" "$DATA_DIR/$file"
-            fi
-          done
+          if [[ -f "$GITHUB_WORKSPACE/dashboard_payload.json" ]]; then
+            mv "$GITHUB_WORKSPACE/dashboard_payload.json" "$DATA_DIR/dashboard_payload.json"
+          fi
+          if [[ -f "$GITHUB_WORKSPACE/dashboard_state.json" ]]; then
+            mv "$GITHUB_WORKSPACE/dashboard_state.json" "$DATA_DIR/dashboard_state.json"
+          fi
+          if [[ -f "$GITHUB_WORKSPACE/tables.json" ]]; then
+            mv "$GITHUB_WORKSPACE/tables.json" "$DATA_DIR/tables.json"
+          fi
+          if [[ -f "$GITHUB_WORKSPACE/last_run.json" ]]; then
+            mv "$GITHUB_WORKSPACE/last_run.json" "$DATA_DIR/last_run.json"
+          fi
+          if [[ -f "$GITHUB_WORKSPACE/summary.json" ]]; then
+            mv "$GITHUB_WORKSPACE/summary.json" "$DATA_DIR/summary.json"
+          fi
+          if [[ -f "$GITHUB_WORKSPACE/today_games.json" ]]; then
+            mv "$GITHUB_WORKSPACE/today_games.json" "$DATA_DIR/today_games.json"
+          fi
 
           # Verify required files exist for runtime and build copy to dist/data.
-          for file in \
-            dashboard_payload.json \
-            dashboard_state.json \
-            tables.json \
-            today_games.json; do
+          for file in dashboard_payload.json dashboard_state.json tables.json today_games.json; do
             if [[ ! -f "$DATA_DIR/$file" ]]; then
               echo "ERROR: missing $file after relocation" >&2
               exit 1
@@ -297,11 +306,7 @@ jobs:
           set -euo pipefail
           [[ -d dist/assets ]] || (echo "ERROR: Missing dist/assets output." && exit 1)
           grep -n "$BASE_URL" dist/index.html >/dev/null || (echo "ERROR: BASE_URL not found in dist/index.html" && exit 1)
-          for file in \
-            dashboard_payload.json \
-            dashboard_state.json \
-            tables.json \
-            today_games.json; do
+          for file in dashboard_payload.json dashboard_state.json tables.json today_games.json; do
             [[ -f "dist/data/$file" ]] || (echo "ERROR: Missing dist/data/$file in build output." && exit 1)
           done
           echo "✔ Build output verified for GitHub Pages base path."
