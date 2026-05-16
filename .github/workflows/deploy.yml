@@ -1,6 +1,9 @@
 name: Build and Deploy (Stats Dashboard)
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       use_committed_public_data:
@@ -43,11 +46,11 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install jq (needed for workflow status polling)
-        if: ${{ github.event_name != 'workflow_dispatch' || inputs.use_committed_public_data == false }}
+        if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.use_committed_public_data == false) }}
         run: sudo apt-get update && sudo apt-get install -y jq
 
       - name: Trigger Basketball_prediction pipeline
-        if: ${{ github.event_name != 'workflow_dispatch' || inputs.use_committed_public_data == false }}
+        if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.use_committed_public_data == false) }}
         shell: bash
         env:
           BP_TOKEN: ${{ secrets.BP_TOKEN }}
@@ -70,7 +73,7 @@ jobs:
           echo "✔ Triggered."
 
       - name: Wait for Basketball_prediction run to succeed
-        if: ${{ github.event_name != 'workflow_dispatch' || inputs.use_committed_public_data == false }}
+        if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.use_committed_public_data == false) }}
         shell: bash
         env:
           BP_TOKEN: ${{ secrets.BP_TOKEN }}
@@ -110,7 +113,7 @@ jobs:
           exit 1
 
       - name: Checkout Basketball_prediction repo (branch 2026)
-        if: ${{ github.event_name != 'workflow_dispatch' || inputs.use_committed_public_data == false }}
+        if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.use_committed_public_data == false) }}
         uses: actions/checkout@v4
         with:
           repository: ${{ env.BP_OWNER }}/${{ env.BP_REPO }}
@@ -120,7 +123,7 @@ jobs:
           token: ${{ secrets.BP_TOKEN }}
 
       - name: Verify Basketball_prediction repo is fresh
-        if: ${{ github.event_name != 'workflow_dispatch' || inputs.use_committed_public_data == false }}
+        if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.use_committed_public_data == false) }}
         shell: bash
         run: |
           set -euo pipefail
@@ -130,7 +133,7 @@ jobs:
           git -C Basketball_prediction log -1 --oneline
 
       - name: Copy custom predictions (optional)
-        if: ${{ github.event_name != 'workflow_dispatch' || inputs.use_committed_public_data == false }}
+        if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.use_committed_public_data == false) }}
         shell: bash
         run: |
           set -euo pipefail
@@ -147,7 +150,7 @@ jobs:
           fi
 
       - name: Verify required Basketball_prediction output directories exist
-        if: ${{ github.event_name != 'workflow_dispatch' || inputs.use_committed_public_data == false }}
+        if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.use_committed_public_data == false) }}
         shell: bash
         run: |
           set -euo pipefail
@@ -175,14 +178,14 @@ jobs:
           fi
 
       - name: Materialize dated snapshot artifacts and list availability
-        if: ${{ github.event_name != 'workflow_dispatch' || inputs.use_committed_public_data == false }}
+        if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.use_committed_public_data == false) }}
         shell: bash
         run: |
           set -euo pipefail
           python scripts/ensure_historical_snapshot_artifacts.py --source-root "$GITHUB_WORKSPACE/Basketball_prediction/2026"
 
       - name: Generate dashboard data via shared snapshot selection
-        if: ${{ github.event_name != 'workflow_dispatch' || inputs.use_committed_public_data == false }}
+        if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.use_committed_public_data == false) }}
         shell: bash
         run: |
           set -euo pipefail
