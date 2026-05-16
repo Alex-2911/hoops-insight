@@ -240,12 +240,14 @@ const Index = () => {
     const load = async () => {
       setFetchStarted(true);
       try {
+        const cacheBust = new URLSearchParams(window.location.search).get("v") ?? String(Date.now());
+        const dataUrl = (file: string) => `${baseUrl}data/${file}?v=${encodeURIComponent(cacheBust)}`;
         const [summaryRes, tablesRes, lastRunRes, dashboardStateRes, todayGamesRes] = await Promise.all([
-          fetch(`${baseUrl}data/summary.json`),
-          fetch(`${baseUrl}data/tables.json`),
-          fetch(`${baseUrl}data/last_run.json`),
-          fetch(`${baseUrl}data/dashboard_state.json`),
-          fetch(`${baseUrl}data/today_games.json`),
+          fetch(dataUrl("summary.json")),
+          fetch(dataUrl("tables.json")),
+          fetch(dataUrl("last_run.json")),
+          fetch(dataUrl("dashboard_state.json")),
+          fetch(dataUrl("today_games.json")),
         ]);
 
         if (!summaryRes.ok || !tablesRes.ok) {
@@ -298,7 +300,7 @@ const Index = () => {
           setTodayGames(todayGamesJson);
         }
 
-        const localMatchedJsonRes = await fetch(`${baseUrl}data/local_matched_games_latest.json`);
+        const localMatchedJsonRes = await fetch(dataUrl("local_matched_games_latest.json"));
         if (alive && localMatchedJsonRes.ok) {
           const localMatchedJson = (await localMatchedJsonRes.json()) as { rows?: LocalMatchedGameRow[] };
           if (Array.isArray(localMatchedJson.rows) && localMatchedJson.rows.length > 0) {
@@ -306,7 +308,7 @@ const Index = () => {
           }
         } else {
           const localMatchedSource = normalizedState.sources?.local_matched ?? "local_matched_games_latest.csv";
-          const localMatchedRes = await fetch(`${baseUrl}data/${localMatchedSource}`);
+          const localMatchedRes = await fetch(dataUrl(localMatchedSource));
           if (alive && localMatchedRes.ok) {
             const localMatchedText = await localMatchedRes.text();
             const parsedRows = parseLocalMatchedCsv(localMatchedText);
@@ -314,13 +316,13 @@ const Index = () => {
           }
         }
 
-        const actualBetsRes = await fetch(`${baseUrl}data/actual_bets_manual.csv`);
+        const actualBetsRes = await fetch(dataUrl("actual_bets_manual.csv"));
         if (alive && actualBetsRes.ok) {
           const actualBetsText = await actualBetsRes.text();
           setActualBetsRows(parseActualBetsCsv(actualBetsText));
         }
 
-        const learningCasesRes = await fetch(`${baseUrl}data/agent_learning_cases.jsonl`);
+        const learningCasesRes = await fetch(dataUrl("agent_learning_cases.jsonl"));
         if (alive && learningCasesRes.ok) {
           const learningCasesText = await learningCasesRes.text();
           const parsedCases = learningCasesText
