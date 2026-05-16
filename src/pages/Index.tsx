@@ -1247,6 +1247,7 @@ const Index = () => {
     if (value === "missing_enriched_candidate_context") return "missing enriched candidate context";
     return value.replaceAll("EV<=0.00", "EV <= 0").replaceAll("Prob<", "probability < ");
   };
+  const formatGameDateLabel = (value: string) => (value ? `Game date: ${value}` : "Game date: —");
   const numberToneClass = (value: number | null | undefined) => {
     if (typeof value !== "number" || !Number.isFinite(value)) return "text-foreground";
     if (value > 0) return "text-green-300";
@@ -1540,6 +1541,9 @@ const Index = () => {
                           <tr key={`${readRecordString(check, "date")}-${readRecordString(check, "game")}-upcoming-check`} className="border-b border-border/50 odd:bg-background/10 even:bg-muted/20">
                             <td className="border-b border-border/50 py-4 pr-5 align-top font-semibold text-foreground">
                               <div className="text-base">{readRecordString(check, "game") || "—"}</div>
+                              <div className="mt-1 text-xs font-medium text-muted-foreground">
+                                {formatGameDateLabel(readRecordString(check, "date"))}
+                              </div>
                               <div className="mt-2 text-xs font-medium leading-5 text-muted-foreground">
                                 Band: odds{" "}
                                 {Array.isArray(check.odds_band)
@@ -1900,6 +1904,9 @@ const Index = () => {
                       <tr key={`${game.date}-${game.home_team}-${game.away_team}`} className="border-b border-border/50">
                         <td className="py-2 pr-4 font-medium">
                           {game.home_team} vs {game.away_team}
+                          <div className="text-xs font-normal text-muted-foreground">
+                            {formatGameDateLabel(game.date ?? "")}
+                          </div>
                         </td>
                         <td className="py-2 pr-4">
                           {typeof game.home_win_rate === "number" ? fmtPercent(game.home_win_rate * 100, 1) : "—"}
