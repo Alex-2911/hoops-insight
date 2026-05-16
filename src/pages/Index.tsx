@@ -1264,12 +1264,41 @@ const Index = () => {
     }
     return "border-border bg-muted/60 text-foreground";
   };
-  const previousLearningCases = agentLearningCases
-    .filter((learningCase) => {
-      const sameDate = readRecordString(learningCase, "date") === readRecordString(playTodayCase, "date");
-      const sameGame = readRecordString(learningCase, "game") === readRecordString(playTodayCase, "game");
-      return !(sameDate && sameGame);
+  const currentPlayDate = readRecordString(playTodayCase, "date");
+  const currentPlayGame = readRecordString(playTodayCase, "game");
+  const recentSetupHistoryCases: AgentLearningCase[] = ((evExceptionProfitability?.matches as Array<Record<string, unknown>> | undefined) ?? [])
+    .filter((row) => {
+      const date = readRecordString(row, "date");
+      if (!date || (currentPlayDate && date >= currentPlayDate)) return false;
+      return true;
     })
+    .sort((a, b) => `${readRecordString(b, "date")} ${readRecordString(b, "home_team")} ${readRecordString(b, "away_team")}`.localeCompare(`${readRecordString(a, "date")} ${readRecordString(a, "home_team")} ${readRecordString(a, "away_team")}`))
+    .slice(0, 8)
+    .map((row) => {
+      const win = readRecordNumber(row, "win");
+      const pnl = readRecordNumber(row, "pnl_100") ?? readRecordNumber(row, "home_ml_pnl_100");
+      const odds = readRecordNumber(row, "odds_1");
+      const prob = readRecordNumber(row, "prob_used") ?? readRecordNumber(row, "home_team_prob");
+      const game = `${readRecordString(row, "home_team") || "—"} vs ${readRecordString(row, "away_team") || "—"}`;
+      return {
+        date: readRecordString(row, "date"),
+        game,
+        home_team: readRecordString(row, "home_team"),
+        away_team: readRecordString(row, "away_team"),
+        agent_decision: win === 1 ? "WON" : win === 0 ? "LOST" : "SETTLED",
+        agent_label: "historical_setup_match",
+        lesson: `Comparable setup result: ${win === 1 ? "home ML won" : win === 0 ? "home ML lost" : "settled result"} at odds ${odds !== null ? fmtNumber(odds, 2) : "—"}; prob ${prob !== null ? fmtPercent(prob * 100, 1) : "—"}; flat P/L ${pnl !== null ? formatSigned(pnl, 0) : "—"}.`,
+      };
+    });
+  const previousLearningCaseMap = new Map<string, AgentLearningCase>();
+  [...agentLearningCases, ...recentSetupHistoryCases].forEach((learningCase) => {
+    const sameDate = readRecordString(learningCase, "date") === currentPlayDate;
+    const sameGame = readRecordString(learningCase, "game") === currentPlayGame;
+    if (sameDate && sameGame) return;
+    const key = `${readRecordString(learningCase, "date")}-${readRecordString(learningCase, "game")}-${readRecordString(learningCase, "agent_label")}`;
+    previousLearningCaseMap.set(key, learningCase);
+  });
+  const previousLearningCases = Array.from(previousLearningCaseMap.values())
     .sort((a, b) => `${readRecordString(b, "date")} ${readRecordString(b, "game")}`.localeCompare(`${readRecordString(a, "date")} ${readRecordString(a, "game")}`));
   const playTodayLines = [
     {

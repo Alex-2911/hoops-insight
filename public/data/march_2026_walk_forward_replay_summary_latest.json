@@ -1,0 +1,119 @@
+{
+  "as_of_date": "2026-03-31",
+  "replay_mode": "march_2026_walk_forward_bet365",
+  "month": "2026-03",
+  "actual_user_bets_available": true,
+  "actual_user_bets_source": "manual_bet365_screenshots",
+  "sportsbook_bets_available": true,
+  "polymarket_bets_available": false,
+  "primary_driver": "controlled_small_stake_profit",
+  "march_primary_driver": "controlled_small_stake_profit",
+  "model_strategy_result": "not_evaluable_no_strategy_rows",
+  "user_behavior_driver": "controlled_small_stakes_profitable",
+  "discipline_result": "excellent_stake_control_no_oversized_bets",
+  "replay_quality": "complete",
+  "source": {
+    "combined_dir": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM",
+    "bet_log_file": "manual March bet365 screenshot rows",
+    "snapshot_rule": "per-day prediction and shortlist files only; March visible bet rows supplied manually; no month-end backfill",
+    "strategy_fallback_to_global_keys": false
+  },
+  "counts": {
+    "calendar_days": 31,
+    "replayed_days": 31,
+    "days_with_non_empty_prediction_file": 31,
+    "missing_prediction_file_days": 0,
+    "empty_prediction_file_days": 0,
+    "prediction_rows_not_for_game_day_days": 0,
+    "days_with_missing_shortlist": 20,
+    "replayed_rows": 238,
+    "model_correct": 168,
+    "strategy_qualified": 0,
+    "strategy_wins": 0,
+    "strategy_losses": 0,
+    "model_home_selected_count": 161,
+    "model_away_selected_count": 77,
+    "user_bets": 17,
+    "user_bets_matched": 17,
+    "user_bets_unmatched": 0,
+    "aligned_bets": 15,
+    "discretionary_bets": 2,
+    "market_type_mismatch_bets": 6,
+    "disciplined_small_stake_bets": 17,
+    "large_bets": 0
+  },
+  "roi": {
+    "model_simulated_pnl_flat_100": 104.00000000000011,
+    "model_simulated_roi_pct_flat_100": 0.4369747899159669,
+    "strategy_pnl_flat_100": 0.0,
+    "strategy_roi_pct_flat_100": null,
+    "strategy_staked_flat_100": 0.0,
+    "user_bets_stake_eur": 83.79000000000002,
+    "user_bets_payout_eur": 98.06,
+    "user_bets_pnl_eur": 14.27,
+    "user_bets_roi_pct": 17.030671917889958,
+    "disciplined_small_stake_eur": 83.79000000000002,
+    "disciplined_small_stake_pnl_eur": 14.27,
+    "large_stake_eur": 0.0,
+    "large_stake_pnl_eur": 0.0
+  },
+  "rates": {
+    "model_accuracy": 0.7058823529411765,
+    "strategy_win_rate": null,
+    "avg_predicted_home_win_prob": 0.5553928586123296,
+    "user_bet_win_rate": 0.7058823529411765,
+    "aligned_bet_win_rate": 0.7333333333333333,
+    "discretionary_bet_win_rate": 0.5,
+    "market_type_mismatch_rate": 0.35294117647058826,
+    "bet365_match_rate": 1.0
+  },
+  "bet365": {
+    "export_file": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/march_2026_bet365_bets_extracted.csv",
+    "rows_found": 17,
+    "rows_matched": 17,
+    "rows_unmatched": 0,
+    "nominal": {
+      "bets": 17,
+      "wins": 12,
+      "losses": 5,
+      "total_stake_eur": 83.79000000000002,
+      "total_payout_eur": 98.06,
+      "net_profit_eur": 14.27,
+      "roi_pct": 17.030671917889958
+    }
+  },
+  "loss_drivers": [
+    {
+      "primary_loss_driver": "disciplined_small_stake_loss",
+      "games": 5,
+      "model_pnl": -354.0,
+      "strategy_pnl": 0.0,
+      "user_pnl": -24.66,
+      "user_bets": 5,
+      "strategy_qualified": 0
+    },
+    {
+      "primary_loss_driver": "disciplined_small_stake_win",
+      "games": 12,
+      "model_pnl": 885.0,
+      "strategy_pnl": 0.0,
+      "user_pnl": 38.93,
+      "user_bets": 12,
+      "strategy_qualified": 0
+    }
+  ],
+  "notes": [
+    {
+      "text": "March uses sportsbook accounting with manual bet365 rows; no Polymarket logic is used."
+    },
+    {
+      "text": "bet365 Gewinn is treated as total payout, not net profit."
+    },
+    {
+      "text": "March behavioral label focuses on controlled small stakes and no oversized early bets."
+    },
+    {
+      "text": "No March strategy-qualified rows were matched from daily shortlist files. Strategy ROI is not evaluated for March in this run."
+    }
+  ]
+}

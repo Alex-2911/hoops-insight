@@ -1,0 +1,169 @@
+{
+  "as_of_date": "2026-02-28",
+  "replay_mode": "february_2026_walk_forward",
+  "month": "2026-02",
+  "february_primary_driver": "bad_strategy_month",
+  "user_behavior_driver": "actual subset worse than strategy average, but not main root cause",
+  "model_strategy_result": "negative",
+  "discipline_result": "stakes controlled; no oversized emotional betting detected",
+  "source": {
+    "combined_dir": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM",
+    "bet_log_file": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/bet_log_flat_live.csv",
+    "snapshot_rule": "per-day prediction and shortlist files only; February visible bet rows supplied manually; no month-end backfill"
+  },
+  "counts": {
+    "replayed_rows": 166,
+    "strategy_qualified": 0,
+    "model_correct": 95,
+    "user_bets": 10,
+    "aligned_bets": 8,
+    "discretionary_bets": 2,
+    "model_bets_not_played": 0,
+    "user_bets_outside_model": 10,
+    "calendar_days": 28,
+    "replayed_days": 22,
+    "covered_days": 22,
+    "missing_or_empty_prediction_days": 6,
+    "coverage_pct": 0.7857142857142857,
+    "total_february_days": 28,
+    "days_with_non_empty_prediction_file": 28,
+    "days_with_empty_prediction_file": 0,
+    "days_with_missing_shortlist": 11,
+    "prediction_rows_not_for_game_day_days": 6,
+    "missing_file_days": 0
+  },
+  "diagnostic_summary": {
+    "row_count": 10,
+    "filtered_scope": "strategy_qualified == True OR user_bet_placed == True",
+    "strategy_qualified_rows": 0,
+    "user_bet_rows": 10,
+    "excluded_not_actionable_rows": 156,
+    "loss_drivers": [
+      {
+        "primary_loss_driver": "discretionary_bet",
+        "games": 6,
+        "model_pnl": -600.0,
+        "user_pnl": -54.31,
+        "user_bets": 6,
+        "strategy_qualified": 0
+      },
+      {
+        "primary_loss_driver": "market_type_mismatch",
+        "games": 1,
+        "model_pnl": 38.99999999999999,
+        "user_pnl": -9.0,
+        "user_bets": 1,
+        "strategy_qualified": 0
+      },
+      {
+        "primary_loss_driver": "discretionary_bet_win",
+        "games": 3,
+        "model_pnl": 1.0,
+        "user_pnl": 16.65,
+        "user_bets": 3,
+        "strategy_qualified": 0
+      }
+    ],
+    "model_accuracy": 0.572289156626506,
+    "strategy_roi_flat_100": null,
+    "strategy_pnl_flat_100": 0.0,
+    "user_bets_pnl": -46.66,
+    "user_bets_roi_pct": -51.66648211715202
+  },
+  "loss_drivers": [
+    {
+      "primary_loss_driver": "discretionary_bet",
+      "games": 6,
+      "model_pnl": -600.0,
+      "user_pnl": -54.31,
+      "user_bets": 6,
+      "strategy_qualified": 0
+    },
+    {
+      "primary_loss_driver": "market_type_mismatch",
+      "games": 1,
+      "model_pnl": 38.99999999999999,
+      "user_pnl": -9.0,
+      "user_bets": 1,
+      "strategy_qualified": 0
+    },
+    {
+      "primary_loss_driver": "discretionary_bet_win",
+      "games": 3,
+      "model_pnl": 1.0,
+      "user_pnl": 16.65,
+      "user_bets": 3,
+      "strategy_qualified": 0
+    }
+  ],
+  "roi": {
+    "model_simulated_pnl_flat_100": -2012.0,
+    "model_simulated_roi_pct_flat_100": -12.120481927710843,
+    "strategy_pnl_flat_100": 0.0,
+    "strategy_roi_pct_flat_100": null,
+    "strategy_staked_flat_100": 0.0,
+    "user_bets_pnl": -46.66,
+    "user_bets_roi_pct": -51.66648211715202,
+    "aligned_bets_pnl": -45.129999999999995,
+    "aligned_bets_roi_pct": -62.41183792006637,
+    "discretionary_bets_pnl": -1.5300000000000002,
+    "discretionary_bets_roi_pct": -8.500000000000002
+  },
+  "rates": {
+    "model_accuracy": 0.572289156626506,
+    "strategy_win_rate": null,
+    "user_bet_win_rate": 0.3,
+    "aligned_bet_win_rate": 0.25,
+    "discretionary_bet_win_rate": 0.5
+  },
+  "notes": [
+    {
+      "date": "2026-02-13",
+      "status": "prediction_rows_not_for_game_day",
+      "prediction_path": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/combined_nba_predictions_acc_2026-02-14.csv",
+      "prediction_snapshot_date": "2026-02-14",
+      "shortlist_path": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/flat_bet_shortlist_2026-02-13.csv",
+      "prediction_status": "non_empty"
+    },
+    {
+      "date": "2026-02-14",
+      "status": "prediction_rows_not_for_game_day",
+      "prediction_path": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/combined_nba_predictions_acc_2026-02-15.csv",
+      "prediction_snapshot_date": "2026-02-15",
+      "shortlist_path": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/flat_bet_shortlist_2026-02-14.csv",
+      "prediction_status": "non_empty"
+    },
+    {
+      "date": "2026-02-15",
+      "status": "prediction_rows_not_for_game_day",
+      "prediction_path": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/combined_nba_predictions_acc_2026-02-16.csv",
+      "prediction_snapshot_date": "2026-02-16",
+      "shortlist_path": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/flat_bet_shortlist_2026-02-15.csv",
+      "prediction_status": "non_empty"
+    },
+    {
+      "date": "2026-02-16",
+      "status": "prediction_rows_not_for_game_day",
+      "prediction_path": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/combined_nba_predictions_acc_2026-02-17.csv",
+      "prediction_snapshot_date": "2026-02-17",
+      "shortlist_path": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/bet_shortlist_2026-02-16.csv",
+      "prediction_status": "non_empty"
+    },
+    {
+      "date": "2026-02-17",
+      "status": "prediction_rows_not_for_game_day",
+      "prediction_path": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/combined_nba_predictions_acc_2026-02-18.csv",
+      "prediction_snapshot_date": "2026-02-18",
+      "shortlist_path": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/bet_shortlist_2026-02-17.csv",
+      "prediction_status": "non_empty"
+    },
+    {
+      "date": "2026-02-18",
+      "status": "prediction_rows_not_for_game_day",
+      "prediction_path": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/combined_nba_predictions_acc_2026-02-19.csv",
+      "prediction_snapshot_date": "2026-02-19",
+      "shortlist_path": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/bet_shortlist_2026-02-18.csv",
+      "prediction_status": "non_empty"
+    }
+  ]
+}

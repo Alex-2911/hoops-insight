@@ -1,0 +1,40 @@
+{
+  "as_of_date": "2026-05-12",
+  "source": {
+    "combined_dir": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM",
+    "bet_log_file": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/bet_log_flat_live.csv",
+    "strategy_shortlist_file_scope": "bet_shortlist / flat_bet_shortlist / shortlist_sent",
+    "pregame_snapshot_dir": null,
+    "pregame_snapshot_rows_found": 0,
+    "pregame_snapshot_rows_matched": 0
+  },
+  "counts": {
+    "settled_games": 1298,
+    "model_correct": 827,
+    "strategy_qualified": 312,
+    "user_bets": 38,
+    "user_bets_settled": 0,
+    "aligned_bets": 0,
+    "discretionary_bets": 0,
+    "model_bets_not_played": 275,
+    "user_bets_outside_model": 1,
+    "pregame_snapshot_rows_found": 0,
+    "pregame_snapshot_rows_matched": 0
+  },
+  "roi": {
+    "model_simulated_pnl_flat_100": -26.999999999999773,
+    "model_simulated_roi_pct_flat_100": -0.02080123266563927,
+    "user_bets_pnl": null,
+    "user_bets_roi_pct": null,
+    "aligned_bets_pnl": null,
+    "aligned_bets_roi_pct": null,
+    "discretionary_bets_pnl": null,
+    "discretionary_bets_roi_pct": null
+  },
+  "rates": {
+    "model_accuracy": 0.6371340523882897,
+    "user_bet_win_rate": null,
+    "aligned_bet_win_rate": null,
+    "discretionary_bet_win_rate": null
+  }
+}

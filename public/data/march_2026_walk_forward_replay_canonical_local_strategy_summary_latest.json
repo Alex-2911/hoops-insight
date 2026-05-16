@@ -1,0 +1,100 @@
+{
+  "as_of_date": "2026-03-31",
+  "replay_mode": "march_2026_walk_forward_bet365_canonical_local_strategy",
+  "month": "2026-03",
+  "strategy_qualification_source": "Robust++++ recalculated day-by-day",
+  "strategy_engine_scope": "LOCAL_only_no_hindsight",
+  "global_params_policy": {
+    "use_static_global_params": false,
+    "global_params_source": "disabled_no_hindsight",
+    "warning": "Static GLOBAL params may be hindsight unless they were rebuilt per replay date."
+  },
+  "canonical_strategy_result": "negative",
+  "user_behavior_driver": "controlled_small_stakes_profitable",
+  "discipline_result": "excellent_stake_control_no_oversized_bets",
+  "no_hindsight_check_passed": true,
+  "counts": {
+    "calendar_days": 31,
+    "replayed_days": 31,
+    "replayed_rows": 239,
+    "strategy_qualified_canonical": 9,
+    "strategy_wins_canonical": 5,
+    "strategy_losses_canonical": 4,
+    "days_with_canonical_strategy_bets": 7,
+    "days_without_canonical_strategy_bets": 24,
+    "user_bets": 0,
+    "user_bets_aligned_with_canonical_strategy": 0,
+    "user_bets_outside_canonical_strategy": 0
+  },
+  "roi": {
+    "strategy_pnl_canonical_flat_100": -38.0,
+    "strategy_staked_canonical_flat_100": 900.0,
+    "strategy_roi_canonical_pct_flat_100": -4.222222222222222,
+    "user_bets_stake_eur": 0.0,
+    "user_bets_pnl_eur": 0.0,
+    "user_bets_roi_pct": null,
+    "user_aligned_canonical_strategy_pnl_eur": 0.0,
+    "user_outside_canonical_strategy_pnl_eur": 0.0
+  },
+  "rates": {
+    "strategy_win_rate_canonical": 0.5555555555555556,
+    "user_bet_win_rate": null,
+    "user_canonical_strategy_alignment_rate": null
+  },
+  "engine_knobs": {
+    "min_EV": 0.0,
+    "prob_clip_lo": 0.35,
+    "prob_clip_hi": 0.8,
+    "LOCAL_TAIL_LADDER": [
+      300,
+      400,
+      500
+    ],
+    "SCORE_MODE": "lcb_roi",
+    "TOP_K_CANDIDATES": 400,
+    "N_WINDOWS": [
+      300,
+      400,
+      500
+    ],
+    "STABILITY_HITS_NEEDED": 2,
+    "MIN_TRADES_PER_WINDOW": 25
+  },
+  "drivers": [
+    {
+      "canonical_strategy_driver": "skipped_losing_canonical_strategy_bet",
+      "games": 4,
+      "strategy_pnl_canonical": -400.0,
+      "user_pnl": 0.0,
+      "user_bets": 0,
+      "strategy_qualified_canonical": 4
+    },
+    {
+      "canonical_strategy_driver": "not_canonical_strategy_row",
+      "games": 230,
+      "strategy_pnl_canonical": 0.0,
+      "user_pnl": 0.0,
+      "user_bets": 0,
+      "strategy_qualified_canonical": 0
+    },
+    {
+      "canonical_strategy_driver": "skipped_profitable_canonical_strategy_bet",
+      "games": 5,
+      "strategy_pnl_canonical": 362.0,
+      "user_pnl": 0.0,
+      "user_bets": 0,
+      "strategy_qualified_canonical": 5
+    }
+  ],
+  "notes": [
+    {
+      "text": "This module recalculates March using the Robust++++ LOCAL walk-forward parameter search and profit/stability gate."
+    },
+    {
+      "text": "Saved shortlist files are not used for strategy qualification."
+    },
+    {
+      "text": "GLOBAL is disabled by default to avoid hindsight from current best_params / strategy_params.txt."
+    }
+  ]
+}
