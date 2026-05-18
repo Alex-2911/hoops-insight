@@ -202,7 +202,7 @@
   {
     "section":"realized",
     "metric":"max_loss_streak",
-    "value":6
+    "value":5
   },
   {
     "section":"team_edge_top10",

@@ -1716,6 +1716,35 @@ def _resolve_sources(root: Optional[Path], as_of_date: Optional[str]) -> SourceP
     )
 
 
+def _resolve_recent_combined_file(root: Optional[Path]) -> Optional[Path]:
+    if root is None:
+        return None
+
+    lightgbm_dir = root / "output" / "LightGBM"
+    if not lightgbm_dir.exists():
+        direct_lightgbm_dir = root / "LightGBM"
+        if direct_lightgbm_dir.exists():
+            lightgbm_dir = direct_lightgbm_dir
+
+    kelly_dir = lightgbm_dir / "Kelly"
+    candidates = [
+        _find_latest_file(lightgbm_dir, "combined_nba_predictions_acc"),
+        _find_latest_file(kelly_dir, "combined_nba_predictions_iso"),
+    ]
+    dated_candidates: List[Tuple[datetime, Path]] = []
+    for candidate in candidates:
+        if not candidate:
+            continue
+        extracted = _extract_date_from_name(candidate.name)
+        dt = _safe_date(extracted) if extracted else None
+        if dt:
+            dated_candidates.append((dt, candidate))
+
+    if not dated_candidates:
+        return None
+    return sorted(dated_candidates, key=lambda item: item[0])[-1][1]
+
+
 def _compute_log_loss(y: List[int], p: List[float]) -> float:
     eps = 1e-6
     total = 0.0
@@ -2947,6 +2976,12 @@ def main() -> None:
         combined_path = sources.combined_acc
     else:
         raise FileNotFoundError("No combined predictions file found in source output directories.")
+
+    recent_combined_path = combined_path
+    if source_root is not None:
+        recent_combined_path = _resolve_recent_combined_file(source_root) or combined_path
+    if recent_combined_path.exists():
+        shutil.copy2(recent_combined_path, output_dir / "combined_recent_latest.csv")
 
     played_rows = load_played_games_with_history(combined_path)
     if not played_rows:

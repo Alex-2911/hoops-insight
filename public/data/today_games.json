@@ -1,75 +1,240 @@
 {
-  "as_of_date": "2026-05-16",
-  "source": "nba_games_predict_2026-05-16.csv",
+  "as_of_date": "2026-05-18",
+  "source": "nba_games_predict_2026-05-18.csv",
   "engine_state": "NO_BET",
   "canonical_model_signals": {
     "engine_state": "NO_BET",
-    "source_file": "script11_watchlist_history_2026-05-16.csv",
-    "summary_file": "script11_watchlist_history_summary_2026-05-16.json",
+    "source_file": "script11_watchlist_history_2026-05-18.csv",
+    "summary_file": "script11_watchlist_history_summary_2026-05-18.json",
     "canonical_count": 0,
     "canonical_total_count": 1,
     "canonical": [],
-    "current_rows": [],
+    "current_rows": [
+      {
+        "date": "2026-05-18",
+        "home_team": "OKC",
+        "away_team": "SAS",
+        "odds_1": "1.41",
+        "odds_2": "3.0",
+        "home_team_prob": "0.5261374567095911",
+        "prob_iso": "0.4824561403508772",
+        "prob_iso_oos_time": "",
+        "prob_live_safe": "0.4748180506342247",
+        "prob_used": "0.6398410296539938",
+        "home_win_rate": "0.75",
+        "home_team_won": "",
+        "result": "0",
+        "accuracy": "0",
+        "blocked_by": "",
+        "market_implied_p_raw": "0.7092198581560284",
+        "market_implied_p_devig": "0.6802721088435374",
+        "model_market_gap": "-0.2054540582093126",
+        "win": "0",
+        "is_played": "False",
+        "game_day": "2026-05-18",
+        "prob_iso_insample": "0.4824561403508772",
+        "prob_iso_shrunk": "0.4824561403508772",
+        "prob_live_oos_proxy": "0.4748180506342247",
+        "live_oos_proxy_ready": "True",
+        "live_oos_proxy_used": "True",
+        "live_oos_proxy_train_rows": "1252.0",
+        "live_oos_proxy_train_win_rate": "0.5543130990415336",
+        "live_oos_proxy_recent_window_used": "",
+        "live_oos_proxy_bin_n": "50.0",
+        "live_oos_proxy_bin_winrate": "0.3296943460178263",
+        "prob_live_oos_proxy_raw": "0.3296943460178263",
+        "live_oos_proxy_bin_id": "9",
+        "live_oos_proxy_source_col_used": "prob_iso_oos_time",
+        "live_oos_proxy_fallback_used": "False",
+        "live_oos_proxy_fallback_reason": "",
+        "live_oos_proxy_blend_alpha": "0.95",
+        "live_oos_proxy_blend_input": "0.4824561403508772",
+        "live_oos_proxy_reason": "proxy_blend_small_bin",
+        "prob_live_base": "0.4748180506342247",
+        "prob_live_safe_pre_clip": "0.4748180506342247",
+        "model_market_gap_flag": "False",
+        "live_underdog_upscale_guard_triggered": "False",
+        "live_oos_proxy_bin_confident": "False",
+        "prob_base": "0.4748180506342247",
+        "prob_live_blend_p": "0.6645188584164633",
+        "prob_live_shrink_input": "0.6645188584164633",
+        "live_shrink_alpha": "0.85",
+        "live_shrink_triggered": "True",
+        "reason_chain": "proxy|shrink",
+        "EV_base_€_per_100": "-33.05065486057431",
+        "EV_live_€_per_100": "-9.782414818786878",
+        "game_key": "2026-05-18_OKC_SAS",
+        "EV_€_per_100": "",
+        "pass_hw": "",
+        "pass_odds": "",
+        "pass_prob": "",
+        "pass_ev": "",
+        "rules_passed": "",
+        "margin_hw": "",
+        "margin_odds": "",
+        "margin_prob": "",
+        "margin_ev": "",
+        "game_date": "2026-05-18",
+        "run_date": "2026-05-18",
+        "created_utc": "2026-05-18T21:05:50Z",
+        "source": "upcoming_d",
+        "params_chosen": "NO_BET",
+        "params_compareN": "",
+        "stage2_candidate_type": "LOW_PRICE_NEGATIVE_EV",
+        "canonical_signal": "",
+        "allowed_review_type": "ev_only_skip",
+        "result_raw": "0",
+        "settled": "False",
+        "pnl_ml_100": "",
+        "params_home_win_rate_threshold": "",
+        "params_odds_min": "",
+        "params_odds_max": "",
+        "params_prob_threshold": "",
+        "params_min_EV": ""
+      },
+      {
+        "date": "2026-05-18",
+        "home_team": "OKC",
+        "away_team": "SAS",
+        "odds_1": "1.41",
+        "odds_2": "3.0",
+        "home_team_prob": "0.5261374567095911",
+        "prob_iso": "0.48245614035087725",
+        "prob_iso_oos_time": "",
+        "prob_live_safe": "0.4748180506342247",
+        "prob_used": "0.6398410296539938",
+        "home_win_rate": "0.75",
+        "home_team_won": "",
+        "result": "0",
+        "accuracy": "0",
+        "blocked_by": "EV<=0.00",
+        "market_implied_p_raw": "0.7092198581560284",
+        "market_implied_p_devig": "0.6802721088435374",
+        "model_market_gap": "-0.20545405820931267",
+        "win": "0",
+        "is_played": "False",
+        "game_day": "2026-05-18",
+        "prob_iso_insample": "0.48245614035087725",
+        "prob_iso_shrunk": "0.48245614035087725",
+        "prob_live_oos_proxy": "0.4748180506342247",
+        "live_oos_proxy_ready": "True",
+        "live_oos_proxy_used": "True",
+        "live_oos_proxy_train_rows": "1252.0",
+        "live_oos_proxy_train_win_rate": "0.5543130990415336",
+        "live_oos_proxy_recent_window_used": "",
+        "live_oos_proxy_bin_n": "50.0",
+        "live_oos_proxy_bin_winrate": "0.3296943460178263",
+        "prob_live_oos_proxy_raw": "0.3296943460178263",
+        "live_oos_proxy_bin_id": "9",
+        "live_oos_proxy_source_col_used": "prob_iso_oos_time",
+        "live_oos_proxy_fallback_used": "False",
+        "live_oos_proxy_fallback_reason": "",
+        "live_oos_proxy_blend_alpha": "0.95",
+        "live_oos_proxy_blend_input": "0.48245614035087725",
+        "live_oos_proxy_reason": "proxy_blend_small_bin",
+        "prob_live_base": "0.4748180506342247",
+        "prob_live_safe_pre_clip": "0.4748180506342247",
+        "model_market_gap_flag": "False",
+        "live_underdog_upscale_guard_triggered": "False",
+        "live_oos_proxy_bin_confident": "False",
+        "prob_base": "0.4748180506342247",
+        "prob_live_blend_p": "0.6645188584164633",
+        "prob_live_shrink_input": "0.6645188584164633",
+        "live_shrink_alpha": "0.85",
+        "live_shrink_triggered": "True",
+        "reason_chain": "proxy|shrink",
+        "EV_base_€_per_100": "-33.05065486057431",
+        "EV_live_€_per_100": "-9.782414818786878",
+        "game_key": "2026-05-18_OKC_SAS",
+        "EV_€_per_100": "-9.782414818786878",
+        "pass_hw": "1.0",
+        "pass_odds": "1.0",
+        "pass_prob": "1.0",
+        "pass_ev": "0.0",
+        "rules_passed": "3.0",
+        "margin_hw": "0.25",
+        "margin_odds": "0.0",
+        "margin_prob": "0.09",
+        "margin_ev": "-9.78",
+        "game_date": "2026-05-18",
+        "run_date": "2026-05-18",
+        "created_utc": "2026-05-18T21:05:50Z",
+        "source": "watchlist",
+        "params_chosen": "NO_BET",
+        "params_compareN": "",
+        "stage2_candidate_type": "LOW_PRICE_NEGATIVE_EV",
+        "canonical_signal": "",
+        "allowed_review_type": "ev_only_skip",
+        "result_raw": "0",
+        "settled": "False",
+        "pnl_ml_100": "",
+        "params_home_win_rate_threshold": "",
+        "params_odds_min": "",
+        "params_odds_max": "",
+        "params_prob_threshold": "",
+        "params_min_EV": ""
+      }
+    ],
     "label": "Canonical: none"
   },
   "games": [
     {
-      "date": "2026-05-17",
-      "home_team": "DET",
-      "away_team": "CLE",
-      "home_team_prob": 0.6408278423179323,
-      "away_team_prob": 0.35917215768206767,
-      "prob_used": 0.608,
-      "prob_base": 0.63,
-      "prob_live_oos_proxy": 0.63,
-      "prob_iso": 0.639,
-      "market_implied_p_devig": 0.616,
-      "model_market_gap": 0.014,
-      "ev_live_eur_per_100": -5.11,
+      "date": "2026-05-18",
+      "home_team": "OKC",
+      "away_team": "SAS",
+      "home_team_prob": 0.5261374567095911,
+      "away_team_prob": 0.4738625432904089,
+      "prob_used": 0.64,
+      "prob_base": 0.475,
+      "prob_live_oos_proxy": 0.475,
+      "prob_iso": 0.482,
+      "market_implied_p_devig": 0.68,
+      "model_market_gap": -0.205,
+      "ev_live_eur_per_100": -9.78,
       "candidate_stake_eur": 0.0,
       "blocked_by": null,
       "stage2_candidate_type": null,
       "candidate_source": "shortlist",
-      "home_win_rate": 0.6,
-      "home_wins": 6.0,
-      "home_games": 10.0,
+      "home_win_rate": 0.75,
+      "home_wins": 9.0,
+      "home_games": 12.0,
       "last20_games": 20.0,
-      "hwr_source_file": "home_win_rates_sorted_2026-05-16.csv",
+      "hwr_source_file": "home_win_rates_sorted_2026-05-18.csv",
       "hwr_source_label": "home_win_rates_sorted latest file: last 20 team games, home rows only",
       "hwr_window_label": "last 20 team games; home games only",
-      "home_odds": 1.56,
-      "away_odds": 2.5
+      "home_odds": 1.41,
+      "away_odds": 3.0
     }
   ],
   "qualifying_bets": [
     {
-      "date": "2026-05-17",
-      "home_team": "DET",
-      "away_team": "CLE",
-      "home_win_rate": "0.6",
-      "home_team_prob": "0.641",
-      "prob_iso": "0.639",
+      "date": "2026-05-18",
+      "home_team": "OKC",
+      "away_team": "SAS",
+      "home_win_rate": "0.75",
+      "home_team_prob": "0.526",
+      "prob_iso": "0.482",
       "prob_iso_oos_time": "",
-      "prob_live_oos_proxy": "0.63",
-      "prob_live_safe_pre_clip": "0.63",
-      "prob_base": "0.63",
-      "prob_used": "0.608",
-      "odds_1": "1.56",
-      "odds_2": "2.5",
-      "market_implied_p_raw": "0.641",
-      "market_implied_p_devig": "0.616",
-      "model_market_gap": "0.014",
+      "prob_live_oos_proxy": "0.475",
+      "prob_live_safe_pre_clip": "0.475",
+      "prob_base": "0.475",
+      "prob_used": "0.64",
+      "odds_1": "1.41",
+      "odds_2": "3.0",
+      "market_implied_p_raw": "0.709",
+      "market_implied_p_devig": "0.68",
+      "model_market_gap": "-0.205",
       "model_market_gap_flag": "False",
       "live_underdog_upscale_guard_triggered": "False",
       "live_shrink_triggered": "True",
       "live_oos_proxy_ready": "True",
       "live_oos_proxy_used": "True",
-      "live_oos_proxy_train_rows": "1251",
-      "live_oos_proxy_bin_n": "49",
-      "live_oos_proxy_bin_winrate": "0.4524706997204626",
+      "live_oos_proxy_train_rows": "1252",
+      "live_oos_proxy_bin_n": "50",
+      "live_oos_proxy_bin_winrate": "0.3296943460178263",
       "blocked_by": "",
-      "EV_€_per_100": "-5.11",
-      "kelly_full": "-0.091",
+      "EV_€_per_100": "-9.78",
+      "kelly_full": "-0.239",
       "kelly_fraction_used": "0.0",
       "stake_eur": "0.0",
       "exp_profit_eur": "-0.0",
@@ -78,16 +243,16 @@
       "param_odds_max": "3.4",
       "param_prob_threshold": "0.55",
       "bankroll_at_bettime": "620.2",
-      "fair_odds": "1.644",
-      "edge_pct": "-5.11"
+      "fair_odds": "1.563",
+      "edge_pct": "-9.79"
     }
   ],
   "local_matched_games": [],
   "setup_profitability": {
     "summary": {
-      "run_date": "2026-05-16",
-      "created_utc": "2026-05-16T16:02:35Z",
-      "input_file": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/combined_nba_predictions_acc_2026-05-16.csv",
+      "run_date": "2026-05-18",
+      "created_utc": "2026-05-18T21:05:55Z",
+      "input_file": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/combined_nba_predictions_acc_2026-05-18.csv",
       "thresholds": {
         "base": {
           "home_team_prob_min": 0.6,
@@ -101,8 +266,8 @@
         }
       },
       "candidate_count": 2,
-      "historical_rows_total": 1301,
-      "historical_rows_settled": 1301,
+      "historical_rows_total": 1302,
+      "historical_rows_settled": 1302,
       "general_setup_summary": {
         "setup": "general_setup",
         "n": 123,
@@ -161,16 +326,16 @@
       ],
       "output_files": {
         "main_latest": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/setup_profitability_scan_latest.csv",
-        "main_dated": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/setup_profitability_scan_2026-05-16.csv",
+        "main_dated": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/setup_profitability_scan_2026-05-18.csv",
         "matches_latest": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/setup_profitability_scan_matches_latest.csv",
-        "matches_dated": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/setup_profitability_scan_matches_2026-05-16.csv",
+        "matches_dated": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/setup_profitability_scan_matches_2026-05-18.csv",
         "summary_latest": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/setup_profitability_scan_summary_latest.json",
-        "summary_dated": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/setup_profitability_scan_summary_2026-05-16.json"
+        "summary_dated": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/setup_profitability_scan_summary_2026-05-18.json"
       }
     },
     "rows": [
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -189,7 +354,7 @@
         "avg_home_win_rate": "0.7032520325203252"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "per_game_similar_bucket",
         "today_home_team": "DEN",
         "today_away_team": "SAS",
@@ -208,7 +373,7 @@
         "avg_home_win_rate": "0.6518181818181819"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "per_game_similar_bucket",
         "today_home_team": "PHI",
         "today_away_team": "ORL",
@@ -229,7 +394,7 @@
     ],
     "matches": [
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -244,7 +409,7 @@
         "home_ml_pnl_100": "67.0"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -259,7 +424,7 @@
         "home_ml_pnl_100": "114.00000000000001"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -274,7 +439,7 @@
         "home_ml_pnl_100": "-100.0"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -289,7 +454,7 @@
         "home_ml_pnl_100": "190.0"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -304,7 +469,7 @@
         "home_ml_pnl_100": "104.99999999999999"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -319,7 +484,7 @@
         "home_ml_pnl_100": "-100.0"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -334,7 +499,7 @@
         "home_ml_pnl_100": "129.99999999999997"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -349,7 +514,7 @@
         "home_ml_pnl_100": "160.0"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -364,7 +529,7 @@
         "home_ml_pnl_100": "64.99999999999999"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -379,7 +544,7 @@
         "home_ml_pnl_100": "74.0"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -394,7 +559,7 @@
         "home_ml_pnl_100": "-100.0"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -409,7 +574,7 @@
         "home_ml_pnl_100": "-100.0"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -424,7 +589,7 @@
         "home_ml_pnl_100": "102.0"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -439,7 +604,7 @@
         "home_ml_pnl_100": "-100.0"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -454,7 +619,7 @@
         "home_ml_pnl_100": "62.000000000000014"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -469,7 +634,7 @@
         "home_ml_pnl_100": "-100.0"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -484,7 +649,7 @@
         "home_ml_pnl_100": "136.0"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -499,7 +664,7 @@
         "home_ml_pnl_100": "-100.0"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -514,7 +679,7 @@
         "home_ml_pnl_100": "-100.0"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -529,7 +694,7 @@
         "home_ml_pnl_100": "90.99999999999999"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -544,7 +709,7 @@
         "home_ml_pnl_100": "-100.0"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -559,7 +724,7 @@
         "home_ml_pnl_100": "154.0"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -574,7 +739,7 @@
         "home_ml_pnl_100": "87.00000000000001"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -589,7 +754,7 @@
         "home_ml_pnl_100": "68.0"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -604,7 +769,7 @@
         "home_ml_pnl_100": "-100.0"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -619,7 +784,7 @@
         "home_ml_pnl_100": "87.00000000000001"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -634,7 +799,7 @@
         "home_ml_pnl_100": "124.00000000000003"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -649,7 +814,7 @@
         "home_ml_pnl_100": "-100.0"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -664,7 +829,7 @@
         "home_ml_pnl_100": "88.99999999999999"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -679,7 +844,7 @@
         "home_ml_pnl_100": "-100.0"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -694,7 +859,7 @@
         "home_ml_pnl_100": "-100.0"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -709,7 +874,7 @@
         "home_ml_pnl_100": "62.000000000000014"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -724,7 +889,7 @@
         "home_ml_pnl_100": "-100.0"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -739,7 +904,7 @@
         "home_ml_pnl_100": "88.99999999999999"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -754,7 +919,7 @@
         "home_ml_pnl_100": "-100.0"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -769,7 +934,7 @@
         "home_ml_pnl_100": "85.00000000000001"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -784,7 +949,7 @@
         "home_ml_pnl_100": "-100.0"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -799,7 +964,7 @@
         "home_ml_pnl_100": "270.0"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -814,7 +979,7 @@
         "home_ml_pnl_100": "-100.0"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -829,7 +994,7 @@
         "home_ml_pnl_100": "64.99999999999999"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -844,7 +1009,7 @@
         "home_ml_pnl_100": "-100.0"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -859,7 +1024,7 @@
         "home_ml_pnl_100": "82.0"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -874,7 +1039,7 @@
         "home_ml_pnl_100": "-100.0"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -889,7 +1054,7 @@
         "home_ml_pnl_100": "129.99999999999997"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -904,7 +1069,7 @@
         "home_ml_pnl_100": "62.000000000000014"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -919,7 +1084,7 @@
         "home_ml_pnl_100": "80.0"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -934,7 +1099,7 @@
         "home_ml_pnl_100": "98.0"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -949,7 +1114,7 @@
         "home_ml_pnl_100": "-100.0"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -964,7 +1129,7 @@
         "home_ml_pnl_100": "70.0"
       },
       {
-        "run_date": "2026-05-16",
+        "run_date": "2026-05-18",
         "setup": "general_setup",
         "today_home_team": "",
         "today_away_team": "",
@@ -985,9 +1150,9 @@
     "classification": "historical_support_only",
     "is_betting_signal": false,
     "recommendation_label": "watch-only",
-    "warning": "Broad historical EV-exception group is profitable at avg odds 1.81, but today's price 1.56 requires 64.1% break-even. Current prob_used is 60.8%; Kelly is -0.091. Treat as watch-only, not a bet.",
+    "warning": "Broad historical EV-exception group is profitable at avg odds 1.81, but today's price 1.41 requires 70.9% break-even. Current prob_used is 64.0%; Kelly is -0.239. Treat as watch-only, not a bet.",
     "note": "Historical scan applies HW, odds, and probability thresholds only; EV is intentionally ignored because the current row is blocked only by EV.",
-    "debug_csv": "ev_exception_matches_2026-05-17_DET_CLE.csv",
+    "debug_csv": "ev_exception_matches_2026-05-18_OKC_SAS.csv",
     "criteria": {
       "home_win_rate_min": 0.55,
       "odds_min": 1.4,
@@ -999,18 +1164,18 @@
     },
     "current_candidates": [
       {
-        "date": "2026-05-17",
-        "home_team": "DET",
-        "away_team": "CLE",
-        "home_win_rate": 0.6,
-        "odds_1": 1.56,
-        "odds_2": 2.5,
-        "home_team_prob": 0.641,
-        "prob_used": 0.608,
-        "ev_eur_per_100": -5.11,
+        "date": "2026-05-18",
+        "home_team": "OKC",
+        "away_team": "SAS",
+        "home_win_rate": 0.75,
+        "odds_1": 1.41,
+        "odds_2": 3.0,
+        "home_team_prob": 0.526,
+        "prob_used": 0.64,
+        "ev_eur_per_100": -9.78,
         "stake_eur": 0.0,
-        "kelly_full": -0.091,
-        "hwr_source_file": "home_win_rates_sorted_2026-05-16.csv",
+        "kelly_full": -0.239,
+        "hwr_source_file": "home_win_rates_sorted_2026-05-18.csv",
         "hwr_source_label": "home_win_rates_sorted latest file: last 20 team games, home rows only",
         "hwr_window_label": "last 20 team games; home games only",
         "blocked_by": "min_ev"
@@ -1018,32 +1183,32 @@
     ],
     "per_candidate_checks": [
       {
-        "game": "DET vs CLE",
-        "date": "2026-05-17",
-        "home_team": "DET",
-        "away_team": "CLE",
+        "game": "OKC vs SAS",
+        "date": "2026-05-18",
+        "home_team": "OKC",
+        "away_team": "SAS",
         "label": "Current-price EV-exception check",
         "odds_band": [
-          1.46,
-          1.6600000000000001
+          1.3099999999999998,
+          1.51
         ],
         "setup_odds_band": [
-          1.21,
-          1.9100000000000001
+          1.06,
+          1.7599999999999998
         ],
-        "setup_hwr_min": 0.5,
+        "setup_hwr_min": 0.65,
         "prob_used_band": [
-          0.5579999999999999,
-          0.658
+          0.59,
+          0.6900000000000001
         ],
-        "setup_prob_min": 0.5579999999999999,
-        "hwr_source_file": "home_win_rates_sorted_2026-05-16.csv",
+        "setup_prob_min": 0.59,
+        "hwr_source_file": "home_win_rates_sorted_2026-05-18.csv",
         "hwr_source_label": "home_win_rates_sorted latest file: last 20 team games, home rows only",
         "hwr_window_label": "last 20 team games; home games only",
-        "current_odds": 1.56,
-        "current_prob_used": 0.608,
-        "current_ev_eur_per_100": -5.11,
-        "current_kelly": -0.091,
+        "current_odds": 1.41,
+        "current_prob_used": 0.64,
+        "current_ev_eur_per_100": -9.78,
+        "current_kelly": -0.239,
         "current_stake_eur": 0.0,
         "blocked_by": "min_ev",
         "stage2_candidate_type": null,
@@ -1052,23 +1217,23 @@
         "probability_threshold_pass_mode": null,
         "borderline_probability_rounding": null,
         "missing_current_model_fields": false,
-        "break_even_probability": 0.641025641025641,
-        "current_prob_minus_break_even": -0.033025641025640984,
-        "setup_n": 46,
-        "setup_wins": 34,
-        "setup_losses": 12,
+        "break_even_probability": 0.7092198581560284,
+        "current_prob_minus_break_even": -0.06921985815602838,
+        "setup_n": 23,
+        "setup_wins": 17,
+        "setup_losses": 6,
         "setup_win_rate": 0.7391304347826086,
-        "setup_avg_odds": 1.5867391304347824,
-        "setup_profit_100_flat": 827.0,
-        "setup_roi_pct": 17.97826086956522,
-        "n": 7,
-        "wins": 4,
+        "setup_avg_odds": 1.5326086956521738,
+        "setup_profit_100_flat": 324.0,
+        "setup_roi_pct": 14.08695652173913,
+        "n": 3,
+        "wins": 0,
         "losses": 3,
-        "win_rate": 0.5714285714285714,
-        "avg_odds": 1.5285714285714285,
-        "profit_100_flat": -81.99999999999997,
-        "roi_pct": -11.71428571428571,
-        "win_rate_minus_break_even": -0.06959706959706957,
+        "win_rate": 0.0,
+        "avg_odds": 1.4233333333333331,
+        "profit_100_flat": -300.0,
+        "roi_pct": -100.0,
+        "win_rate_minus_break_even": -0.7092198581560284,
         "supports_play": false,
         "classification": "watch-only"
       }
@@ -1087,32 +1252,32 @@
       "window_end": "2026-05-15"
     },
     "price_adjusted": {
-      "game": "DET vs CLE",
-      "date": "2026-05-17",
-      "home_team": "DET",
-      "away_team": "CLE",
+      "game": "OKC vs SAS",
+      "date": "2026-05-18",
+      "home_team": "OKC",
+      "away_team": "SAS",
       "label": "Current-price EV-exception check",
       "odds_band": [
-        1.46,
-        1.6600000000000001
+        1.3099999999999998,
+        1.51
       ],
       "setup_odds_band": [
-        1.21,
-        1.9100000000000001
+        1.06,
+        1.7599999999999998
       ],
-      "setup_hwr_min": 0.5,
+      "setup_hwr_min": 0.65,
       "prob_used_band": [
-        0.5579999999999999,
-        0.658
+        0.59,
+        0.6900000000000001
       ],
-      "setup_prob_min": 0.5579999999999999,
-      "hwr_source_file": "home_win_rates_sorted_2026-05-16.csv",
+      "setup_prob_min": 0.59,
+      "hwr_source_file": "home_win_rates_sorted_2026-05-18.csv",
       "hwr_source_label": "home_win_rates_sorted latest file: last 20 team games, home rows only",
       "hwr_window_label": "last 20 team games; home games only",
-      "current_odds": 1.56,
-      "current_prob_used": 0.608,
-      "current_ev_eur_per_100": -5.11,
-      "current_kelly": -0.091,
+      "current_odds": 1.41,
+      "current_prob_used": 0.64,
+      "current_ev_eur_per_100": -9.78,
+      "current_kelly": -0.239,
       "current_stake_eur": 0.0,
       "blocked_by": "min_ev",
       "stage2_candidate_type": null,
@@ -1121,23 +1286,23 @@
       "probability_threshold_pass_mode": null,
       "borderline_probability_rounding": null,
       "missing_current_model_fields": false,
-      "break_even_probability": 0.641025641025641,
-      "current_prob_minus_break_even": -0.033025641025640984,
-      "setup_n": 46,
-      "setup_wins": 34,
-      "setup_losses": 12,
+      "break_even_probability": 0.7092198581560284,
+      "current_prob_minus_break_even": -0.06921985815602838,
+      "setup_n": 23,
+      "setup_wins": 17,
+      "setup_losses": 6,
       "setup_win_rate": 0.7391304347826086,
-      "setup_avg_odds": 1.5867391304347824,
-      "setup_profit_100_flat": 827.0,
-      "setup_roi_pct": 17.97826086956522,
-      "n": 7,
-      "wins": 4,
+      "setup_avg_odds": 1.5326086956521738,
+      "setup_profit_100_flat": 324.0,
+      "setup_roi_pct": 14.08695652173913,
+      "n": 3,
+      "wins": 0,
       "losses": 3,
-      "win_rate": 0.5714285714285714,
-      "avg_odds": 1.5285714285714285,
-      "profit_100_flat": -81.99999999999997,
-      "roi_pct": -11.71428571428571,
-      "win_rate_minus_break_even": -0.06959706959706957,
+      "win_rate": 0.0,
+      "avg_odds": 1.4233333333333331,
+      "profit_100_flat": -300.0,
+      "roi_pct": -100.0,
+      "win_rate_minus_break_even": -0.7092198581560284,
       "supports_play": false,
       "classification": "watch-only"
     },
@@ -1899,15 +2064,15 @@
     "basis": {
       "label": "Historical comparable basis",
       "source": "all played games this season",
-      "source_file": "combined_nba_predictions_acc_2026-05-16.csv",
+      "source_file": "combined_nba_predictions_acc_2026-05-18.csv",
       "comparable_band": "±10% around current odds, HWR, and probability",
       "hwr_band_method": "±10 percentage points, clipped to historical home_win_rate scale",
       "ev_included": false,
       "stake_model": "flat_100_home_ml",
       "history_meta": {
-        "source_file": "combined_nba_predictions_acc_2026-05-16.csv",
-        "loaded_rows": 1314,
-        "usable_rows": 1284,
+        "source_file": "combined_nba_predictions_acc_2026-05-18.csv",
+        "loaded_rows": 1315,
+        "usable_rows": 1285,
         "skipped_rows": 30,
         "required_columns": [
           "date",
@@ -1921,8 +2086,8 @@
         "fallback_columns": [
           "home_team_won<-result"
         ],
-        "selected_source_file": "combined_nba_predictions_acc_2026-05-16.csv",
-        "latest_source_file": "combined_nba_predictions_acc_2026-05-16.csv",
+        "selected_source_file": "combined_nba_predictions_acc_2026-05-18.csv",
+        "latest_source_file": "combined_nba_predictions_acc_2026-05-18.csv",
         "skipped_sources": [],
         "skipped_sources_count": 0,
         "warning": null
@@ -1930,39 +2095,39 @@
     },
     "rows": [
       {
-        "game": "DET vs CLE",
-        "date": "2026-05-17",
-        "home_team": "DET",
-        "away_team": "CLE",
-        "home_odds": 1.56,
-        "home_win_rate": 0.6,
-        "probability": 0.608,
+        "game": "OKC vs SAS",
+        "date": "2026-05-18",
+        "home_team": "OKC",
+        "away_team": "SAS",
+        "home_odds": 1.41,
+        "home_win_rate": 0.75,
+        "probability": 0.64,
         "probability_source": "prob_used",
-        "ev_eur_per_100": -5.11,
+        "ev_eur_per_100": -9.78,
         "blocked_by": null,
         "stage2_candidate_type": null,
         "decision": "NO_BET",
         "reason": "current EV below threshold",
         "odds_band": [
-          1.4040000000000001,
-          1.7160000000000002
+          1.269,
+          1.551
         ],
         "home_win_rate_band": [
-          0.5,
-          0.7
+          0.65,
+          0.85
         ],
-        "home_win_rate_filter_label": "50.0%–70.0%",
+        "home_win_rate_filter_label": "65.0%–85.0%",
         "probability_band": [
-          0.5472,
-          0.6688000000000001
+          0.5760000000000001,
+          0.7040000000000001
         ],
-        "n": 60,
-        "wins": 41,
-        "losses": 19,
-        "win_rate": 0.6833333333333333,
-        "avg_odds": 1.538,
-        "profit_100_flat": 306.99999999999994,
-        "roi_pct": 5.116666666666666
+        "n": 69,
+        "wins": 47,
+        "losses": 22,
+        "win_rate": 0.6811594202898551,
+        "avg_odds": 1.3968115942028985,
+        "profit_100_flat": -321.0,
+        "roi_pct": -4.6521739130434785
       }
     ]
   },

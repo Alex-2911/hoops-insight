@@ -8,7 +8,7 @@
   },
   "active_filters_effective": "HW ≥ 0.55 | odds 1.40–2.60 | p ≥ 0.50 | EV ≥ 0",
   "summary": {
-    "last_run": "2026-05-16T16:02:39Z",
+    "last_run": "2026-05-18T21:19:18Z",
     "as_of_date": "2026-05-15",
     "summary_stats": {
       "total_games": 300,
@@ -3115,7 +3115,7 @@
     "fallback_reason": "combined_iso_missing_used_acc; used_undated_strategy_params; used_undated_metrics_snapshot; combined_acc_filename_newer_than_latest_settled_row; bet_log_lags_snapshot",
     "snapshot_fallback_used": true,
     "snapshot_fallback_reason": "combined_iso_missing_used_acc; used_undated_strategy_params; used_undated_metrics_snapshot; combined_acc_filename_newer_than_latest_settled_row; bet_log_lags_snapshot",
-    "last_update_utc": "2026-05-16T16:02:39Z",
+    "last_update_utc": "2026-05-18T21:19:18Z",
     "sources": {
       "combined": "combined_nba_predictions_acc_2026-05-16.csv",
       "local_matched": "local_matched_games_latest.csv",

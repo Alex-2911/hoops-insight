@@ -73,6 +73,17 @@ type ActualBetRow = {
 
 type AgentLearningCase = Record<string, unknown>;
 
+type CombinedSettledGameRow = {
+  date: string;
+  home_team: string;
+  away_team: string;
+  result: string;
+  home_team_won: number | null;
+  odds_1: number | null;
+  prob_used: number | null;
+  home_win_rate: number | null;
+};
+
 const Index = () => {
   const [activeTab, setActiveTab] = useState<"play-today" | "overview" | "actual-bets" | "agent-chat">("play-today");
   const [payload, setPayload] = useState<DashboardPayload | null>(null);
@@ -84,6 +95,7 @@ const Index = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [actualBetsRows, setActualBetsRows] = useState<ActualBetRow[]>([]);
   const [agentLearningCases, setAgentLearningCases] = useState<AgentLearningCase[]>([]);
+  const [combinedSettledRows, setCombinedSettledRows] = useState<CombinedSettledGameRow[]>([]);
   const [fetchStarted, setFetchStarted] = useState(false);
   const [agentMessages, setAgentMessages] = useState<AgentMessage[]>([
     {
@@ -214,6 +226,58 @@ const Index = () => {
     );
   };
 
+  const parseCombinedSettledCsv = (csvText: string): CombinedSettledGameRow[] => {
+    const trimmed = csvText.trim();
+    if (!trimmed) return [];
+    const lines = trimmed.split(/\r?\n/).filter(Boolean);
+    if (lines.length < 2) return [];
+
+    const normalizeHeader = (header: string) =>
+      header
+        .replace(/^\uFEFF/, "")
+        .trim()
+        .toLowerCase()
+        .replace(/[^\w]+/g, "_")
+        .replace(/_+/g, "_")
+        .replace(/^_+|_+$/g, "");
+
+    const headers = lines[0].split(",").map(normalizeHeader);
+    const headerIndex = headers.reduce<Record<string, number>>((acc, header, index) => {
+      if (!(header in acc)) acc[header] = index;
+      return acc;
+    }, {});
+    const readString = (columns: string[], key: string) => {
+      const index = headerIndex[key];
+      return index !== undefined ? columns[index]?.trim() ?? "" : "";
+    };
+    const readNumber = (columns: string[], key: string) => {
+      const raw = readString(columns, key);
+      const parsed = Number.parseFloat(raw);
+      return Number.isFinite(parsed) ? parsed : null;
+    };
+
+    return lines.slice(1).reduce<CombinedSettledGameRow[]>((acc, line) => {
+      const columns = line.split(",");
+      const date = readString(columns, "date");
+      const homeTeam = readString(columns, "home_team");
+      const awayTeam = readString(columns, "away_team");
+      const result = readString(columns, "result");
+      if (!date || !homeTeam || !awayTeam || !result || result === "0") return acc;
+
+      acc.push({
+        date,
+        home_team: homeTeam,
+        away_team: awayTeam,
+        result,
+        home_team_won: readNumber(columns, "home_team_won"),
+        odds_1: readNumber(columns, "odds_1"),
+        prob_used: readNumber(columns, "prob_used") ?? readNumber(columns, "home_team_prob"),
+        home_win_rate: readNumber(columns, "home_win_rate"),
+      });
+      return acc;
+    }, []);
+  };
+
   const readRecordString = (row: Record<string, unknown> | null | undefined, key: string) => {
     const value = row?.[key];
     return value === undefined || value === null ? "" : String(value);
@@ -320,6 +384,14 @@ const Index = () => {
         if (alive && actualBetsRes.ok) {
           const actualBetsText = await actualBetsRes.text();
           setActualBetsRows(parseActualBetsCsv(actualBetsText));
+        }
+
+        const combinedSource = normalizedState.sources?.combined ?? "combined_latest.csv";
+        const recentCombinedRes = await fetch(dataUrl("combined_recent_latest.csv"));
+        const combinedRes = recentCombinedRes.ok ? recentCombinedRes : await fetch(dataUrl(combinedSource));
+        if (alive && combinedRes.ok) {
+          const combinedText = await combinedRes.text();
+          setCombinedSettledRows(parseCombinedSettledCsv(combinedText));
         }
 
         const learningCasesRes = await fetch(dataUrl("agent_learning_cases.jsonl"));
@@ -1269,10 +1341,11 @@ const Index = () => {
   };
   const currentPlayDate = readRecordString(playTodayCase, "date");
   const currentPlayGame = readRecordString(playTodayCase, "game");
+  const currentSlateDate = availableGamesDate || currentPlayDate;
   const recentSetupHistoryCases: AgentLearningCase[] = ((evExceptionProfitability?.matches as Array<Record<string, unknown>> | undefined) ?? [])
     .filter((row) => {
       const date = readRecordString(row, "date");
-      if (!date || (currentPlayDate && date >= currentPlayDate)) return false;
+      if (!date || (currentSlateDate && date >= currentSlateDate)) return false;
       return true;
     })
     .sort((a, b) => `${readRecordString(b, "date")} ${readRecordString(b, "home_team")} ${readRecordString(b, "away_team")}`.localeCompare(`${readRecordString(a, "date")} ${readRecordString(a, "home_team")} ${readRecordString(a, "away_team")}`))
@@ -1293,12 +1366,37 @@ const Index = () => {
         lesson: `Comparable setup result: ${win === 1 ? "home ML won" : win === 0 ? "home ML lost" : "settled result"} at odds ${odds !== null ? fmtNumber(odds, 2) : "—"}; prob ${prob !== null ? fmtPercent(prob * 100, 1) : "—"}; flat P/L ${pnl !== null ? formatSigned(pnl, 0) : "—"}.`,
       };
     });
+  const recentSettledGameCases: AgentLearningCase[] = combinedSettledRows
+    .filter((row) => {
+      if (!row.date || !row.home_team || !row.away_team) return false;
+      if (currentSlateDate && row.date >= currentSlateDate) return false;
+      return true;
+    })
+    .sort((a, b) => `${b.date} ${b.home_team} ${b.away_team}`.localeCompare(`${a.date} ${a.home_team} ${a.away_team}`))
+    .slice(0, 8)
+    .map((row) => {
+      const game = `${row.home_team} vs ${row.away_team}`;
+      const homeWon = row.home_team_won === 1;
+      const homeLost = row.home_team_won === 0;
+      const pnl = homeWon && row.odds_1 !== null ? (row.odds_1 - 1) * 100 : homeLost ? -100 : null;
+      return {
+        date: row.date,
+        game,
+        home_team: row.home_team,
+        away_team: row.away_team,
+        result: row.result,
+        agent_decision: homeWon ? "WON" : homeLost ? "LOST" : "SETTLED",
+        agent_label: "recent_settled_game",
+        lesson: `Settled game result: ${row.result} beat ${homeWon ? row.away_team : row.home_team}; home ML ${homeWon ? "won" : homeLost ? "lost" : "settled"} at odds ${row.odds_1 !== null ? fmtNumber(row.odds_1, 2) : "—"}; prob ${row.prob_used !== null ? fmtPercent(row.prob_used * 100, 1) : "—"}; HWR ${row.home_win_rate !== null ? fmtPercent(row.home_win_rate * 100, 1) : "—"}; flat P/L ${pnl !== null ? formatSigned(pnl, 0) : "—"}.`,
+      };
+    });
   const previousLearningCaseMap = new Map<string, AgentLearningCase>();
-  [...agentLearningCases, ...recentSetupHistoryCases].forEach((learningCase) => {
+  [...agentLearningCases, ...recentSetupHistoryCases, ...recentSettledGameCases].forEach((learningCase) => {
     const sameDate = readRecordString(learningCase, "date") === currentPlayDate;
     const sameGame = readRecordString(learningCase, "game") === currentPlayGame;
     if (sameDate && sameGame) return;
-    const key = `${readRecordString(learningCase, "date")}-${readRecordString(learningCase, "game")}-${readRecordString(learningCase, "agent_label")}`;
+    const key = `${readRecordString(learningCase, "date")}-${readRecordString(learningCase, "game")}`;
+    if (previousLearningCaseMap.has(key)) return;
     previousLearningCaseMap.set(key, learningCase);
   });
   const previousLearningCases = Array.from(previousLearningCaseMap.values())
