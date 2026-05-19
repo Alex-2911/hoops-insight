@@ -1,12 +1,12 @@
 {
-  "last_run": "2026-05-18T21:19:18Z",
-  "as_of_date": "2026-05-15",
+  "last_run": "2026-05-19T16:46:23Z",
+  "as_of_date": "2026-05-18",
   "summary_stats": {
     "total_games": 300,
-    "overall_accuracy": 0.6666666666666666,
-    "as_of_date": "2026-05-15"
+    "overall_accuracy": 0.66,
+    "as_of_date": "2026-05-18"
   },
-  "active_filters": "HW ≥ 0.55 | odds 1.40–2.60 | p ≥ 0.50 | EV ≥ 0 | window 300 (2026-03-14 → 2026-05-15)",
+  "active_filters": "HW ≥ 0.55 | odds 1.40–2.60 | p ≥ 0.50 | EV ≥ 0 | window 300 (2026-03-15 → 2026-05-18)",
   "active_filters_human": "HW ≥ 0.55 | odds 1.40–2.60 | p ≥ 0.50 | EV ≥ 0",
   "params_used_type": "strategy_params",
   "ytd_source": "bet_log_flat_live.csv",
@@ -19,8 +19,8 @@
   },
   "strategy_subset_in_window": {
     "count": 0,
-    "window_start": "2026-03-14",
-    "window_end": "2026-05-15",
+    "window_start": "2026-03-15",
+    "window_end": "2026-05-18",
     "note": "Rows reflect strategy-subset simulated local matched games in the active window."
   },
   "bankroll": {
@@ -54,13 +54,13 @@
     "strategy_max_drawdown_pct": null
   },
   "source": {
-    "combined_file": "combined_nba_predictions_acc_2026-05-16.csv",
+    "combined_file": "combined_nba_predictions_acc_2026-05-19.csv",
     "local_matched_file": "local_matched_games_latest.csv",
     "bet_log_file": "bet_log_flat_live.csv",
     "strategy_params_file": "strategy_params.txt",
     "metrics_snapshot_file": "metrics_snapshot.json"
   },
-  "asOfDate": "2026-05-15",
+  "asOfDate": "2026-05-18",
   "windowSize": 300,
   "model": {
     "historical": [
@@ -1227,6 +1227,18 @@
         "accuracy": 0.0,
         "totalGames": 2,
         "correctGames": 0
+      },
+      {
+        "date": "2026-05-17",
+        "accuracy": 0.0,
+        "totalGames": 1,
+        "correctGames": 0
+      },
+      {
+        "date": "2026-05-18",
+        "accuracy": 0.0,
+        "totalGames": 1,
+        "correctGames": 0
       }
     ],
     "thresholds": [
@@ -1234,8 +1246,8 @@
         "label": "> 0.60",
         "thresholdType": "gt",
         "threshold": 0.6,
-        "accuracy": 0.7013232514177694,
-        "sampleSize": 529
+        "accuracy": 0.7,
+        "sampleSize": 530
       },
       {
         "label": "<= 0.40",
@@ -1246,18 +1258,18 @@
       }
     ],
     "calibration": {
-      "asOfDate": "2026-05-15",
-      "brierBefore": 0.20358745787868932,
-      "brierAfter": 0.20358745787868932,
-      "logLossBefore": 0.5944017507101623,
-      "logLossAfter": 0.5944017507101623,
+      "asOfDate": "2026-05-18",
+      "brierBefore": 0.20549532869657522,
+      "brierAfter": 0.20549532869657522,
+      "logLossBefore": 0.5984842259514661,
+      "logLossAfter": 0.5984842259514661,
       "fittedGames": 300,
-      "ece": 0.0656629764598779,
-      "calibrationSlope": 1.4421943369061427,
-      "calibrationIntercept": 0.009483534034869841,
-      "avgPredictedProb": 0.5677412413661357,
-      "baseRate": 0.5933333333333334,
-      "actualWinPct": 0.5933333333333334,
+      "ece": 0.06369086171564928,
+      "calibrationSlope": 1.420431402924179,
+      "calibrationIntercept": -0.011012542710588108,
+      "avgPredictedProb": 0.5665542724884283,
+      "baseRate": 0.5866666666666667,
+      "actualWinPct": 0.5866666666666667,
       "windowSize": 300
     },
     "homeWinRatesLast20": [
@@ -1276,13 +1288,6 @@
         "homeWinRate": 0.9
       },
       {
-        "team": "OKC",
-        "totalLast20Games": 20,
-        "totalHomeGames": 10,
-        "homeWins": 9,
-        "homeWinRate": 0.9
-      },
-      {
         "team": "TOR",
         "totalLast20Games": 20,
         "totalHomeGames": 9,
@@ -1290,11 +1295,11 @@
         "homeWinRate": 0.8888888888888888
       },
       {
-        "team": "DET",
+        "team": "OKC",
         "totalLast20Games": 20,
-        "totalHomeGames": 10,
-        "homeWins": 8,
-        "homeWinRate": 0.8
+        "totalHomeGames": 11,
+        "homeWins": 9,
+        "homeWinRate": 0.8181818181818182
       },
       {
         "team": "NYK",
@@ -1323,6 +1328,13 @@
         "totalHomeGames": 11,
         "homeWins": 8,
         "homeWinRate": 0.7272727272727273
+      },
+      {
+        "team": "DET",
+        "totalLast20Games": 20,
+        "totalHomeGames": 10,
+        "homeWins": 7,
+        "homeWinRate": 0.7
       },
       {
         "team": "SAS",
@@ -1494,7 +1506,7 @@
       "net_pl": 0.0,
       "bankroll": 1000.0
     },
-    "asOfDate": "2026-05-15"
+    "asOfDate": "2026-05-18"
   },
   "betLog": {
     "summary": {

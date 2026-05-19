@@ -122,7 +122,7 @@
   {
     "section":"ev_stats",
     "metric":"std",
-    "value":30.0476542567
+    "value":30.0450061443
   },
   {
     "section":"ev_stats",
@@ -142,7 +142,7 @@
   {
     "section":"ev_stats",
     "metric":"decile_25",
-    "value":9.4872026801
+    "value":9.5087878788
   },
   {
     "section":"ev_stats",
@@ -162,12 +162,12 @@
   {
     "section":"edge_stats",
     "metric":"mean",
-    "value":0.1482677966
+    "value":0.1481866689
   },
   {
     "section":"edge_stats",
     "metric":"std",
-    "value":0.1061381632
+    "value":0.1061184742
   },
   {
     "section":"realized",
@@ -197,17 +197,17 @@
   {
     "section":"realized",
     "metric":"max_win_streak",
-    "value":12
+    "value":14
   },
   {
     "section":"realized",
     "metric":"max_loss_streak",
-    "value":5
+    "value":6
   },
   {
     "section":"team_edge_top10",
     "metric":"POR_avg_edge",
-    "value":0.2418302789
+    "value":0.2420818206
   },
   {
     "section":"team_edge_top10",
@@ -217,7 +217,7 @@
   {
     "section":"team_edge_top10",
     "metric":"SAC_avg_edge",
-    "value":0.2214207277
+    "value":0.2191558442
   },
   {
     "section":"team_edge_top10",
@@ -227,7 +227,7 @@
   {
     "section":"team_edge_top10",
     "metric":"ORL_avg_edge",
-    "value":0.2100598399
+    "value":0.2096219767
   },
   {
     "section":"team_edge_top10",
@@ -237,7 +237,7 @@
   {
     "section":"team_edge_top10",
     "metric":"LAL_avg_edge",
-    "value":0.1818555831
+    "value":0.1819130568
   },
   {
     "section":"team_edge_top10",
@@ -257,7 +257,7 @@
   {
     "section":"team_edge_top10",
     "metric":"BOS_avg_edge",
-    "value":0.1695829277
+    "value":0.1694364895
   },
   {
     "section":"team_edge_top10",
@@ -267,7 +267,7 @@
   {
     "section":"team_edge_top10",
     "metric":"ATL_avg_edge",
-    "value":0.1695339554
+    "value":0.1691248875
   },
   {
     "section":"team_edge_top10",
@@ -277,7 +277,7 @@
   {
     "section":"team_edge_top10",
     "metric":"TOR_avg_edge",
-    "value":0.1645308169
+    "value":0.1643904595
   },
   {
     "section":"team_edge_top10",
@@ -287,7 +287,7 @@
   {
     "section":"team_edge_top10",
     "metric":"NOP_avg_edge",
-    "value":0.152093187
+    "value":0.1522069023
   },
   {
     "section":"team_edge_top10",

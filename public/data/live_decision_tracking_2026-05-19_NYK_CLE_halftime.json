@@ -1,0 +1,48 @@
+{
+  "date": "2026-05-19",
+  "game": "NYK vs CLE",
+  "home_team": "NYK",
+  "away_team": "CLE",
+  "check_time": "halftime",
+  "check_status": "pending_not_halftime",
+  "halftime_score": null,
+  "live_odds_home_nyk": null,
+  "live_odds_away_cle": null,
+  "live_spread": null,
+  "pregame_model_state": "NO_BET",
+  "pregame_reason": "NYK price too short; EV failed; CLE away-underdog filter not met",
+  "live_decision": "LIVE_WATCH_ONLY",
+  "stake_class": "none",
+  "reason": "Pregame remains no bet: NYK at 1.38 is too short and failed EV, while CLE at 3.15 does not meet the away-underdog value profile. Treat Q1 as observe-only and reassess at halftime. NYK only becomes interesting if live odds improve to 1.50+ without structural damage; CLE only becomes interesting if the game itself proves the underdog case. Default action is no bet unless price and live structure both confirm.",
+  "classification": "LIVE_WATCH_REVIEW",
+  "live_watch_plan": {
+    "default": "Pregame SKIP. Q1 observe only. Halftime reassess. Most likely outcome remains no bet.",
+    "discipline_rule": "Do not bet NYK just because they are likely to win; do not bet CLE just because the odds look attractive. Only act if live odds and live structure both improve.",
+    "nyk_live_interest": {
+      "minimum_odds": "1.50+",
+      "preferred_odds_range": "1.55-1.60",
+      "required_structure": [
+        "NYK still close or leading",
+        "Brunson and NYK offense look controlled",
+        "turnovers are not a problem",
+        "Cleveland is not dominating the glass",
+        "any NYK dip looks normal, not structural"
+      ],
+      "possible_action": "small live ML or protected spread only if price improves because of a normal in-game dip",
+      "auto_skip": "skip if NYK trails because Cleveland is clearly better structurally"
+    },
+    "cle_live_interest": {
+      "pregame_profile": "CLE away-underdog value profile not strong enough at 3.15 with about 31% away probability",
+      "required_structure": [
+        "game is close or CLE leads at halftime",
+        "Mitchell is efficient and not forcing",
+        "Mobley or Allen control rebounds/paint",
+        "NYK role players are cold",
+        "NYK offense is Brunson-only",
+        "CLE still offers decent odds or protected spread"
+      ],
+      "possible_action": "small protected-spread consideration only if live structure proves the case"
+    }
+  },
+  "action_candidate_if_confirmed": "protected-spread consideration or small experimental live ML only after halftime confirmation"
+}

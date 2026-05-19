@@ -1163,6 +1163,18 @@
       "accuracy": 0.0,
       "totalGames": 2,
       "correctGames": 0
+    },
+    {
+      "date": "2026-05-17",
+      "accuracy": 0.0,
+      "totalGames": 1,
+      "correctGames": 0
+    },
+    {
+      "date": "2026-05-18",
+      "accuracy": 0.0,
+      "totalGames": 1,
+      "correctGames": 0
     }
   ],
   "accuracy_threshold_stats": [
@@ -1170,8 +1182,8 @@
       "label": "> 0.60",
       "thresholdType": "gt",
       "threshold": 0.6,
-      "accuracy": 0.7013232514177694,
-      "sampleSize": 529
+      "accuracy": 0.7,
+      "sampleSize": 530
     },
     {
       "label": "<= 0.40",
@@ -1182,32 +1194,32 @@
     }
   ],
   "calibration_metrics": {
-    "asOfDate": "2026-05-15",
-    "brierBefore": 0.20358745787868932,
-    "brierAfter": 0.20358745787868932,
-    "logLossBefore": 0.5944017507101623,
-    "logLossAfter": 0.5944017507101623,
+    "asOfDate": "2026-05-18",
+    "brierBefore": 0.20549532869657522,
+    "brierAfter": 0.20549532869657522,
+    "logLossBefore": 0.5984842259514661,
+    "logLossAfter": 0.5984842259514661,
     "fittedGames": 300,
-    "ece": 0.0656629764598779,
-    "calibrationSlope": 1.4421943369061427,
-    "calibrationIntercept": 0.009483534034869841,
-    "avgPredictedProb": 0.5677412413661357,
-    "baseRate": 0.5933333333333334,
-    "actualWinPct": 0.5933333333333334,
+    "ece": 0.06369086171564928,
+    "calibrationSlope": 1.420431402924179,
+    "calibrationIntercept": -0.011012542710588108,
+    "avgPredictedProb": 0.5665542724884283,
+    "baseRate": 0.5866666666666667,
+    "actualWinPct": 0.5866666666666667,
     "windowSize": 300
   },
   "calibration_quality": {
-    "ece": 0.0656629764598779,
-    "calibrationSlope": 1.4421943369061427,
-    "calibrationIntercept": 0.009483534034869841
+    "ece": 0.06369086171564928,
+    "calibrationSlope": 1.420431402924179,
+    "calibrationIntercept": -0.011012542710588108
   },
   "home_win_rate_threshold": 0.55,
   "home_win_rate_shown_count": 8,
   "strategy_filter_stats": {
     "window_size": 300,
     "matched_games_count": 0,
-    "window_start": "2026-03-14",
-    "window_end": "2026-05-15",
+    "window_start": "2026-03-15",
+    "window_end": "2026-05-18",
     "filters": [
       {
         "label": "Home win rate min",
@@ -1252,7 +1264,7 @@
       "net_pl": 0.0,
       "bankroll": 1000.0
     },
-    "asOfDate": "2026-05-15"
+    "asOfDate": "2026-05-18"
   },
   "bankroll_history": [],
   "local_matched_games_rows": [],
@@ -1278,28 +1290,21 @@
   },
   "home_win_rates_window": [
     {
-      "team": "NYK",
+      "team": "SAS",
       "homeWinRate": 1.0,
       "homeWins": 2,
       "homeGames": 2,
+      "windowGames": 20
+    },
+    {
+      "team": "NYK",
+      "homeWinRate": 1.0,
+      "homeWins": 1,
+      "homeGames": 1,
       "windowGames": 20
     },
     {
       "team": "OKC",
-      "homeWinRate": 1.0,
-      "homeWins": 2,
-      "homeGames": 2,
-      "windowGames": 20
-    },
-    {
-      "team": "SAS",
-      "homeWinRate": 0.6666666666666666,
-      "homeWins": 2,
-      "homeGames": 3,
-      "windowGames": 20
-    },
-    {
-      "team": "DET",
       "homeWinRate": 0.6666666666666666,
       "homeWins": 2,
       "homeGames": 3,
@@ -1310,6 +1315,13 @@
       "homeWinRate": 0.6666666666666666,
       "homeWins": 2,
       "homeGames": 3,
+      "windowGames": 20
+    },
+    {
+      "team": "DET",
+      "homeWinRate": 0.5,
+      "homeWins": 2,
+      "homeGames": 4,
       "windowGames": 20
     },
     {
@@ -1350,13 +1362,6 @@
       "homeWinRate": 0.9
     },
     {
-      "team": "OKC",
-      "totalLast20Games": 20,
-      "totalHomeGames": 10,
-      "homeWins": 9,
-      "homeWinRate": 0.9
-    },
-    {
       "team": "TOR",
       "totalLast20Games": 20,
       "totalHomeGames": 9,
@@ -1364,11 +1369,11 @@
       "homeWinRate": 0.8888888888888888
     },
     {
-      "team": "DET",
+      "team": "OKC",
       "totalLast20Games": 20,
-      "totalHomeGames": 10,
-      "homeWins": 8,
-      "homeWinRate": 0.8
+      "totalHomeGames": 11,
+      "homeWins": 9,
+      "homeWinRate": 0.8181818181818182
     },
     {
       "team": "NYK",
@@ -1397,6 +1402,13 @@
       "totalHomeGames": 11,
       "homeWins": 8,
       "homeWinRate": 0.7272727272727273
+    },
+    {
+      "team": "DET",
+      "totalLast20Games": 20,
+      "totalHomeGames": 10,
+      "homeWins": 7,
+      "homeWinRate": 0.7
     },
     {
       "team": "SAS",
