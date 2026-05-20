@@ -1,21 +1,21 @@
 {
-  "as_of_date": "2026-05-18",
+  "as_of_date": "2026-05-19",
   "window": {
     "size": 300,
     "start": "2026-03-15",
-    "end": "2026-05-18",
+    "end": "2026-05-19",
     "games_count": 300
   },
   "active_filters_effective": "HW ≥ 0.55 | odds 1.40–2.60 | p ≥ 0.50 | EV ≥ 0",
   "summary": {
-    "last_run": "2026-05-19T16:46:23Z",
-    "as_of_date": "2026-05-18",
+    "last_run": "2026-05-20T16:09:44Z",
+    "as_of_date": "2026-05-19",
     "summary_stats": {
       "total_games": 300,
       "overall_accuracy": 0.66,
-      "as_of_date": "2026-05-18"
+      "as_of_date": "2026-05-19"
     },
-    "active_filters": "HW ≥ 0.55 | odds 1.40–2.60 | p ≥ 0.50 | EV ≥ 0 | window 300 (2026-03-15 → 2026-05-18)",
+    "active_filters": "HW ≥ 0.55 | odds 1.40–2.60 | p ≥ 0.50 | EV ≥ 0 | window 300 (2026-03-15 → 2026-05-19)",
     "active_filters_human": "HW ≥ 0.55 | odds 1.40–2.60 | p ≥ 0.50 | EV ≥ 0",
     "params_used_type": "strategy_params",
     "ytd_source": "bet_log_flat_live.csv",
@@ -29,7 +29,7 @@
     "strategy_subset_in_window": {
       "count": 0,
       "window_start": "2026-03-15",
-      "window_end": "2026-05-18",
+      "window_end": "2026-05-19",
       "note": "Rows reflect strategy-subset simulated local matched games in the active window."
     },
     "bankroll": {
@@ -63,13 +63,13 @@
       "strategy_max_drawdown_pct": null
     },
     "source": {
-      "combined_file": "combined_nba_predictions_acc_2026-05-19.csv",
+      "combined_file": "combined_nba_predictions_acc_2026-05-20.csv",
       "local_matched_file": "local_matched_games_latest.csv",
       "bet_log_file": "bet_log_flat_live.csv",
       "strategy_params_file": "strategy_params.txt",
       "metrics_snapshot_file": "metrics_snapshot.json"
     },
-    "asOfDate": "2026-05-18",
+    "asOfDate": "2026-05-19",
     "windowSize": 300,
     "model": {
       "historical": [
@@ -1248,6 +1248,12 @@
           "accuracy": 0.0,
           "totalGames": 1,
           "correctGames": 0
+        },
+        {
+          "date": "2026-05-19",
+          "accuracy": 1.0,
+          "totalGames": 1,
+          "correctGames": 1
         }
       ],
       "thresholds": [
@@ -1255,8 +1261,8 @@
           "label": "> 0.60",
           "thresholdType": "gt",
           "threshold": 0.6,
-          "accuracy": 0.7,
-          "sampleSize": 530
+          "accuracy": 0.7005649717514124,
+          "sampleSize": 531
         },
         {
           "label": "<= 0.40",
@@ -1267,16 +1273,16 @@
         }
       ],
       "calibration": {
-        "asOfDate": "2026-05-18",
-        "brierBefore": 0.20549532869657522,
-        "brierAfter": 0.20549532869657522,
-        "logLossBefore": 0.5984842259514661,
-        "logLossAfter": 0.5984842259514661,
+        "asOfDate": "2026-05-19",
+        "brierBefore": 0.20503501558577908,
+        "brierAfter": 0.20503501558577908,
+        "logLossBefore": 0.5974498293340695,
+        "logLossAfter": 0.5974498293340695,
         "fittedGames": 300,
-        "ece": 0.06369086171564928,
-        "calibrationSlope": 1.420431402924179,
-        "calibrationIntercept": -0.011012542710588108,
-        "avgPredictedProb": 0.5665542724884283,
+        "ece": 0.065955153683112,
+        "calibrationSlope": 1.4277814978665797,
+        "calibrationIntercept": -0.017063670948446023,
+        "avgPredictedProb": 0.5672319134720273,
         "baseRate": 0.5866666666666667,
         "actualWinPct": 0.5866666666666667,
         "windowSize": 300
@@ -1515,7 +1521,7 @@
         "net_pl": 0.0,
         "bankroll": 1000.0
       },
-      "asOfDate": "2026-05-18"
+      "asOfDate": "2026-05-19"
     },
     "betLog": {
       "summary": {
@@ -2709,6 +2715,12 @@
         "accuracy": 0.0,
         "totalGames": 1,
         "correctGames": 0
+      },
+      {
+        "date": "2026-05-19",
+        "accuracy": 1.0,
+        "totalGames": 1,
+        "correctGames": 1
       }
     ],
     "accuracy_threshold_stats": [
@@ -2716,8 +2728,8 @@
         "label": "> 0.60",
         "thresholdType": "gt",
         "threshold": 0.6,
-        "accuracy": 0.7,
-        "sampleSize": 530
+        "accuracy": 0.7005649717514124,
+        "sampleSize": 531
       },
       {
         "label": "<= 0.40",
@@ -2728,24 +2740,24 @@
       }
     ],
     "calibration_metrics": {
-      "asOfDate": "2026-05-18",
-      "brierBefore": 0.20549532869657522,
-      "brierAfter": 0.20549532869657522,
-      "logLossBefore": 0.5984842259514661,
-      "logLossAfter": 0.5984842259514661,
+      "asOfDate": "2026-05-19",
+      "brierBefore": 0.20503501558577908,
+      "brierAfter": 0.20503501558577908,
+      "logLossBefore": 0.5974498293340695,
+      "logLossAfter": 0.5974498293340695,
       "fittedGames": 300,
-      "ece": 0.06369086171564928,
-      "calibrationSlope": 1.420431402924179,
-      "calibrationIntercept": -0.011012542710588108,
-      "avgPredictedProb": 0.5665542724884283,
+      "ece": 0.065955153683112,
+      "calibrationSlope": 1.4277814978665797,
+      "calibrationIntercept": -0.017063670948446023,
+      "avgPredictedProb": 0.5672319134720273,
       "baseRate": 0.5866666666666667,
       "actualWinPct": 0.5866666666666667,
       "windowSize": 300
     },
     "calibration_quality": {
-      "ece": 0.06369086171564928,
-      "calibrationSlope": 1.420431402924179,
-      "calibrationIntercept": -0.011012542710588108
+      "ece": 0.065955153683112,
+      "calibrationSlope": 1.4277814978665797,
+      "calibrationIntercept": -0.017063670948446023
     },
     "home_win_rate_threshold": 0.55,
     "home_win_rate_shown_count": 8,
@@ -2753,7 +2765,7 @@
       "window_size": 300,
       "matched_games_count": 0,
       "window_start": "2026-03-15",
-      "window_end": "2026-05-18",
+      "window_end": "2026-05-19",
       "filters": [
         {
           "label": "Home win rate min",
@@ -2798,7 +2810,7 @@
         "net_pl": 0.0,
         "bankroll": 1000.0
       },
-      "asOfDate": "2026-05-18"
+      "asOfDate": "2026-05-19"
     },
     "bankroll_history": [],
     "local_matched_games_rows": [],
@@ -2824,17 +2836,17 @@
     },
     "home_win_rates_window": [
       {
-        "team": "SAS",
+        "team": "NYK",
         "homeWinRate": 1.0,
         "homeWins": 2,
         "homeGames": 2,
         "windowGames": 20
       },
       {
-        "team": "NYK",
+        "team": "SAS",
         "homeWinRate": 1.0,
-        "homeWins": 1,
-        "homeGames": 1,
+        "homeWins": 2,
+        "homeGames": 2,
         "windowGames": 20
       },
       {
@@ -2853,9 +2865,9 @@
       },
       {
         "team": "DET",
-        "homeWinRate": 0.5,
-        "homeWins": 2,
-        "homeGames": 4,
+        "homeWinRate": 0.3333333333333333,
+        "homeWins": 1,
+        "homeGames": 3,
         "windowGames": 20
       },
       {
@@ -3094,12 +3106,12 @@
     ]
   },
   "state": {
-    "as_of_date": "2026-05-18",
-    "snapshot_as_of_date": "2026-05-18",
+    "as_of_date": "2026-05-19",
+    "snapshot_as_of_date": "2026-05-19",
     "window_size": 300,
     "window_start": "2026-03-15",
-    "window_end": "2026-05-18",
-    "active_filters_text": "HW ≥ 0.55 | odds 1.40–2.60 | p ≥ 0.50 | EV ≥ 0 | window 300 (2026-03-15 → 2026-05-18)",
+    "window_end": "2026-05-19",
+    "active_filters_text": "HW ≥ 0.55 | odds 1.40–2.60 | p ≥ 0.50 | EV ≥ 0 | window 300 (2026-03-15 → 2026-05-19)",
     "params_used_label": "v1",
     "active_params": {
       "home_win_rate_min": 0.55,
@@ -3114,14 +3126,14 @@
     "strategy_params_parse_error": null,
     "defaults_used": false,
     "defaults_reason": null,
-    "strategy_as_of_date": "2026-05-18",
+    "strategy_as_of_date": "2026-05-19",
     "strategy_matches_window": 0,
     "local_matched_schema_valid": true,
     "local_matched_parse_error": null,
     "data_consistency_status": "ok",
     "data_consistency_issues": [],
     "data_warnings": [],
-    "combined_source_file": "combined_nba_predictions_acc_2026-05-19.csv",
+    "combined_source_file": "combined_nba_predictions_acc_2026-05-20.csv",
     "local_matched_source_file": "local_matched_games_latest.csv",
     "bet_log_source_file": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/bet_log_flat_live.csv",
     "bet_log_source_type": "lightgbm_live",
@@ -3129,7 +3141,7 @@
     "bet_log_trimmed_to_snapshot": false,
     "strategy_params_source_file": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/strategy_params.txt",
     "metrics_snapshot_source_file": "metrics_snapshot.json",
-    "run_date": "2026-05-19",
+    "run_date": "2026-05-20",
     "strategy_params_source_type": "file",
     "strategy_params_parsed_ok": true,
     "params_source_file": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/strategy_params.txt",
@@ -3139,19 +3151,19 @@
     "fallback_reason": "combined_iso_missing_used_acc; used_undated_strategy_params; used_undated_metrics_snapshot; combined_acc_filename_newer_than_latest_settled_row; bet_log_lags_snapshot",
     "snapshot_fallback_used": true,
     "snapshot_fallback_reason": "combined_iso_missing_used_acc; used_undated_strategy_params; used_undated_metrics_snapshot; combined_acc_filename_newer_than_latest_settled_row; bet_log_lags_snapshot",
-    "last_update_utc": "2026-05-19T16:46:23Z",
+    "last_update_utc": "2026-05-20T16:09:44Z",
     "sources": {
-      "combined": "combined_nba_predictions_acc_2026-05-19.csv",
+      "combined": "combined_nba_predictions_acc_2026-05-20.csv",
       "local_matched": "local_matched_games_latest.csv",
       "bet_log": "bet_log_flat_live.csv"
     }
   },
   "sources": {
-    "combined_file": "combined_nba_predictions_acc_2026-05-19.csv",
+    "combined_file": "combined_nba_predictions_acc_2026-05-20.csv",
     "local_matched_games": "local_matched_games_latest.csv",
     "bet_log_flat": "bet_log_flat_live.csv",
     "copied": {
-      "combined": "sources/combined_nba_predictions_acc_2026-05-19.csv",
+      "combined": "sources/combined_nba_predictions_acc_2026-05-20.csv",
       "local_matched": "sources/local_matched_games_latest.csv",
       "strategy_params": "sources/strategy_params.txt",
       "bet_log_flat": "sources/bet_log_flat_live.csv"

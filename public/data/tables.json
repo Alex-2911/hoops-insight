@@ -1175,6 +1175,12 @@
       "accuracy": 0.0,
       "totalGames": 1,
       "correctGames": 0
+    },
+    {
+      "date": "2026-05-19",
+      "accuracy": 1.0,
+      "totalGames": 1,
+      "correctGames": 1
     }
   ],
   "accuracy_threshold_stats": [
@@ -1182,8 +1188,8 @@
       "label": "> 0.60",
       "thresholdType": "gt",
       "threshold": 0.6,
-      "accuracy": 0.7,
-      "sampleSize": 530
+      "accuracy": 0.7005649717514124,
+      "sampleSize": 531
     },
     {
       "label": "<= 0.40",
@@ -1194,24 +1200,24 @@
     }
   ],
   "calibration_metrics": {
-    "asOfDate": "2026-05-18",
-    "brierBefore": 0.20549532869657522,
-    "brierAfter": 0.20549532869657522,
-    "logLossBefore": 0.5984842259514661,
-    "logLossAfter": 0.5984842259514661,
+    "asOfDate": "2026-05-19",
+    "brierBefore": 0.20503501558577908,
+    "brierAfter": 0.20503501558577908,
+    "logLossBefore": 0.5974498293340695,
+    "logLossAfter": 0.5974498293340695,
     "fittedGames": 300,
-    "ece": 0.06369086171564928,
-    "calibrationSlope": 1.420431402924179,
-    "calibrationIntercept": -0.011012542710588108,
-    "avgPredictedProb": 0.5665542724884283,
+    "ece": 0.065955153683112,
+    "calibrationSlope": 1.4277814978665797,
+    "calibrationIntercept": -0.017063670948446023,
+    "avgPredictedProb": 0.5672319134720273,
     "baseRate": 0.5866666666666667,
     "actualWinPct": 0.5866666666666667,
     "windowSize": 300
   },
   "calibration_quality": {
-    "ece": 0.06369086171564928,
-    "calibrationSlope": 1.420431402924179,
-    "calibrationIntercept": -0.011012542710588108
+    "ece": 0.065955153683112,
+    "calibrationSlope": 1.4277814978665797,
+    "calibrationIntercept": -0.017063670948446023
   },
   "home_win_rate_threshold": 0.55,
   "home_win_rate_shown_count": 8,
@@ -1219,7 +1225,7 @@
     "window_size": 300,
     "matched_games_count": 0,
     "window_start": "2026-03-15",
-    "window_end": "2026-05-18",
+    "window_end": "2026-05-19",
     "filters": [
       {
         "label": "Home win rate min",
@@ -1264,7 +1270,7 @@
       "net_pl": 0.0,
       "bankroll": 1000.0
     },
-    "asOfDate": "2026-05-18"
+    "asOfDate": "2026-05-19"
   },
   "bankroll_history": [],
   "local_matched_games_rows": [],
@@ -1290,17 +1296,17 @@
   },
   "home_win_rates_window": [
     {
-      "team": "SAS",
+      "team": "NYK",
       "homeWinRate": 1.0,
       "homeWins": 2,
       "homeGames": 2,
       "windowGames": 20
     },
     {
-      "team": "NYK",
+      "team": "SAS",
       "homeWinRate": 1.0,
-      "homeWins": 1,
-      "homeGames": 1,
+      "homeWins": 2,
+      "homeGames": 2,
       "windowGames": 20
     },
     {
@@ -1319,9 +1325,9 @@
     },
     {
       "team": "DET",
-      "homeWinRate": 0.5,
-      "homeWins": 2,
-      "homeGames": 4,
+      "homeWinRate": 0.3333333333333333,
+      "homeWins": 1,
+      "homeGames": 3,
       "windowGames": 20
     },
     {

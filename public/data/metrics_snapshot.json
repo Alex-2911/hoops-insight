@@ -7,7 +7,7 @@
   {
     "section":"meta",
     "metric":"eval_base_n",
-    "value":204
+    "value":205
   },
   {
     "section":"meta",
@@ -17,7 +17,7 @@
   {
     "section":"meta",
     "metric":"eval_base_date_max",
-    "value":"2026-05-08 00:00:00"
+    "value":"2026-05-19 00:00:00"
   },
   {
     "section":"meta",
@@ -87,7 +87,7 @@
   {
     "section":"meta",
     "metric":"subset_n",
-    "value":204
+    "value":205
   },
   {
     "section":"meta",
@@ -107,22 +107,22 @@
   {
     "section":"meta",
     "metric":"subset_date_max",
-    "value":"2026-05-08 00:00:00"
+    "value":"2026-05-19 00:00:00"
   },
   {
     "section":"ev_stats",
     "metric":"count",
-    "value":204
+    "value":205
   },
   {
     "section":"ev_stats",
     "metric":"median",
-    "value":21.913277512
+    "value":21.9318181818
   },
   {
     "section":"ev_stats",
     "metric":"std",
-    "value":30.0450061443
+    "value":30.0376877609
   },
   {
     "section":"ev_stats",
@@ -137,77 +137,77 @@
   {
     "section":"ev_stats",
     "metric":"decile_10",
-    "value":3.8
+    "value":3.8285714286
   },
   {
     "section":"ev_stats",
     "metric":"decile_25",
-    "value":9.5087878788
+    "value":8.8533333333
   },
   {
     "section":"ev_stats",
     "metric":"decile_50",
-    "value":21.913277512
+    "value":21.9318181818
   },
   {
     "section":"ev_stats",
     "metric":"decile_75",
-    "value":45.7268083197
+    "value":45.46875
   },
   {
     "section":"ev_stats",
     "metric":"decile_90",
-    "value":78.2748538012
+    "value":78.0701754386
   },
   {
     "section":"edge_stats",
     "metric":"mean",
-    "value":0.1481866689
+    "value":0.147791889
   },
   {
     "section":"edge_stats",
     "metric":"std",
-    "value":0.1061184742
+    "value":0.1061520392
   },
   {
     "section":"realized",
     "metric":"count",
-    "value":204
+    "value":205
   },
   {
     "section":"realized",
     "metric":"win_rate",
-    "value":0.6519607843
+    "value":0.6536585366
   },
   {
     "section":"realized",
     "metric":"profit_sum",
-    "value":4218.0
+    "value":4256.0
   },
   {
     "section":"realized",
     "metric":"roi",
-    "value":0.2067647059
+    "value":0.2076097561
   },
   {
     "section":"realized",
     "metric":"sharpe_style",
-    "value":3.0748102322
+    "value":3.1023011335
   },
   {
     "section":"realized",
     "metric":"max_win_streak",
-    "value":14
+    "value":12
   },
   {
     "section":"realized",
     "metric":"max_loss_streak",
-    "value":6
+    "value":5
   },
   {
     "section":"team_edge_top10",
     "metric":"POR_avg_edge",
-    "value":0.2420818206
+    "value":0.2418302789
   },
   {
     "section":"team_edge_top10",
@@ -227,7 +227,7 @@
   {
     "section":"team_edge_top10",
     "metric":"ORL_avg_edge",
-    "value":0.2096219767
+    "value":0.2100598399
   },
   {
     "section":"team_edge_top10",
@@ -237,7 +237,7 @@
   {
     "section":"team_edge_top10",
     "metric":"LAL_avg_edge",
-    "value":0.1819130568
+    "value":0.1823244072
   },
   {
     "section":"team_edge_top10",
@@ -257,7 +257,7 @@
   {
     "section":"team_edge_top10",
     "metric":"BOS_avg_edge",
-    "value":0.1694364895
+    "value":0.1697397897
   },
   {
     "section":"team_edge_top10",
@@ -277,7 +277,7 @@
   {
     "section":"team_edge_top10",
     "metric":"TOR_avg_edge",
-    "value":0.1643904595
+    "value":0.1646823683
   },
   {
     "section":"team_edge_top10",
@@ -342,12 +342,12 @@
   {
     "section":"today_funnel",
     "metric":"today_funnel_max_prob_used_after_odds",
-    "value":0.6119402985
+    "value":0.7744360902
   },
   {
     "section":"today_funnel",
     "metric":"today_funnel_max_ev_after_odds",
-    "value":65.223880597
+    "value":6.8721804511
   },
   {
     "section":"today_funnel",
