@@ -383,34 +383,33 @@ def resolve_snapshot_selection(source_root: Path) -> SnapshotSelection:
     if not lightgbm.exists():
         raise FileNotFoundError(f"Missing LightGBM directory: {lightgbm}")
 
-    combined_candidates: list[tuple[str, Path]] = []
+    combined_candidates: list[tuple[str, Path, str]] = []
     for path in kelly.glob("combined_nba_predictions_iso_*.csv"):
         if not path.is_file():
             continue
         date = _extract_date_from_name(path.name)
         if date:
-            combined_candidates.append((date, path))
+            combined_candidates.append((date, path, "iso"))
 
     fallback_reasons: list[str] = []
-    used_acc_fallback = False
-    if not combined_candidates:
-        for path in lightgbm.glob("combined_nba_predictions_acc_*.csv"):
-            if not path.is_file():
-                continue
-            date = _extract_latest_settled_date_from_combined(path) or _extract_date_from_name(path.name)
-            if date:
-                combined_candidates.append((date, path))
-        if combined_candidates:
-            used_acc_fallback = True
-            fallback_reasons.append("combined_iso_missing_used_acc")
+    for path in lightgbm.glob("combined_nba_predictions_acc_*.csv"):
+        if not path.is_file():
+            continue
+        date = _extract_latest_settled_date_from_combined(path) or _extract_date_from_name(path.name)
+        if date:
+            combined_candidates.append((date, path, "acc"))
 
     if not combined_candidates:
         raise FileNotFoundError("No dated combined predictions file found in source root.")
 
     candidate_failures: list[tuple[str, list[str]]] = []
-    sorted_candidates = sorted(combined_candidates, key=lambda item: item[0], reverse=True)
+    sorted_candidates = sorted(
+        combined_candidates,
+        key=lambda item: (item[0], 1 if item[2] == "iso" else 0),
+        reverse=True,
+    )
 
-    for snapshot_date, combined in sorted_candidates:
+    for snapshot_date, combined, combined_kind in sorted_candidates:
         candidate_reasons: list[str] = []
         candidate_fallback_reasons = list(fallback_reasons)
 
@@ -441,8 +440,10 @@ def resolve_snapshot_selection(source_root: Path) -> SnapshotSelection:
                 )
             if _extract_date_from_name(metrics_path.name) is None:
                 candidate_fallback_reasons.append("used_undated_metrics_snapshot")
-        if used_acc_fallback and _extract_date_from_name(combined.name) != snapshot_date:
+        if combined_kind == "acc" and _extract_date_from_name(combined.name) != snapshot_date:
             candidate_fallback_reasons.append("combined_acc_filename_newer_than_latest_settled_row")
+        if combined_kind == "acc":
+            candidate_fallback_reasons.append("combined_acc_used")
 
         (
             bet_log_path,
