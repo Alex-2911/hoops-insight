@@ -383,21 +383,22 @@ def resolve_snapshot_selection(source_root: Path) -> SnapshotSelection:
     if not lightgbm.exists():
         raise FileNotFoundError(f"Missing LightGBM directory: {lightgbm}")
 
-    combined_candidates: list[tuple[str, Path, str]] = []
+    combined_candidates: list[tuple[str, str, Path, str]] = []
     for path in kelly.glob("combined_nba_predictions_iso_*.csv"):
         if not path.is_file():
             continue
         date = _extract_date_from_name(path.name)
         if date:
-            combined_candidates.append((date, path, "iso"))
+            combined_candidates.append((date, date, path, "iso"))
 
     fallback_reasons: list[str] = []
     for path in lightgbm.glob("combined_nba_predictions_acc_*.csv"):
         if not path.is_file():
             continue
-        date = _extract_latest_settled_date_from_combined(path) or _extract_date_from_name(path.name)
-        if date:
-            combined_candidates.append((date, path, "acc"))
+        snapshot_date = _extract_latest_settled_date_from_combined(path) or _extract_date_from_name(path.name)
+        run_date = _extract_date_from_name(path.name) or snapshot_date
+        if snapshot_date and run_date:
+            combined_candidates.append((snapshot_date, run_date, path, "acc"))
 
     if not combined_candidates:
         raise FileNotFoundError("No dated combined predictions file found in source root.")
@@ -405,11 +406,11 @@ def resolve_snapshot_selection(source_root: Path) -> SnapshotSelection:
     candidate_failures: list[tuple[str, list[str]]] = []
     sorted_candidates = sorted(
         combined_candidates,
-        key=lambda item: (item[0], 1 if item[2] == "iso" else 0),
+        key=lambda item: (item[0], item[1], 1 if item[3] == "iso" else 0),
         reverse=True,
     )
 
-    for snapshot_date, combined, combined_kind in sorted_candidates:
+    for snapshot_date, _run_date, combined, combined_kind in sorted_candidates:
         candidate_reasons: list[str] = []
         candidate_fallback_reasons = list(fallback_reasons)
 

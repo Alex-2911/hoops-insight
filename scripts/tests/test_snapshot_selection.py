@@ -56,6 +56,25 @@ def test_resolve_snapshot_selection_uses_newer_acc_when_iso_is_stale(tmp_path: P
     assert "combined_acc_used" in selection.fallback_reason
 
 
+def test_resolve_snapshot_selection_prefers_newer_acc_run_for_same_snapshot(tmp_path: Path) -> None:
+    root = tmp_path / "Basketball_prediction" / "2026"
+    lightgbm = root / "output" / "LightGBM"
+    kelly = lightgbm / "Kelly"
+
+    _write(kelly / "combined_nba_predictions_iso_2026-04-03.csv")
+    _write(lightgbm / "combined_nba_predictions_acc_2026-04-04.csv", "date,result,home_team\n2026-04-03,BOS,BOS\n")
+    _write(lightgbm / "local_matched_games_2026-04-03.csv")
+    _write(lightgbm / "strategy_params_2026-04-03.json", '{"as_of_date":"2026-04-03"}')
+    _write(lightgbm / "metrics_snapshot_2026-04-03.json", '{"as_of_date":"2026-04-03"}')
+    _write(lightgbm / "bet_log_flat_live_2026-04-03.csv", "date,stake\n2026-04-03,100\n")
+
+    selection = resolve_snapshot_selection(root)
+
+    assert selection.snapshot_as_of_date == "2026-04-03"
+    assert selection.run_date == "2026-04-04"
+    assert selection.combined_source_file == "combined_nba_predictions_acc_2026-04-04.csv"
+
+
 def test_resolve_snapshot_selection_errors_when_no_usable_local_matched_exists(tmp_path: Path) -> None:
     root = tmp_path / "Basketball_prediction" / "2026"
     lightgbm = root / "output" / "LightGBM"
