@@ -1181,6 +1181,48 @@
       "accuracy": 1.0,
       "totalGames": 1,
       "correctGames": 1
+    },
+    {
+      "date": "2026-05-20",
+      "accuracy": 1.0,
+      "totalGames": 1,
+      "correctGames": 1
+    },
+    {
+      "date": "2026-05-21",
+      "accuracy": 1.0,
+      "totalGames": 1,
+      "correctGames": 1
+    },
+    {
+      "date": "2026-05-22",
+      "accuracy": 0.0,
+      "totalGames": 1,
+      "correctGames": 0
+    },
+    {
+      "date": "2026-05-23",
+      "accuracy": 0.0,
+      "totalGames": 1,
+      "correctGames": 0
+    },
+    {
+      "date": "2026-05-24",
+      "accuracy": 1.0,
+      "totalGames": 1,
+      "correctGames": 1
+    },
+    {
+      "date": "2026-05-25",
+      "accuracy": 0.0,
+      "totalGames": 1,
+      "correctGames": 0
+    },
+    {
+      "date": "2026-05-26",
+      "accuracy": 1.0,
+      "totalGames": 1,
+      "correctGames": 1
     }
   ],
   "accuracy_threshold_stats": [
@@ -1188,8 +1230,8 @@
       "label": "> 0.60",
       "thresholdType": "gt",
       "threshold": 0.6,
-      "accuracy": 0.7005649717514124,
-      "sampleSize": 531
+      "accuracy": 0.700374531835206,
+      "sampleSize": 534
     },
     {
       "label": "<= 0.40",
@@ -1200,32 +1242,32 @@
     }
   ],
   "calibration_metrics": {
-    "asOfDate": "2026-05-19",
-    "brierBefore": 0.20503501558577908,
-    "brierAfter": 0.20503501558577908,
-    "logLossBefore": 0.5974498293340695,
-    "logLossAfter": 0.5974498293340695,
+    "asOfDate": "2026-05-26",
+    "brierBefore": 0.20511516319403122,
+    "brierAfter": 0.20511516319403122,
+    "logLossBefore": 0.5977491375714052,
+    "logLossAfter": 0.5977491375714052,
     "fittedGames": 300,
-    "ece": 0.065955153683112,
-    "calibrationSlope": 1.4277814978665797,
-    "calibrationIntercept": -0.017063670948446023,
-    "avgPredictedProb": 0.5672319134720273,
-    "baseRate": 0.5866666666666667,
-    "actualWinPct": 0.5866666666666667,
+    "ece": 0.0655015672262245,
+    "calibrationSlope": 1.4569486394384963,
+    "calibrationIntercept": -0.057198090963664225,
+    "avgPredictedProb": 0.5695909940729216,
+    "baseRate": 0.5833333333333334,
+    "actualWinPct": 0.5833333333333334,
     "windowSize": 300
   },
   "calibration_quality": {
-    "ece": 0.065955153683112,
-    "calibrationSlope": 1.4277814978665797,
-    "calibrationIntercept": -0.017063670948446023
+    "ece": 0.0655015672262245,
+    "calibrationSlope": 1.4569486394384963,
+    "calibrationIntercept": -0.057198090963664225
   },
   "home_win_rate_threshold": 0.55,
   "home_win_rate_shown_count": 8,
   "strategy_filter_stats": {
     "window_size": 300,
     "matched_games_count": 0,
-    "window_start": "2026-03-15",
-    "window_end": "2026-05-19",
+    "window_start": "2026-03-16",
+    "window_end": "2026-05-26",
     "filters": [
       {
         "label": "Home win rate min",
@@ -1233,7 +1275,7 @@
       },
       {
         "label": "Odds min",
-        "value": 1.4
+        "value": 1.1
       },
       {
         "label": "Odds max",
@@ -1270,7 +1312,7 @@
       "net_pl": 0.0,
       "bankroll": 1000.0
     },
-    "asOfDate": "2026-05-19"
+    "asOfDate": "2026-05-26"
   },
   "bankroll_history": [],
   "local_matched_games_rows": [],
@@ -1304,9 +1346,9 @@
     },
     {
       "team": "SAS",
-      "homeWinRate": 1.0,
+      "homeWinRate": 0.6666666666666666,
       "homeWins": 2,
-      "homeGames": 2,
+      "homeGames": 3,
       "windowGames": 20
     },
     {
@@ -1317,31 +1359,17 @@
       "windowGames": 20
     },
     {
-      "team": "CLE",
-      "homeWinRate": 0.6666666666666666,
-      "homeWins": 2,
-      "homeGames": 3,
-      "windowGames": 20
-    },
-    {
-      "team": "DET",
-      "homeWinRate": 0.3333333333333333,
-      "homeWins": 1,
-      "homeGames": 3,
-      "windowGames": 20
-    },
-    {
       "team": "MIN",
-      "homeWinRate": 0.3333333333333333,
+      "homeWinRate": 0.5,
       "homeWins": 1,
-      "homeGames": 3,
+      "homeGames": 2,
       "windowGames": 20
     },
     {
-      "team": "PHI",
-      "homeWinRate": 0.0,
-      "homeWins": 0,
-      "homeGames": 2,
+      "team": "CLE",
+      "homeWinRate": 0.4,
+      "homeWins": 2,
+      "homeGames": 5,
       "windowGames": 20
     },
     {
@@ -1349,6 +1377,20 @@
       "homeWinRate": 0.0,
       "homeWins": 0,
       "homeGames": 2,
+      "windowGames": 20
+    },
+    {
+      "team": "DET",
+      "homeWinRate": 0.0,
+      "homeWins": 0,
+      "homeGames": 2,
+      "windowGames": 20
+    },
+    {
+      "team": "PHI",
+      "homeWinRate": 0.0,
+      "homeWins": 0,
+      "homeGames": 1,
       "windowGames": 20
     }
   ],
@@ -1361,13 +1403,6 @@
       "homeWinRate": 0.9166666666666666
     },
     {
-      "team": "CLE",
-      "totalLast20Games": 20,
-      "totalHomeGames": 10,
-      "homeWins": 9,
-      "homeWinRate": 0.9
-    },
-    {
       "team": "TOR",
       "totalLast20Games": 20,
       "totalHomeGames": 9,
@@ -1375,18 +1410,18 @@
       "homeWinRate": 0.8888888888888888
     },
     {
-      "team": "OKC",
+      "team": "NYK",
       "totalLast20Games": 20,
       "totalHomeGames": 11,
       "homeWins": 9,
       "homeWinRate": 0.8181818181818182
     },
     {
-      "team": "NYK",
+      "team": "OKC",
       "totalLast20Games": 20,
-      "totalHomeGames": 10,
-      "homeWins": 8,
-      "homeWinRate": 0.8
+      "totalHomeGames": 11,
+      "homeWins": 9,
+      "homeWinRate": 0.8181818181818182
     },
     {
       "team": "ORL",
@@ -1410,14 +1445,14 @@
       "homeWinRate": 0.7272727272727273
     },
     {
-      "team": "DET",
+      "team": "CLE",
       "totalLast20Games": 20,
       "totalHomeGames": 10,
       "homeWins": 7,
       "homeWinRate": 0.7
     },
     {
-      "team": "SAS",
+      "team": "DET",
       "totalLast20Games": 20,
       "totalHomeGames": 10,
       "homeWins": 7,
@@ -1453,6 +1488,13 @@
     },
     {
       "team": "LAL",
+      "totalLast20Games": 20,
+      "totalHomeGames": 11,
+      "homeWins": 7,
+      "homeWinRate": 0.6363636363636364
+    },
+    {
+      "team": "SAS",
       "totalLast20Games": 20,
       "totalHomeGames": 11,
       "homeWins": 7,

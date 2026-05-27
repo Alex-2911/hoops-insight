@@ -1,31 +1,33 @@
 {
-  "last_run": "2026-05-20T16:09:44Z",
-  "as_of_date": "2026-05-19",
+  "last_run": "2026-05-27T16:32:15Z",
+  "as_of_date": "2026-05-26",
   "records": {
-    "played_games": 1304,
+    "played_games": 1311,
     "strategy_subset_rows": 0,
     "settled_bets_2026": 0
   },
-  "lastUpdateUtc": "2026-05-20T16:09:44Z",
-  "asOfDate": "2026-05-19",
-  "snapshotAsOfDate": "2026-05-19",
-  "windowStart": "2026-03-15",
-  "windowEnd": "2026-05-19",
-  "dataConsistencyStatus": "ok",
-  "dataConsistencyIssues": [],
+  "lastUpdateUtc": "2026-05-27T16:32:15Z",
+  "asOfDate": "2026-05-26",
+  "snapshotAsOfDate": "2026-05-26",
+  "windowStart": "2026-03-16",
+  "windowEnd": "2026-05-26",
+  "dataConsistencyStatus": "out_of_sync",
+  "dataConsistencyIssues": [
+    "bet_log appears stale versus snapshot (21 days behind: 2026-05-05 vs 2026-05-26)"
+  ],
   "dataWarnings": [],
   "sources": {
-    "combined": "combined_nba_predictions_acc_2026-05-20.csv",
+    "combined": "combined_nba_predictions_acc_2026-05-27.csv",
     "local_matched": "local_matched_games_latest.csv",
     "bet_log_flat": "bet_log_flat_live.csv",
     "strategy_params": "strategy_params.txt",
     "metrics_snapshot": "metrics_snapshot.json"
   },
   "selection": {
-    "snapshot_as_of_date": "2026-05-19",
-    "run_date": "2026-05-20",
-    "combined_source_file": "combined_nba_predictions_acc_2026-05-20.csv",
-    "local_matched_source_file": "local_matched_games_2026-05-19.csv",
+    "snapshot_as_of_date": "2026-05-26",
+    "run_date": "2026-05-27",
+    "combined_source_file": "combined_nba_predictions_acc_2026-05-27.csv",
+    "local_matched_source_file": "local_matched_games_2026-05-26.csv",
     "bet_log_source_file": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/bet_log_flat_live.csv",
     "bet_log_source_type": "lightgbm_live",
     "bet_log_latest_date_in_file": "2026-05-05",
@@ -38,8 +40,8 @@
     "params_source_type": "strategy_params",
     "params_used": "from_file",
     "fallback_used": true,
-    "fallback_reason": "combined_iso_missing_used_acc; used_undated_strategy_params; used_undated_metrics_snapshot; combined_acc_filename_newer_than_latest_settled_row; bet_log_lags_snapshot",
+    "fallback_reason": "used_undated_strategy_params; used_undated_metrics_snapshot; combined_acc_filename_newer_than_latest_settled_row; combined_acc_used; bet_log_lags_snapshot",
     "snapshot_fallback_used": true,
-    "snapshot_fallback_reason": "combined_iso_missing_used_acc; used_undated_strategy_params; used_undated_metrics_snapshot; combined_acc_filename_newer_than_latest_settled_row; bet_log_lags_snapshot"
+    "snapshot_fallback_reason": "used_undated_strategy_params; used_undated_metrics_snapshot; combined_acc_filename_newer_than_latest_settled_row; combined_acc_used; bet_log_lags_snapshot"
   }
 }

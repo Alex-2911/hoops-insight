@@ -1,22 +1,22 @@
 {
-  "as_of_date": "2026-05-19",
+  "as_of_date": "2026-05-26",
   "window": {
     "size": 300,
-    "start": "2026-03-15",
-    "end": "2026-05-19",
+    "start": "2026-03-16",
+    "end": "2026-05-26",
     "games_count": 300
   },
-  "active_filters_effective": "HW ≥ 0.55 | odds 1.40–2.60 | p ≥ 0.50 | EV ≥ 0",
+  "active_filters_effective": "HW ≥ 0.55 | odds 1.10–2.60 | p ≥ 0.50 | EV ≥ 0",
   "summary": {
-    "last_run": "2026-05-20T16:09:44Z",
-    "as_of_date": "2026-05-19",
+    "last_run": "2026-05-27T16:32:15Z",
+    "as_of_date": "2026-05-26",
     "summary_stats": {
       "total_games": 300,
       "overall_accuracy": 0.66,
-      "as_of_date": "2026-05-19"
+      "as_of_date": "2026-05-26"
     },
-    "active_filters": "HW ≥ 0.55 | odds 1.40–2.60 | p ≥ 0.50 | EV ≥ 0 | window 300 (2026-03-15 → 2026-05-19)",
-    "active_filters_human": "HW ≥ 0.55 | odds 1.40–2.60 | p ≥ 0.50 | EV ≥ 0",
+    "active_filters": "HW ≥ 0.55 | odds 1.10–2.60 | p ≥ 0.50 | EV ≥ 0 | window 300 (2026-03-16 → 2026-05-26)",
+    "active_filters_human": "HW ≥ 0.55 | odds 1.10–2.60 | p ≥ 0.50 | EV ≥ 0",
     "params_used_type": "strategy_params",
     "ytd_source": "bet_log_flat_live.csv",
     "ytd_note": "Based on settled rows from bet_log_flat_live.csv trimmed to snapshot date.",
@@ -28,8 +28,8 @@
     },
     "strategy_subset_in_window": {
       "count": 0,
-      "window_start": "2026-03-15",
-      "window_end": "2026-05-19",
+      "window_start": "2026-03-16",
+      "window_end": "2026-05-26",
       "note": "Rows reflect strategy-subset simulated local matched games in the active window."
     },
     "bankroll": {
@@ -63,13 +63,13 @@
       "strategy_max_drawdown_pct": null
     },
     "source": {
-      "combined_file": "combined_nba_predictions_acc_2026-05-20.csv",
+      "combined_file": "combined_nba_predictions_acc_2026-05-27.csv",
       "local_matched_file": "local_matched_games_latest.csv",
       "bet_log_file": "bet_log_flat_live.csv",
       "strategy_params_file": "strategy_params.txt",
       "metrics_snapshot_file": "metrics_snapshot.json"
     },
-    "asOfDate": "2026-05-19",
+    "asOfDate": "2026-05-26",
     "windowSize": 300,
     "model": {
       "historical": [
@@ -1254,6 +1254,48 @@
           "accuracy": 1.0,
           "totalGames": 1,
           "correctGames": 1
+        },
+        {
+          "date": "2026-05-20",
+          "accuracy": 1.0,
+          "totalGames": 1,
+          "correctGames": 1
+        },
+        {
+          "date": "2026-05-21",
+          "accuracy": 1.0,
+          "totalGames": 1,
+          "correctGames": 1
+        },
+        {
+          "date": "2026-05-22",
+          "accuracy": 0.0,
+          "totalGames": 1,
+          "correctGames": 0
+        },
+        {
+          "date": "2026-05-23",
+          "accuracy": 0.0,
+          "totalGames": 1,
+          "correctGames": 0
+        },
+        {
+          "date": "2026-05-24",
+          "accuracy": 1.0,
+          "totalGames": 1,
+          "correctGames": 1
+        },
+        {
+          "date": "2026-05-25",
+          "accuracy": 0.0,
+          "totalGames": 1,
+          "correctGames": 0
+        },
+        {
+          "date": "2026-05-26",
+          "accuracy": 1.0,
+          "totalGames": 1,
+          "correctGames": 1
         }
       ],
       "thresholds": [
@@ -1261,8 +1303,8 @@
           "label": "> 0.60",
           "thresholdType": "gt",
           "threshold": 0.6,
-          "accuracy": 0.7005649717514124,
-          "sampleSize": 531
+          "accuracy": 0.700374531835206,
+          "sampleSize": 534
         },
         {
           "label": "<= 0.40",
@@ -1273,18 +1315,18 @@
         }
       ],
       "calibration": {
-        "asOfDate": "2026-05-19",
-        "brierBefore": 0.20503501558577908,
-        "brierAfter": 0.20503501558577908,
-        "logLossBefore": 0.5974498293340695,
-        "logLossAfter": 0.5974498293340695,
+        "asOfDate": "2026-05-26",
+        "brierBefore": 0.20511516319403122,
+        "brierAfter": 0.20511516319403122,
+        "logLossBefore": 0.5977491375714052,
+        "logLossAfter": 0.5977491375714052,
         "fittedGames": 300,
-        "ece": 0.065955153683112,
-        "calibrationSlope": 1.4277814978665797,
-        "calibrationIntercept": -0.017063670948446023,
-        "avgPredictedProb": 0.5672319134720273,
-        "baseRate": 0.5866666666666667,
-        "actualWinPct": 0.5866666666666667,
+        "ece": 0.0655015672262245,
+        "calibrationSlope": 1.4569486394384963,
+        "calibrationIntercept": -0.057198090963664225,
+        "avgPredictedProb": 0.5695909940729216,
+        "baseRate": 0.5833333333333334,
+        "actualWinPct": 0.5833333333333334,
         "windowSize": 300
       },
       "homeWinRatesLast20": [
@@ -1296,13 +1338,6 @@
           "homeWinRate": 0.9166666666666666
         },
         {
-          "team": "CLE",
-          "totalLast20Games": 20,
-          "totalHomeGames": 10,
-          "homeWins": 9,
-          "homeWinRate": 0.9
-        },
-        {
           "team": "TOR",
           "totalLast20Games": 20,
           "totalHomeGames": 9,
@@ -1310,18 +1345,18 @@
           "homeWinRate": 0.8888888888888888
         },
         {
-          "team": "OKC",
+          "team": "NYK",
           "totalLast20Games": 20,
           "totalHomeGames": 11,
           "homeWins": 9,
           "homeWinRate": 0.8181818181818182
         },
         {
-          "team": "NYK",
+          "team": "OKC",
           "totalLast20Games": 20,
-          "totalHomeGames": 10,
-          "homeWins": 8,
-          "homeWinRate": 0.8
+          "totalHomeGames": 11,
+          "homeWins": 9,
+          "homeWinRate": 0.8181818181818182
         },
         {
           "team": "ORL",
@@ -1345,14 +1380,14 @@
           "homeWinRate": 0.7272727272727273
         },
         {
-          "team": "DET",
+          "team": "CLE",
           "totalLast20Games": 20,
           "totalHomeGames": 10,
           "homeWins": 7,
           "homeWinRate": 0.7
         },
         {
-          "team": "SAS",
+          "team": "DET",
           "totalLast20Games": 20,
           "totalHomeGames": 10,
           "homeWins": 7,
@@ -1388,6 +1423,13 @@
         },
         {
           "team": "LAL",
+          "totalLast20Games": 20,
+          "totalHomeGames": 11,
+          "homeWins": 7,
+          "homeWinRate": 0.6363636363636364
+        },
+        {
+          "team": "SAS",
           "totalLast20Games": 20,
           "totalHomeGames": 11,
           "homeWins": 7,
@@ -1521,7 +1563,7 @@
         "net_pl": 0.0,
         "bankroll": 1000.0
       },
-      "asOfDate": "2026-05-19"
+      "asOfDate": "2026-05-26"
     },
     "betLog": {
       "summary": {
@@ -2721,6 +2763,48 @@
         "accuracy": 1.0,
         "totalGames": 1,
         "correctGames": 1
+      },
+      {
+        "date": "2026-05-20",
+        "accuracy": 1.0,
+        "totalGames": 1,
+        "correctGames": 1
+      },
+      {
+        "date": "2026-05-21",
+        "accuracy": 1.0,
+        "totalGames": 1,
+        "correctGames": 1
+      },
+      {
+        "date": "2026-05-22",
+        "accuracy": 0.0,
+        "totalGames": 1,
+        "correctGames": 0
+      },
+      {
+        "date": "2026-05-23",
+        "accuracy": 0.0,
+        "totalGames": 1,
+        "correctGames": 0
+      },
+      {
+        "date": "2026-05-24",
+        "accuracy": 1.0,
+        "totalGames": 1,
+        "correctGames": 1
+      },
+      {
+        "date": "2026-05-25",
+        "accuracy": 0.0,
+        "totalGames": 1,
+        "correctGames": 0
+      },
+      {
+        "date": "2026-05-26",
+        "accuracy": 1.0,
+        "totalGames": 1,
+        "correctGames": 1
       }
     ],
     "accuracy_threshold_stats": [
@@ -2728,8 +2812,8 @@
         "label": "> 0.60",
         "thresholdType": "gt",
         "threshold": 0.6,
-        "accuracy": 0.7005649717514124,
-        "sampleSize": 531
+        "accuracy": 0.700374531835206,
+        "sampleSize": 534
       },
       {
         "label": "<= 0.40",
@@ -2740,32 +2824,32 @@
       }
     ],
     "calibration_metrics": {
-      "asOfDate": "2026-05-19",
-      "brierBefore": 0.20503501558577908,
-      "brierAfter": 0.20503501558577908,
-      "logLossBefore": 0.5974498293340695,
-      "logLossAfter": 0.5974498293340695,
+      "asOfDate": "2026-05-26",
+      "brierBefore": 0.20511516319403122,
+      "brierAfter": 0.20511516319403122,
+      "logLossBefore": 0.5977491375714052,
+      "logLossAfter": 0.5977491375714052,
       "fittedGames": 300,
-      "ece": 0.065955153683112,
-      "calibrationSlope": 1.4277814978665797,
-      "calibrationIntercept": -0.017063670948446023,
-      "avgPredictedProb": 0.5672319134720273,
-      "baseRate": 0.5866666666666667,
-      "actualWinPct": 0.5866666666666667,
+      "ece": 0.0655015672262245,
+      "calibrationSlope": 1.4569486394384963,
+      "calibrationIntercept": -0.057198090963664225,
+      "avgPredictedProb": 0.5695909940729216,
+      "baseRate": 0.5833333333333334,
+      "actualWinPct": 0.5833333333333334,
       "windowSize": 300
     },
     "calibration_quality": {
-      "ece": 0.065955153683112,
-      "calibrationSlope": 1.4277814978665797,
-      "calibrationIntercept": -0.017063670948446023
+      "ece": 0.0655015672262245,
+      "calibrationSlope": 1.4569486394384963,
+      "calibrationIntercept": -0.057198090963664225
     },
     "home_win_rate_threshold": 0.55,
     "home_win_rate_shown_count": 8,
     "strategy_filter_stats": {
       "window_size": 300,
       "matched_games_count": 0,
-      "window_start": "2026-03-15",
-      "window_end": "2026-05-19",
+      "window_start": "2026-03-16",
+      "window_end": "2026-05-26",
       "filters": [
         {
           "label": "Home win rate min",
@@ -2773,7 +2857,7 @@
         },
         {
           "label": "Odds min",
-          "value": 1.4
+          "value": 1.1
         },
         {
           "label": "Odds max",
@@ -2810,7 +2894,7 @@
         "net_pl": 0.0,
         "bankroll": 1000.0
       },
-      "asOfDate": "2026-05-19"
+      "asOfDate": "2026-05-26"
     },
     "bankroll_history": [],
     "local_matched_games_rows": [],
@@ -2844,9 +2928,9 @@
       },
       {
         "team": "SAS",
-        "homeWinRate": 1.0,
+        "homeWinRate": 0.6666666666666666,
         "homeWins": 2,
-        "homeGames": 2,
+        "homeGames": 3,
         "windowGames": 20
       },
       {
@@ -2857,31 +2941,17 @@
         "windowGames": 20
       },
       {
-        "team": "CLE",
-        "homeWinRate": 0.6666666666666666,
-        "homeWins": 2,
-        "homeGames": 3,
-        "windowGames": 20
-      },
-      {
-        "team": "DET",
-        "homeWinRate": 0.3333333333333333,
-        "homeWins": 1,
-        "homeGames": 3,
-        "windowGames": 20
-      },
-      {
         "team": "MIN",
-        "homeWinRate": 0.3333333333333333,
+        "homeWinRate": 0.5,
         "homeWins": 1,
-        "homeGames": 3,
+        "homeGames": 2,
         "windowGames": 20
       },
       {
-        "team": "PHI",
-        "homeWinRate": 0.0,
-        "homeWins": 0,
-        "homeGames": 2,
+        "team": "CLE",
+        "homeWinRate": 0.4,
+        "homeWins": 2,
+        "homeGames": 5,
         "windowGames": 20
       },
       {
@@ -2889,6 +2959,20 @@
         "homeWinRate": 0.0,
         "homeWins": 0,
         "homeGames": 2,
+        "windowGames": 20
+      },
+      {
+        "team": "DET",
+        "homeWinRate": 0.0,
+        "homeWins": 0,
+        "homeGames": 2,
+        "windowGames": 20
+      },
+      {
+        "team": "PHI",
+        "homeWinRate": 0.0,
+        "homeWins": 0,
+        "homeGames": 1,
         "windowGames": 20
       }
     ],
@@ -2901,13 +2985,6 @@
         "homeWinRate": 0.9166666666666666
       },
       {
-        "team": "CLE",
-        "totalLast20Games": 20,
-        "totalHomeGames": 10,
-        "homeWins": 9,
-        "homeWinRate": 0.9
-      },
-      {
         "team": "TOR",
         "totalLast20Games": 20,
         "totalHomeGames": 9,
@@ -2915,18 +2992,18 @@
         "homeWinRate": 0.8888888888888888
       },
       {
-        "team": "OKC",
+        "team": "NYK",
         "totalLast20Games": 20,
         "totalHomeGames": 11,
         "homeWins": 9,
         "homeWinRate": 0.8181818181818182
       },
       {
-        "team": "NYK",
+        "team": "OKC",
         "totalLast20Games": 20,
-        "totalHomeGames": 10,
-        "homeWins": 8,
-        "homeWinRate": 0.8
+        "totalHomeGames": 11,
+        "homeWins": 9,
+        "homeWinRate": 0.8181818181818182
       },
       {
         "team": "ORL",
@@ -2950,14 +3027,14 @@
         "homeWinRate": 0.7272727272727273
       },
       {
-        "team": "DET",
+        "team": "CLE",
         "totalLast20Games": 20,
         "totalHomeGames": 10,
         "homeWins": 7,
         "homeWinRate": 0.7
       },
       {
-        "team": "SAS",
+        "team": "DET",
         "totalLast20Games": 20,
         "totalHomeGames": 10,
         "homeWins": 7,
@@ -2993,6 +3070,13 @@
       },
       {
         "team": "LAL",
+        "totalLast20Games": 20,
+        "totalHomeGames": 11,
+        "homeWins": 7,
+        "homeWinRate": 0.6363636363636364
+      },
+      {
+        "team": "SAS",
         "totalLast20Games": 20,
         "totalHomeGames": 11,
         "homeWins": 7,
@@ -3106,16 +3190,16 @@
     ]
   },
   "state": {
-    "as_of_date": "2026-05-19",
-    "snapshot_as_of_date": "2026-05-19",
+    "as_of_date": "2026-05-26",
+    "snapshot_as_of_date": "2026-05-26",
     "window_size": 300,
-    "window_start": "2026-03-15",
-    "window_end": "2026-05-19",
-    "active_filters_text": "HW ≥ 0.55 | odds 1.40–2.60 | p ≥ 0.50 | EV ≥ 0 | window 300 (2026-03-15 → 2026-05-19)",
+    "window_start": "2026-03-16",
+    "window_end": "2026-05-26",
+    "active_filters_text": "HW ≥ 0.55 | odds 1.10–2.60 | p ≥ 0.50 | EV ≥ 0 | window 300 (2026-03-16 → 2026-05-26)",
     "params_used_label": "v1",
     "active_params": {
       "home_win_rate_min": 0.55,
-      "odds_min": 1.4,
+      "odds_min": 1.1,
       "odds_max": 2.6,
       "prob_threshold": 0.5,
       "min_ev": 0.0,
@@ -3126,14 +3210,16 @@
     "strategy_params_parse_error": null,
     "defaults_used": false,
     "defaults_reason": null,
-    "strategy_as_of_date": "2026-05-19",
+    "strategy_as_of_date": "2026-05-26",
     "strategy_matches_window": 0,
     "local_matched_schema_valid": true,
     "local_matched_parse_error": null,
-    "data_consistency_status": "ok",
-    "data_consistency_issues": [],
+    "data_consistency_status": "out_of_sync",
+    "data_consistency_issues": [
+      "bet_log appears stale versus snapshot (21 days behind: 2026-05-05 vs 2026-05-26)"
+    ],
     "data_warnings": [],
-    "combined_source_file": "combined_nba_predictions_acc_2026-05-20.csv",
+    "combined_source_file": "combined_nba_predictions_acc_2026-05-27.csv",
     "local_matched_source_file": "local_matched_games_latest.csv",
     "bet_log_source_file": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/bet_log_flat_live.csv",
     "bet_log_source_type": "lightgbm_live",
@@ -3141,29 +3227,29 @@
     "bet_log_trimmed_to_snapshot": false,
     "strategy_params_source_file": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/strategy_params.txt",
     "metrics_snapshot_source_file": "metrics_snapshot.json",
-    "run_date": "2026-05-20",
+    "run_date": "2026-05-27",
     "strategy_params_source_type": "file",
     "strategy_params_parsed_ok": true,
     "params_source_file": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/strategy_params.txt",
     "params_source_type": "strategy_params",
     "params_used": "from_file",
     "fallback_used": true,
-    "fallback_reason": "combined_iso_missing_used_acc; used_undated_strategy_params; used_undated_metrics_snapshot; combined_acc_filename_newer_than_latest_settled_row; bet_log_lags_snapshot",
+    "fallback_reason": "used_undated_strategy_params; used_undated_metrics_snapshot; combined_acc_filename_newer_than_latest_settled_row; combined_acc_used; bet_log_lags_snapshot",
     "snapshot_fallback_used": true,
-    "snapshot_fallback_reason": "combined_iso_missing_used_acc; used_undated_strategy_params; used_undated_metrics_snapshot; combined_acc_filename_newer_than_latest_settled_row; bet_log_lags_snapshot",
-    "last_update_utc": "2026-05-20T16:09:44Z",
+    "snapshot_fallback_reason": "used_undated_strategy_params; used_undated_metrics_snapshot; combined_acc_filename_newer_than_latest_settled_row; combined_acc_used; bet_log_lags_snapshot",
+    "last_update_utc": "2026-05-27T16:32:15Z",
     "sources": {
-      "combined": "combined_nba_predictions_acc_2026-05-20.csv",
+      "combined": "combined_nba_predictions_acc_2026-05-27.csv",
       "local_matched": "local_matched_games_latest.csv",
       "bet_log": "bet_log_flat_live.csv"
     }
   },
   "sources": {
-    "combined_file": "combined_nba_predictions_acc_2026-05-20.csv",
+    "combined_file": "combined_nba_predictions_acc_2026-05-27.csv",
     "local_matched_games": "local_matched_games_latest.csv",
     "bet_log_flat": "bet_log_flat_live.csv",
     "copied": {
-      "combined": "sources/combined_nba_predictions_acc_2026-05-20.csv",
+      "combined": "sources/combined_nba_predictions_acc_2026-05-27.csv",
       "local_matched": "sources/local_matched_games_latest.csv",
       "strategy_params": "sources/strategy_params.txt",
       "bet_log_flat": "sources/bet_log_flat_live.csv"
