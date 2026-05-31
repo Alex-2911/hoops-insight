@@ -1,5 +1,5 @@
 {
-  "as_of_date": "2026-05-26",
+  "as_of_date": "2026-05-30",
   "source": {
     "combined_dir": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM",
     "bet_log_file": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/bet_log_flat_live.csv",
@@ -8,37 +8,37 @@
     "pregame_snapshot_rows_found": 0,
     "pregame_snapshot_rows_matched": 0,
     "script11_watchlist_history_scope": "script11_watchlist_history_latest.csv / script11_watchlist_history_YYYY-MM-DD.csv / script11_watchlist_history.csv",
-    "script11_rows_found": 37,
-    "script11_rows_matched": 36
+    "script11_rows_found": 39,
+    "script11_rows_matched": 38
   },
   "counts": {
-    "settled_games": 1311,
-    "model_correct": 832,
+    "settled_games": 1313,
+    "model_correct": 833,
     "strategy_qualified": 12,
     "canonical_model_bets": 12,
-    "legacy_strategy_qualified": 321,
+    "legacy_strategy_qualified": 322,
     "user_bets": 38,
     "user_bets_settled": 0,
     "aligned_bets": 0,
     "discretionary_bets": 0,
     "model_bets_not_played": 11,
     "user_bets_outside_model": 37,
-    "user_correctly_skipped_watch_only": 12,
+    "user_correctly_skipped_watch_only": 13,
     "pregame_snapshot_rows_found": 0,
     "pregame_snapshot_rows_matched": 0,
-    "script11_rows_found": 37,
-    "script11_rows_matched": 36,
+    "script11_rows_found": 39,
+    "script11_rows_matched": 38,
     "decision_bucket_counts": {
       "NO_BET_OTHER": 1276,
-      "WATCH_ONLY_3_OF_4": 17,
+      "WATCH_ONLY_3_OF_4": 18,
       "MODEL_BET_4_OF_4": 12,
-      "NO_BET_EV_FAIL": 5,
+      "NO_BET_EV_FAIL": 6,
       "NO_BET_MODEL_MARKET_GAP": 1
     }
   },
   "roi": {
-    "model_simulated_pnl_flat_100": -572.0,
-    "model_simulated_roi_pct_flat_100": -0.43630816170861936,
+    "model_simulated_pnl_flat_100": -610.0,
+    "model_simulated_roi_pct_flat_100": -0.4645849200304646,
     "user_bets_pnl": null,
     "user_bets_roi_pct": null,
     "aligned_bets_pnl": null,
@@ -47,7 +47,7 @@
     "discretionary_bets_roi_pct": null
   },
   "rates": {
-    "model_accuracy": 0.6346300533943554,
+    "model_accuracy": 0.6344249809596344,
     "user_bet_win_rate": null,
     "aligned_bet_win_rate": null,
     "discretionary_bet_win_rate": null

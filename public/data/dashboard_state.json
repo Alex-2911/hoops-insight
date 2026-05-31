@@ -1,10 +1,10 @@
 {
-  "as_of_date": "2026-05-26",
-  "snapshot_as_of_date": "2026-05-26",
+  "as_of_date": "2026-05-30",
+  "snapshot_as_of_date": "2026-05-30",
   "window_size": 300,
   "window_start": "2026-03-16",
-  "window_end": "2026-05-26",
-  "active_filters_text": "HW ≥ 0.55 | odds 1.10–2.60 | p ≥ 0.50 | EV ≥ 0 | window 300 (2026-03-16 → 2026-05-26)",
+  "window_end": "2026-05-30",
+  "active_filters_text": "HW ≥ 0.55 | odds 1.10–2.60 | p ≥ 0.50 | EV ≥ 0 | window 300 (2026-03-16 → 2026-05-30)",
   "params_used_label": "v1",
   "active_params": {
     "home_win_rate_min": 0.55,
@@ -19,16 +19,16 @@
   "strategy_params_parse_error": null,
   "defaults_used": false,
   "defaults_reason": null,
-  "strategy_as_of_date": "2026-05-26",
+  "strategy_as_of_date": "2026-05-30",
   "strategy_matches_window": 0,
   "local_matched_schema_valid": true,
   "local_matched_parse_error": null,
   "data_consistency_status": "out_of_sync",
   "data_consistency_issues": [
-    "bet_log appears stale versus snapshot (21 days behind: 2026-05-05 vs 2026-05-26)"
+    "bet_log appears stale versus snapshot (25 days behind: 2026-05-05 vs 2026-05-30)"
   ],
   "data_warnings": [],
-  "combined_source_file": "combined_nba_predictions_acc_2026-05-27.csv",
+  "combined_source_file": "combined_nba_predictions_acc_2026-05-31.csv",
   "local_matched_source_file": "local_matched_games_latest.csv",
   "bet_log_source_file": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/bet_log_flat_live.csv",
   "bet_log_source_type": "lightgbm_live",
@@ -36,7 +36,7 @@
   "bet_log_trimmed_to_snapshot": false,
   "strategy_params_source_file": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/strategy_params.txt",
   "metrics_snapshot_source_file": "metrics_snapshot.json",
-  "run_date": "2026-05-27",
+  "run_date": "2026-05-31",
   "strategy_params_source_type": "file",
   "strategy_params_parsed_ok": true,
   "params_source_file": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/strategy_params.txt",
@@ -46,9 +46,9 @@
   "fallback_reason": "used_undated_strategy_params; used_undated_metrics_snapshot; combined_acc_filename_newer_than_latest_settled_row; combined_acc_used; bet_log_lags_snapshot",
   "snapshot_fallback_used": true,
   "snapshot_fallback_reason": "used_undated_strategy_params; used_undated_metrics_snapshot; combined_acc_filename_newer_than_latest_settled_row; combined_acc_used; bet_log_lags_snapshot",
-  "last_update_utc": "2026-05-27T16:32:15Z",
+  "last_update_utc": "2026-05-31T16:28:56Z",
   "sources": {
-    "combined": "combined_nba_predictions_acc_2026-05-27.csv",
+    "combined": "combined_nba_predictions_acc_2026-05-31.csv",
     "local_matched": "local_matched_games_latest.csv",
     "bet_log": "bet_log_flat_live.csv"
   }
