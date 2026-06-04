@@ -191,6 +191,63 @@ jobs:
           set -euo pipefail
           python scripts/generate_dashboard_data.py --source-root "$GITHUB_WORKSPACE/Basketball_prediction/2026"
 
+      - name: Guard Play Today slate freshness
+        if: ${{ github.event_name == 'repository_dispatch' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.use_committed_public_data == false) }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          prediction_dir = Path("Basketball_prediction/2026/output/LightGBM")
+          daily_files = sorted(prediction_dir.glob("nba_games_predict_*.csv"))
+          if not daily_files:
+              raise SystemExit("ERROR: no daily prediction files found.")
+
+          latest_match = re.search(r"(\d{4}-\d{2}-\d{2})", daily_files[-1].name)
+          if latest_match is None:
+              raise SystemExit(f"ERROR: could not parse date from {daily_files[-1].name}")
+
+          latest_daily_date = latest_match.group(1)
+          today_games = json.loads(Path("public/data/today_games.json").read_text(encoding="utf-8"))
+          dashboard_date = today_games.get("as_of_date")
+          if dashboard_date != latest_daily_date:
+              raise SystemExit(
+                  "ERROR: stale Play Today slate: "
+                  f"dashboard={dashboard_date!r}, latest_daily={latest_daily_date!r}"
+              )
+          print(f"OK: Play Today slate is fresh ({dashboard_date}).")
+          PY
+
+      - name: Sync betting-agent optional artifacts
+        if: ${{ github.event_name == 'repository_dispatch' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.use_committed_public_data == false) }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/Basketball_prediction/2026/output/LightGBM"
+          DATA="$GITHUB_WORKSPACE/public/data"
+          mkdir -p "$DATA"
+
+          copy_optional() {
+            local source="$1"
+            local target="$2"
+            if [[ -f "$source" ]]; then
+              cp "$source" "$target"
+              echo "Copied optional artifact: $target"
+            else
+              echo "::notice::Optional artifact missing: $source"
+            fi
+          }
+
+          copy_optional "$ROOT/betting_agent_stage1/stage1_daily_snapshot_latest.csv" "$DATA/stage1_daily_snapshot_latest.csv"
+          copy_optional "$ROOT/betting_agent_stage1/stage1_daily_snapshot_latest.json" "$DATA/stage1_daily_snapshot_latest.json"
+          copy_optional "$ROOT/setup_profitability_scan_latest.csv" "$DATA/setup_profitability_scan_latest.csv"
+          copy_optional "$ROOT/setup_profitability_scan_summary_latest.json" "$DATA/setup_profitability_scan_latest.json"
+          copy_optional "$ROOT/script11_watchlist_history_latest.csv" "$DATA/script11_watchlist_history_latest.csv"
+          copy_optional "$ROOT/script11_watchlist_history_summary_latest.json" "$DATA/script11_watchlist_history_latest.json"
+
       - name: Prepare dashboard data files
         shell: bash
         run: |
@@ -298,7 +355,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          npm ci
+          npm install --no-audit --no-fund
           npm run build -- --base="$BASE_URL"
           cp dist/index.html dist/404.html
           echo "✔ Dashboard build finished."
