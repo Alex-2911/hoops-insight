@@ -113,7 +113,7 @@ jobs:
           exit 1
 
       - name: Checkout Basketball_prediction repo (branch 2026)
-        if: ${{ github.event_name == 'repository_dispatch' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.use_committed_public_data == false) }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.use_committed_public_data == false }}
         uses: actions/checkout@v4
         with:
           repository: ${{ env.BP_OWNER }}/${{ env.BP_REPO }}
@@ -123,7 +123,7 @@ jobs:
           token: ${{ secrets.BP_TOKEN }}
 
       - name: Verify Basketball_prediction repo is fresh
-        if: ${{ github.event_name == 'repository_dispatch' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.use_committed_public_data == false) }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.use_committed_public_data == false }}
         shell: bash
         run: |
           set -euo pipefail
@@ -133,7 +133,7 @@ jobs:
           git -C Basketball_prediction log -1 --oneline
 
       - name: Copy custom predictions (optional)
-        if: ${{ github.event_name == 'repository_dispatch' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.use_committed_public_data == false) }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.use_committed_public_data == false }}
         shell: bash
         run: |
           set -euo pipefail
@@ -150,7 +150,7 @@ jobs:
           fi
 
       - name: Verify required Basketball_prediction output directories exist
-        if: ${{ github.event_name == 'repository_dispatch' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.use_committed_public_data == false) }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.use_committed_public_data == false }}
         shell: bash
         run: |
           set -euo pipefail
@@ -178,21 +178,21 @@ jobs:
           fi
 
       - name: Materialize dated snapshot artifacts and list availability
-        if: ${{ github.event_name == 'repository_dispatch' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.use_committed_public_data == false) }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.use_committed_public_data == false }}
         shell: bash
         run: |
           set -euo pipefail
           python scripts/ensure_historical_snapshot_artifacts.py --source-root "$GITHUB_WORKSPACE/Basketball_prediction/2026"
 
       - name: Generate dashboard data via shared snapshot selection
-        if: ${{ github.event_name == 'repository_dispatch' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.use_committed_public_data == false) }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.use_committed_public_data == false }}
         shell: bash
         run: |
           set -euo pipefail
           python scripts/generate_dashboard_data.py --source-root "$GITHUB_WORKSPACE/Basketball_prediction/2026"
 
       - name: Guard Play Today slate freshness
-        if: ${{ github.event_name == 'repository_dispatch' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.use_committed_public_data == false) }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.use_committed_public_data == false }}
         shell: bash
         run: |
           set -euo pipefail
@@ -222,7 +222,7 @@ jobs:
           PY
 
       - name: Sync betting-agent optional artifacts
-        if: ${{ github.event_name == 'repository_dispatch' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.use_committed_public_data == false) }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.use_committed_public_data == false }}
         shell: bash
         run: |
           set -euo pipefail
