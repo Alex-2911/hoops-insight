@@ -1,0 +1,23 @@
+{
+  "run_date": "2026-06-05",
+  "created_utc": "2026-06-05T16:02:18Z",
+  "source": "watchlist",
+  "params_chosen": "NO_BET",
+  "params_compareN": null,
+  "rows_ingested": 1,
+  "rows_total": 96,
+  "unique_game_keys": 40,
+  "stage2_candidate_type_counts": {
+    "LOW_PRICE_NEGATIVE_EV": 40,
+    "NO_VALUE_SKIP": 32,
+    "LIVE_WATCH_ONLY": 16,
+    "RAW_MODEL_MARKET_GAP_HOME_DOG": 6,
+    "CANONICAL_MODEL_SIGNAL": 2
+  },
+  "settled_count": 0,
+  "pending_count": 96,
+  "history_path": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/script11_watchlist_history.csv",
+  "latest_path": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/script11_watchlist_history_latest.csv",
+  "dated_path": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/script11_watchlist_history_2026-06-05.csv",
+  "combined_predictions_path": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/combined_nba_predictions_acc_2026-06-05.csv"
+}

@@ -1,34 +1,100 @@
 {
   "historical_stats": [
     {
+      "date": "2025-10-21",
+      "accuracy": 1.0,
+      "totalGames": 2,
+      "correctGames": 2
+    },
+    {
       "date": "2025-10-22",
-      "accuracy": 1.0,
-      "totalGames": 1,
-      "correctGames": 1
+      "accuracy": 0.5833333333333334,
+      "totalGames": 12,
+      "correctGames": 7
     },
     {
-      "date": "2025-10-27",
-      "accuracy": 1.0,
-      "totalGames": 1,
-      "correctGames": 1
-    },
-    {
-      "date": "2025-10-29",
-      "accuracy": 1.0,
-      "totalGames": 1,
-      "correctGames": 1
-    },
-    {
-      "date": "2025-10-31",
+      "date": "2025-10-23",
       "accuracy": 0.5,
       "totalGames": 2,
       "correctGames": 1
     },
     {
-      "date": "2025-11-04",
+      "date": "2025-10-24",
+      "accuracy": 0.5,
+      "totalGames": 12,
+      "correctGames": 6
+    },
+    {
+      "date": "2025-10-25",
+      "accuracy": 0.8,
+      "totalGames": 5,
+      "correctGames": 4
+    },
+    {
+      "date": "2025-10-26",
+      "accuracy": 0.6666666666666666,
+      "totalGames": 9,
+      "correctGames": 6
+    },
+    {
+      "date": "2025-10-27",
+      "accuracy": 0.6363636363636364,
+      "totalGames": 11,
+      "correctGames": 7
+    },
+    {
+      "date": "2025-10-28",
       "accuracy": 1.0,
-      "totalGames": 1,
-      "correctGames": 1
+      "totalGames": 5,
+      "correctGames": 5
+    },
+    {
+      "date": "2025-10-29",
+      "accuracy": 0.7,
+      "totalGames": 10,
+      "correctGames": 7
+    },
+    {
+      "date": "2025-10-30",
+      "accuracy": 0.75,
+      "totalGames": 4,
+      "correctGames": 3
+    },
+    {
+      "date": "2025-10-31",
+      "accuracy": 0.5,
+      "totalGames": 8,
+      "correctGames": 4
+    },
+    {
+      "date": "2025-11-01",
+      "accuracy": 0.5,
+      "totalGames": 6,
+      "correctGames": 3
+    },
+    {
+      "date": "2025-11-02",
+      "accuracy": 0.875,
+      "totalGames": 8,
+      "correctGames": 7
+    },
+    {
+      "date": "2025-11-03",
+      "accuracy": 0.4444444444444444,
+      "totalGames": 9,
+      "correctGames": 4
+    },
+    {
+      "date": "2025-11-04",
+      "accuracy": 0.6666666666666666,
+      "totalGames": 6,
+      "correctGames": 4
+    },
+    {
+      "date": "2025-11-05",
+      "accuracy": 1.0,
+      "totalGames": 11,
+      "correctGames": 11
     },
     {
       "date": "2025-11-06",
@@ -38,183 +104,195 @@
     },
     {
       "date": "2025-11-07",
-      "accuracy": 0.5,
-      "totalGames": 2,
-      "correctGames": 1
+      "accuracy": 0.6363636363636364,
+      "totalGames": 11,
+      "correctGames": 7
     },
     {
       "date": "2025-11-08",
-      "accuracy": 0.0,
-      "totalGames": 1,
-      "correctGames": 0
+      "accuracy": 0.875,
+      "totalGames": 8,
+      "correctGames": 7
     },
     {
       "date": "2025-11-09",
-      "accuracy": 0.0,
-      "totalGames": 1,
-      "correctGames": 0
+      "accuracy": 0.5714285714285714,
+      "totalGames": 7,
+      "correctGames": 4
     },
     {
       "date": "2025-11-10",
-      "accuracy": 1.0,
-      "totalGames": 1,
-      "correctGames": 1
+      "accuracy": 0.6666666666666666,
+      "totalGames": 9,
+      "correctGames": 6
     },
     {
       "date": "2025-11-11",
-      "accuracy": 1.0,
-      "totalGames": 1,
-      "correctGames": 1
+      "accuracy": 0.6666666666666666,
+      "totalGames": 6,
+      "correctGames": 4
     },
     {
       "date": "2025-11-12",
-      "accuracy": 0.0,
-      "totalGames": 2,
-      "correctGames": 0
+      "accuracy": 0.6666666666666666,
+      "totalGames": 12,
+      "correctGames": 8
     },
     {
       "date": "2025-11-13",
-      "accuracy": 0.0,
-      "totalGames": 1,
-      "correctGames": 0
-    },
-    {
-      "date": "2025-11-14",
-      "accuracy": 1.0,
-      "totalGames": 1,
-      "correctGames": 1
-    },
-    {
-      "date": "2025-11-15",
-      "accuracy": 1.0,
-      "totalGames": 1,
-      "correctGames": 1
-    },
-    {
-      "date": "2025-11-17",
-      "accuracy": 0.5,
-      "totalGames": 2,
-      "correctGames": 1
-    },
-    {
-      "date": "2025-11-18",
-      "accuracy": 0.0,
-      "totalGames": 1,
-      "correctGames": 0
-    },
-    {
-      "date": "2025-11-19",
-      "accuracy": 0.5,
-      "totalGames": 2,
-      "correctGames": 1
-    },
-    {
-      "date": "2025-11-21",
-      "accuracy": 0.5,
-      "totalGames": 2,
-      "correctGames": 1
-    },
-    {
-      "date": "2025-11-22",
-      "accuracy": 0.0,
-      "totalGames": 1,
-      "correctGames": 0
-    },
-    {
-      "date": "2025-11-23",
-      "accuracy": 1.0,
-      "totalGames": 1,
-      "correctGames": 1
-    },
-    {
-      "date": "2025-11-24",
-      "accuracy": 0.0,
-      "totalGames": 2,
-      "correctGames": 0
-    },
-    {
-      "date": "2025-11-25",
-      "accuracy": 0.0,
-      "totalGames": 1,
-      "correctGames": 0
-    },
-    {
-      "date": "2025-11-26",
-      "accuracy": 1.0,
-      "totalGames": 1,
-      "correctGames": 1
-    },
-    {
-      "date": "2025-11-28",
-      "accuracy": 0.3333333333333333,
-      "totalGames": 3,
-      "correctGames": 1
-    },
-    {
-      "date": "2025-11-29",
-      "accuracy": 0.0,
-      "totalGames": 1,
-      "correctGames": 0
-    },
-    {
-      "date": "2025-11-30",
-      "accuracy": 1.0,
-      "totalGames": 2,
-      "correctGames": 2
-    },
-    {
-      "date": "2025-12-01",
-      "accuracy": 0.3333333333333333,
-      "totalGames": 3,
-      "correctGames": 1
-    },
-    {
-      "date": "2025-12-02",
-      "accuracy": 1.0,
-      "totalGames": 1,
-      "correctGames": 1
-    },
-    {
-      "date": "2025-12-03",
-      "accuracy": 0.0,
-      "totalGames": 1,
-      "correctGames": 0
-    },
-    {
-      "date": "2025-12-04",
-      "accuracy": 1.0,
-      "totalGames": 1,
-      "correctGames": 1
-    },
-    {
-      "date": "2025-12-05",
       "accuracy": 0.6666666666666666,
       "totalGames": 3,
       "correctGames": 2
     },
     {
-      "date": "2025-12-06",
-      "accuracy": 1.0,
-      "totalGames": 1,
+      "date": "2025-11-14",
+      "accuracy": 0.7777777777777778,
+      "totalGames": 9,
+      "correctGames": 7
+    },
+    {
+      "date": "2025-11-15",
+      "accuracy": 0.8,
+      "totalGames": 5,
+      "correctGames": 4
+    },
+    {
+      "date": "2025-11-16",
+      "accuracy": 0.625,
+      "totalGames": 8,
+      "correctGames": 5
+    },
+    {
+      "date": "2025-11-17",
+      "accuracy": 0.75,
+      "totalGames": 8,
+      "correctGames": 6
+    },
+    {
+      "date": "2025-11-18",
+      "accuracy": 0.6666666666666666,
+      "totalGames": 6,
+      "correctGames": 4
+    },
+    {
+      "date": "2025-11-19",
+      "accuracy": 0.5555555555555556,
+      "totalGames": 9,
+      "correctGames": 5
+    },
+    {
+      "date": "2025-11-20",
+      "accuracy": 0.75,
+      "totalGames": 4,
+      "correctGames": 3
+    },
+    {
+      "date": "2025-11-21",
+      "accuracy": 0.5555555555555556,
+      "totalGames": 9,
+      "correctGames": 5
+    },
+    {
+      "date": "2025-11-22",
+      "accuracy": 0.5714285714285714,
+      "totalGames": 7,
+      "correctGames": 4
+    },
+    {
+      "date": "2025-11-23",
+      "accuracy": 0.875,
+      "totalGames": 8,
+      "correctGames": 7
+    },
+    {
+      "date": "2025-11-24",
+      "accuracy": 0.5,
+      "totalGames": 10,
+      "correctGames": 5
+    },
+    {
+      "date": "2025-11-25",
+      "accuracy": 0.3333333333333333,
+      "totalGames": 3,
       "correctGames": 1
+    },
+    {
+      "date": "2025-11-26",
+      "accuracy": 0.7777777777777778,
+      "totalGames": 9,
+      "correctGames": 7
+    },
+    {
+      "date": "2025-11-28",
+      "accuracy": 0.36363636363636365,
+      "totalGames": 11,
+      "correctGames": 4
+    },
+    {
+      "date": "2025-11-29",
+      "accuracy": 0.375,
+      "totalGames": 8,
+      "correctGames": 3
+    },
+    {
+      "date": "2025-11-30",
+      "accuracy": 0.875,
+      "totalGames": 8,
+      "correctGames": 7
+    },
+    {
+      "date": "2025-12-01",
+      "accuracy": 0.4444444444444444,
+      "totalGames": 9,
+      "correctGames": 4
+    },
+    {
+      "date": "2025-12-02",
+      "accuracy": 0.6666666666666666,
+      "totalGames": 6,
+      "correctGames": 4
+    },
+    {
+      "date": "2025-12-03",
+      "accuracy": 0.4444444444444444,
+      "totalGames": 9,
+      "correctGames": 4
+    },
+    {
+      "date": "2025-12-04",
+      "accuracy": 0.6,
+      "totalGames": 5,
+      "correctGames": 3
+    },
+    {
+      "date": "2025-12-05",
+      "accuracy": 0.75,
+      "totalGames": 12,
+      "correctGames": 9
+    },
+    {
+      "date": "2025-12-06",
+      "accuracy": 0.5714285714285714,
+      "totalGames": 7,
+      "correctGames": 4
     },
     {
       "date": "2025-12-07",
-      "accuracy": 1.0,
-      "totalGames": 2,
-      "correctGames": 2
+      "accuracy": 0.8571428571428571,
+      "totalGames": 7,
+      "correctGames": 6
     },
     {
       "date": "2025-12-08",
-      "accuracy": 0.5,
-      "totalGames": 2,
-      "correctGames": 1
+      "accuracy": 0.6666666666666666,
+      "totalGames": 3,
+      "correctGames": 2
     },
     {
       "date": "2025-12-09",
       "accuracy": 1.0,
-      "totalGames": 1,
-      "correctGames": 1
+      "totalGames": 2,
+      "correctGames": 2
     },
     {
       "date": "2025-12-10",
@@ -225,13 +303,13 @@
     {
       "date": "2025-12-11",
       "accuracy": 1.0,
-      "totalGames": 2,
-      "correctGames": 2
+      "totalGames": 4,
+      "correctGames": 4
     },
     {
       "date": "2025-12-12",
-      "accuracy": 1.0,
-      "totalGames": 3,
+      "accuracy": 0.42857142857142855,
+      "totalGames": 7,
       "correctGames": 3
     },
     {
@@ -242,12 +320,18 @@
     },
     {
       "date": "2025-12-14",
-      "accuracy": 0.5,
-      "totalGames": 4,
-      "correctGames": 2
+      "accuracy": 0.375,
+      "totalGames": 8,
+      "correctGames": 3
     },
     {
       "date": "2025-12-15",
+      "accuracy": 0.2,
+      "totalGames": 5,
+      "correctGames": 1
+    },
+    {
+      "date": "2025-12-17",
       "accuracy": 0.0,
       "totalGames": 2,
       "correctGames": 0
@@ -255,608 +339,656 @@
     {
       "date": "2025-12-18",
       "accuracy": 0.5,
-      "totalGames": 2,
-      "correctGames": 1
+      "totalGames": 12,
+      "correctGames": 6
     },
     {
       "date": "2025-12-19",
-      "accuracy": 0.0,
-      "totalGames": 1,
-      "correctGames": 0
+      "accuracy": 0.6,
+      "totalGames": 5,
+      "correctGames": 3
     },
     {
       "date": "2025-12-20",
-      "accuracy": 0.6666666666666666,
-      "totalGames": 3,
-      "correctGames": 2
+      "accuracy": 0.7,
+      "totalGames": 10,
+      "correctGames": 7
     },
     {
       "date": "2025-12-21",
-      "accuracy": 1.0,
-      "totalGames": 2,
-      "correctGames": 2
+      "accuracy": 0.8333333333333334,
+      "totalGames": 6,
+      "correctGames": 5
     },
     {
       "date": "2025-12-22",
-      "accuracy": 1.0,
-      "totalGames": 1,
-      "correctGames": 1
-    },
-    {
-      "date": "2025-12-23",
-      "accuracy": 0.6,
-      "totalGames": 5,
-      "correctGames": 3
-    },
-    {
-      "date": "2025-12-25",
-      "accuracy": 0.5,
-      "totalGames": 4,
-      "correctGames": 2
-    },
-    {
-      "date": "2025-12-26",
-      "accuracy": 1.0,
-      "totalGames": 1,
-      "correctGames": 1
-    },
-    {
-      "date": "2025-12-27",
-      "accuracy": 1.0,
-      "totalGames": 1,
-      "correctGames": 1
-    },
-    {
-      "date": "2025-12-29",
-      "accuracy": 1.0,
-      "totalGames": 1,
-      "correctGames": 1
-    },
-    {
-      "date": "2025-12-31",
-      "accuracy": 0.6666666666666666,
-      "totalGames": 3,
-      "correctGames": 2
-    },
-    {
-      "date": "2026-01-02",
-      "accuracy": 0.5,
-      "totalGames": 6,
-      "correctGames": 3
-    },
-    {
-      "date": "2026-01-03",
-      "accuracy": 0.25,
-      "totalGames": 4,
-      "correctGames": 1
-    },
-    {
-      "date": "2026-01-04",
-      "accuracy": 1.0,
-      "totalGames": 2,
-      "correctGames": 2
-    },
-    {
-      "date": "2026-01-05",
-      "accuracy": 1.0,
-      "totalGames": 3,
-      "correctGames": 3
-    },
-    {
-      "date": "2026-01-06",
-      "accuracy": 0.75,
-      "totalGames": 4,
-      "correctGames": 3
-    },
-    {
-      "date": "2026-01-07",
-      "accuracy": 0.5,
-      "totalGames": 4,
-      "correctGames": 2
-    },
-    {
-      "date": "2026-01-08",
-      "accuracy": 1.0,
-      "totalGames": 1,
-      "correctGames": 1
-    },
-    {
-      "date": "2026-01-09",
-      "accuracy": 1.0,
-      "totalGames": 2,
-      "correctGames": 2
-    },
-    {
-      "date": "2026-01-11",
-      "accuracy": 0.5,
-      "totalGames": 2,
-      "correctGames": 1
-    },
-    {
-      "date": "2026-01-12",
-      "accuracy": 0.25,
-      "totalGames": 4,
-      "correctGames": 1
-    },
-    {
-      "date": "2026-01-13",
-      "accuracy": 1.0,
-      "totalGames": 3,
-      "correctGames": 3
-    },
-    {
-      "date": "2026-01-14",
-      "accuracy": 1.0,
-      "totalGames": 2,
-      "correctGames": 2
-    },
-    {
-      "date": "2026-01-16",
-      "accuracy": 0.0,
-      "totalGames": 1,
-      "correctGames": 0
-    },
-    {
-      "date": "2026-01-17",
-      "accuracy": 1.0,
-      "totalGames": 3,
-      "correctGames": 3
-    },
-    {
-      "date": "2026-01-18",
-      "accuracy": 0.0,
-      "totalGames": 2,
-      "correctGames": 0
-    },
-    {
-      "date": "2026-01-19",
-      "accuracy": 1.0,
-      "totalGames": 3,
-      "correctGames": 3
-    },
-    {
-      "date": "2026-01-20",
-      "accuracy": 0.0,
-      "totalGames": 1,
-      "correctGames": 0
-    },
-    {
-      "date": "2026-01-21",
-      "accuracy": 0.5,
-      "totalGames": 2,
-      "correctGames": 1
-    },
-    {
-      "date": "2026-01-22",
-      "accuracy": 0.5,
-      "totalGames": 2,
-      "correctGames": 1
-    },
-    {
-      "date": "2026-01-23",
-      "accuracy": 0.5,
-      "totalGames": 2,
-      "correctGames": 1
-    },
-    {
-      "date": "2026-01-24",
-      "accuracy": 1.0,
-      "totalGames": 1,
-      "correctGames": 1
-    },
-    {
-      "date": "2026-01-25",
-      "accuracy": 0.0,
-      "totalGames": 2,
-      "correctGames": 0
-    },
-    {
-      "date": "2026-01-26",
-      "accuracy": 0.5,
-      "totalGames": 2,
-      "correctGames": 1
-    },
-    {
-      "date": "2026-01-27",
-      "accuracy": 0.5,
-      "totalGames": 2,
-      "correctGames": 1
-    },
-    {
-      "date": "2026-01-28",
-      "accuracy": 0.0,
-      "totalGames": 3,
-      "correctGames": 0
-    },
-    {
-      "date": "2026-01-29",
-      "accuracy": 0.3333333333333333,
-      "totalGames": 3,
-      "correctGames": 1
-    },
-    {
-      "date": "2026-01-30",
-      "accuracy": 1.0,
-      "totalGames": 1,
-      "correctGames": 1
-    },
-    {
-      "date": "2026-01-31",
-      "accuracy": 0.5,
-      "totalGames": 2,
-      "correctGames": 1
-    },
-    {
-      "date": "2026-02-01",
-      "accuracy": 1.0,
-      "totalGames": 1,
-      "correctGames": 1
-    },
-    {
-      "date": "2026-02-02",
-      "accuracy": 0.0,
-      "totalGames": 1,
-      "correctGames": 0
-    },
-    {
-      "date": "2026-02-03",
-      "accuracy": 1.0,
-      "totalGames": 1,
-      "correctGames": 1
-    },
-    {
-      "date": "2026-02-04",
-      "accuracy": 1.0,
-      "totalGames": 2,
-      "correctGames": 2
-    },
-    {
-      "date": "2026-02-05",
-      "accuracy": 0.0,
-      "totalGames": 3,
-      "correctGames": 0
-    },
-    {
-      "date": "2026-02-06",
-      "accuracy": 1.0,
-      "totalGames": 2,
-      "correctGames": 2
-    },
-    {
-      "date": "2026-02-07",
-      "accuracy": 0.5,
-      "totalGames": 4,
-      "correctGames": 2
-    },
-    {
-      "date": "2026-02-08",
-      "accuracy": 0.3333333333333333,
-      "totalGames": 3,
-      "correctGames": 1
-    },
-    {
-      "date": "2026-02-09",
-      "accuracy": 0.0,
-      "totalGames": 2,
-      "correctGames": 0
-    },
-    {
-      "date": "2026-02-10",
-      "accuracy": 0.0,
-      "totalGames": 2,
-      "correctGames": 0
-    },
-    {
-      "date": "2026-02-11",
-      "accuracy": 0.5,
-      "totalGames": 6,
-      "correctGames": 3
-    },
-    {
-      "date": "2026-02-12",
-      "accuracy": 0.5,
-      "totalGames": 2,
-      "correctGames": 1
-    },
-    {
-      "date": "2026-02-20",
-      "accuracy": 0.5714285714285714,
-      "totalGames": 7,
-      "correctGames": 4
-    },
-    {
-      "date": "2026-02-21",
-      "accuracy": 1.0,
-      "totalGames": 2,
-      "correctGames": 2
-    },
-    {
-      "date": "2026-02-22",
-      "accuracy": 0.5,
-      "totalGames": 4,
-      "correctGames": 2
-    },
-    {
-      "date": "2026-02-23",
-      "accuracy": 1.0,
-      "totalGames": 1,
-      "correctGames": 1
-    },
-    {
-      "date": "2026-02-24",
-      "accuracy": 0.75,
-      "totalGames": 4,
-      "correctGames": 3
-    },
-    {
-      "date": "2026-02-25",
-      "accuracy": 1.0,
-      "totalGames": 1,
-      "correctGames": 1
-    },
-    {
-      "date": "2026-02-26",
-      "accuracy": 1.0,
-      "totalGames": 3,
-      "correctGames": 3
-    },
-    {
-      "date": "2026-02-27",
-      "accuracy": 0.75,
-      "totalGames": 4,
-      "correctGames": 3
-    },
-    {
-      "date": "2026-02-28",
-      "accuracy": 1.0,
-      "totalGames": 2,
-      "correctGames": 2
-    },
-    {
-      "date": "2026-03-01",
-      "accuracy": 0.7142857142857143,
-      "totalGames": 7,
-      "correctGames": 5
-    },
-    {
-      "date": "2026-03-02",
-      "accuracy": 1.0,
-      "totalGames": 2,
-      "correctGames": 2
-    },
-    {
-      "date": "2026-03-03",
-      "accuracy": 1.0,
-      "totalGames": 4,
-      "correctGames": 4
-    },
-    {
-      "date": "2026-03-04",
-      "accuracy": 0.0,
-      "totalGames": 1,
-      "correctGames": 0
-    },
-    {
-      "date": "2026-03-05",
-      "accuracy": 1.0,
-      "totalGames": 2,
-      "correctGames": 2
-    },
-    {
-      "date": "2026-03-06",
-      "accuracy": 0.5,
-      "totalGames": 2,
-      "correctGames": 1
-    },
-    {
-      "date": "2026-03-07",
-      "accuracy": 0.5,
-      "totalGames": 4,
-      "correctGames": 2
-    },
-    {
-      "date": "2026-03-08",
-      "accuracy": 0.6666666666666666,
-      "totalGames": 3,
-      "correctGames": 2
-    },
-    {
-      "date": "2026-03-09",
-      "accuracy": 0.6666666666666666,
-      "totalGames": 3,
-      "correctGames": 2
-    },
-    {
-      "date": "2026-03-10",
-      "accuracy": 1.0,
-      "totalGames": 2,
-      "correctGames": 2
-    },
-    {
-      "date": "2026-03-11",
-      "accuracy": 1.0,
-      "totalGames": 3,
-      "correctGames": 3
-    },
-    {
-      "date": "2026-03-12",
-      "accuracy": 1.0,
-      "totalGames": 5,
-      "correctGames": 5
-    },
-    {
-      "date": "2026-03-13",
-      "accuracy": 1.0,
-      "totalGames": 4,
-      "correctGames": 4
-    },
-    {
-      "date": "2026-03-14",
-      "accuracy": 0.6,
-      "totalGames": 5,
-      "correctGames": 3
-    },
-    {
-      "date": "2026-03-15",
-      "accuracy": 0.25,
-      "totalGames": 4,
-      "correctGames": 1
-    },
-    {
-      "date": "2026-03-16",
-      "accuracy": 1.0,
-      "totalGames": 2,
-      "correctGames": 2
-    },
-    {
-      "date": "2026-03-17",
-      "accuracy": 1.0,
-      "totalGames": 3,
-      "correctGames": 3
-    },
-    {
-      "date": "2026-03-18",
-      "accuracy": 0.5,
-      "totalGames": 4,
-      "correctGames": 2
-    },
-    {
-      "date": "2026-03-19",
-      "accuracy": 1.0,
-      "totalGames": 4,
-      "correctGames": 4
-    },
-    {
-      "date": "2026-03-20",
-      "accuracy": 1.0,
-      "totalGames": 2,
-      "correctGames": 2
-    },
-    {
-      "date": "2026-03-21",
-      "accuracy": 1.0,
-      "totalGames": 1,
-      "correctGames": 1
-    },
-    {
-      "date": "2026-03-22",
-      "accuracy": 1.0,
-      "totalGames": 1,
-      "correctGames": 1
-    },
-    {
-      "date": "2026-03-23",
-      "accuracy": 0.5,
-      "totalGames": 2,
-      "correctGames": 1
-    },
-    {
-      "date": "2026-03-25",
-      "accuracy": 0.6666666666666666,
-      "totalGames": 3,
-      "correctGames": 2
-    },
-    {
-      "date": "2026-03-26",
-      "accuracy": 1.0,
-      "totalGames": 1,
-      "correctGames": 1
-    },
-    {
-      "date": "2026-03-27",
-      "accuracy": 0.8,
-      "totalGames": 5,
-      "correctGames": 4
-    },
-    {
-      "date": "2026-03-28",
-      "accuracy": 0.0,
-      "totalGames": 1,
-      "correctGames": 0
-    },
-    {
-      "date": "2026-03-29",
-      "accuracy": 0.25,
-      "totalGames": 4,
-      "correctGames": 1
-    },
-    {
-      "date": "2026-03-30",
-      "accuracy": 0.5,
-      "totalGames": 2,
-      "correctGames": 1
-    },
-    {
-      "date": "2026-03-31",
-      "accuracy": 0.3333333333333333,
-      "totalGames": 3,
-      "correctGames": 1
-    },
-    {
-      "date": "2026-04-01",
-      "accuracy": 0.8333333333333334,
-      "totalGames": 6,
-      "correctGames": 5
-    },
-    {
-      "date": "2026-04-02",
-      "accuracy": 0.5,
-      "totalGames": 2,
-      "correctGames": 1
-    },
-    {
-      "date": "2026-04-03",
-      "accuracy": 0.8333333333333334,
-      "totalGames": 6,
-      "correctGames": 5
-    },
-    {
-      "date": "2026-04-04",
-      "accuracy": 0.3333333333333333,
-      "totalGames": 3,
-      "correctGames": 1
-    },
-    {
-      "date": "2026-04-05",
       "accuracy": 0.8571428571428571,
       "totalGames": 7,
       "correctGames": 6
     },
     {
-      "date": "2026-04-06",
-      "accuracy": 0.3333333333333333,
-      "totalGames": 3,
-      "correctGames": 1
+      "date": "2025-12-23",
+      "accuracy": 0.6428571428571429,
+      "totalGames": 14,
+      "correctGames": 9
     },
     {
-      "date": "2026-04-07",
-      "accuracy": 0.8,
-      "totalGames": 5,
-      "correctGames": 4
-    },
-    {
-      "date": "2026-04-08",
-      "accuracy": 0.8,
-      "totalGames": 5,
-      "correctGames": 4
-    },
-    {
-      "date": "2026-04-09",
+      "date": "2025-12-25",
       "accuracy": 0.6,
       "totalGames": 5,
       "correctGames": 3
     },
     {
-      "date": "2026-04-10",
-      "accuracy": 0.46153846153846156,
-      "totalGames": 13,
+      "date": "2025-12-26",
+      "accuracy": 0.6666666666666666,
+      "totalGames": 9,
       "correctGames": 6
     },
     {
-      "date": "2026-04-12",
-      "accuracy": 0.6923076923076923,
-      "totalGames": 13,
+      "date": "2025-12-27",
+      "accuracy": 0.4444444444444444,
+      "totalGames": 9,
+      "correctGames": 4
+    },
+    {
+      "date": "2025-12-28",
+      "accuracy": 0.5,
+      "totalGames": 6,
+      "correctGames": 3
+    },
+    {
+      "date": "2025-12-29",
+      "accuracy": 0.45454545454545453,
+      "totalGames": 11,
+      "correctGames": 5
+    },
+    {
+      "date": "2025-12-30",
+      "accuracy": 0.5,
+      "totalGames": 4,
+      "correctGames": 2
+    },
+    {
+      "date": "2025-12-31",
+      "accuracy": 0.5555555555555556,
+      "totalGames": 9,
+      "correctGames": 5
+    },
+    {
+      "date": "2026-01-01",
+      "accuracy": 0.8,
+      "totalGames": 5,
+      "correctGames": 4
+    },
+    {
+      "date": "2026-01-02",
+      "accuracy": 0.7,
+      "totalGames": 10,
+      "correctGames": 7
+    },
+    {
+      "date": "2026-01-03",
+      "accuracy": 0.375,
+      "totalGames": 8,
+      "correctGames": 3
+    },
+    {
+      "date": "2026-01-04",
+      "accuracy": 0.75,
+      "totalGames": 8,
+      "correctGames": 6
+    },
+    {
+      "date": "2026-01-05",
+      "accuracy": 0.625,
+      "totalGames": 8,
+      "correctGames": 5
+    },
+    {
+      "date": "2026-01-06",
+      "accuracy": 0.8333333333333334,
+      "totalGames": 6,
+      "correctGames": 5
+    },
+    {
+      "date": "2026-01-07",
+      "accuracy": 0.5833333333333334,
+      "totalGames": 12,
+      "correctGames": 7
+    },
+    {
+      "date": "2026-01-08",
+      "accuracy": 0.6666666666666666,
+      "totalGames": 3,
+      "correctGames": 2
+    },
+    {
+      "date": "2026-01-09",
+      "accuracy": 0.7,
+      "totalGames": 10,
+      "correctGames": 7
+    },
+    {
+      "date": "2026-01-10",
+      "accuracy": 0.3333333333333333,
+      "totalGames": 6,
+      "correctGames": 2
+    },
+    {
+      "date": "2026-01-11",
+      "accuracy": 0.7,
+      "totalGames": 10,
+      "correctGames": 7
+    },
+    {
+      "date": "2026-01-12",
+      "accuracy": 0.16666666666666666,
+      "totalGames": 6,
+      "correctGames": 1
+    },
+    {
+      "date": "2026-01-13",
+      "accuracy": 0.7142857142857143,
+      "totalGames": 7,
+      "correctGames": 5
+    },
+    {
+      "date": "2026-01-14",
+      "accuracy": 0.42857142857142855,
+      "totalGames": 7,
+      "correctGames": 3
+    },
+    {
+      "date": "2026-01-15",
+      "accuracy": 0.5555555555555556,
+      "totalGames": 9,
+      "correctGames": 5
+    },
+    {
+      "date": "2026-01-16",
+      "accuracy": 0.3333333333333333,
+      "totalGames": 6,
+      "correctGames": 2
+    },
+    {
+      "date": "2026-01-17",
+      "accuracy": 0.8888888888888888,
+      "totalGames": 9,
+      "correctGames": 8
+    },
+    {
+      "date": "2026-01-18",
+      "accuracy": 0.6666666666666666,
+      "totalGames": 6,
+      "correctGames": 4
+    },
+    {
+      "date": "2026-01-19",
+      "accuracy": 0.8888888888888888,
+      "totalGames": 9,
+      "correctGames": 8
+    },
+    {
+      "date": "2026-01-20",
+      "accuracy": 0.14285714285714285,
+      "totalGames": 7,
+      "correctGames": 1
+    },
+    {
+      "date": "2026-01-21",
+      "accuracy": 0.42857142857142855,
+      "totalGames": 7,
+      "correctGames": 3
+    },
+    {
+      "date": "2026-01-22",
+      "accuracy": 0.75,
+      "totalGames": 8,
+      "correctGames": 6
+    },
+    {
+      "date": "2026-01-23",
+      "accuracy": 0.375,
+      "totalGames": 8,
+      "correctGames": 3
+    },
+    {
+      "date": "2026-01-24",
+      "accuracy": 0.8333333333333334,
+      "totalGames": 6,
+      "correctGames": 5
+    },
+    {
+      "date": "2026-01-25",
+      "accuracy": 0.3333333333333333,
+      "totalGames": 6,
+      "correctGames": 2
+    },
+    {
+      "date": "2026-01-26",
+      "accuracy": 0.8571428571428571,
+      "totalGames": 7,
+      "correctGames": 6
+    },
+    {
+      "date": "2026-01-27",
+      "accuracy": 0.8571428571428571,
+      "totalGames": 7,
+      "correctGames": 6
+    },
+    {
+      "date": "2026-01-28",
+      "accuracy": 0.4444444444444444,
+      "totalGames": 9,
+      "correctGames": 4
+    },
+    {
+      "date": "2026-01-29",
+      "accuracy": 0.625,
+      "totalGames": 8,
+      "correctGames": 5
+    },
+    {
+      "date": "2026-01-30",
+      "accuracy": 0.7777777777777778,
+      "totalGames": 9,
+      "correctGames": 7
+    },
+    {
+      "date": "2026-01-31",
+      "accuracy": 0.6666666666666666,
+      "totalGames": 6,
+      "correctGames": 4
+    },
+    {
+      "date": "2026-02-01",
+      "accuracy": 0.5,
+      "totalGames": 10,
+      "correctGames": 5
+    },
+    {
+      "date": "2026-02-02",
+      "accuracy": 0.5,
+      "totalGames": 4,
+      "correctGames": 2
+    },
+    {
+      "date": "2026-02-03",
+      "accuracy": 0.7,
+      "totalGames": 10,
+      "correctGames": 7
+    },
+    {
+      "date": "2026-02-04",
+      "accuracy": 0.5714285714285714,
+      "totalGames": 7,
+      "correctGames": 4
+    },
+    {
+      "date": "2026-02-05",
+      "accuracy": 0.25,
+      "totalGames": 8,
+      "correctGames": 2
+    },
+    {
+      "date": "2026-02-06",
+      "accuracy": 0.3333333333333333,
+      "totalGames": 6,
+      "correctGames": 2
+    },
+    {
+      "date": "2026-02-07",
+      "accuracy": 0.6,
+      "totalGames": 10,
+      "correctGames": 6
+    },
+    {
+      "date": "2026-02-08",
+      "accuracy": 0.5,
+      "totalGames": 4,
+      "correctGames": 2
+    },
+    {
+      "date": "2026-02-09",
+      "accuracy": 0.4,
+      "totalGames": 10,
+      "correctGames": 4
+    },
+    {
+      "date": "2026-02-10",
+      "accuracy": 0.25,
+      "totalGames": 4,
+      "correctGames": 1
+    },
+    {
+      "date": "2026-02-11",
+      "accuracy": 0.6428571428571429,
+      "totalGames": 14,
       "correctGames": 9
+    },
+    {
+      "date": "2026-02-12",
+      "accuracy": 0.6666666666666666,
+      "totalGames": 3,
+      "correctGames": 2
+    },
+    {
+      "date": "2026-02-19",
+      "accuracy": 0.6,
+      "totalGames": 10,
+      "correctGames": 6
+    },
+    {
+      "date": "2026-02-20",
+      "accuracy": 0.5555555555555556,
+      "totalGames": 9,
+      "correctGames": 5
+    },
+    {
+      "date": "2026-02-21",
+      "accuracy": 0.8333333333333334,
+      "totalGames": 6,
+      "correctGames": 5
+    },
+    {
+      "date": "2026-02-22",
+      "accuracy": 0.36363636363636365,
+      "totalGames": 11,
+      "correctGames": 4
+    },
+    {
+      "date": "2026-02-23",
+      "accuracy": 0.6666666666666666,
+      "totalGames": 3,
+      "correctGames": 2
+    },
+    {
+      "date": "2026-02-24",
+      "accuracy": 0.8181818181818182,
+      "totalGames": 11,
+      "correctGames": 9
+    },
+    {
+      "date": "2026-02-25",
+      "accuracy": 0.8333333333333334,
+      "totalGames": 6,
+      "correctGames": 5
+    },
+    {
+      "date": "2026-02-26",
+      "accuracy": 0.6,
+      "totalGames": 10,
+      "correctGames": 6
+    },
+    {
+      "date": "2026-02-27",
+      "accuracy": 0.6,
+      "totalGames": 5,
+      "correctGames": 3
+    },
+    {
+      "date": "2026-02-28",
+      "accuracy": 0.8,
+      "totalGames": 5,
+      "correctGames": 4
+    },
+    {
+      "date": "2026-03-01",
+      "accuracy": 0.7272727272727273,
+      "totalGames": 11,
+      "correctGames": 8
+    },
+    {
+      "date": "2026-03-02",
+      "accuracy": 1.0,
+      "totalGames": 4,
+      "correctGames": 4
+    },
+    {
+      "date": "2026-03-03",
+      "accuracy": 1.0,
+      "totalGames": 10,
+      "correctGames": 10
+    },
+    {
+      "date": "2026-03-04",
+      "accuracy": 0.3333333333333333,
+      "totalGames": 6,
+      "correctGames": 2
+    },
+    {
+      "date": "2026-03-05",
+      "accuracy": 0.7777777777777778,
+      "totalGames": 9,
+      "correctGames": 7
+    },
+    {
+      "date": "2026-03-06",
+      "accuracy": 0.5714285714285714,
+      "totalGames": 7,
+      "correctGames": 4
+    },
+    {
+      "date": "2026-03-07",
+      "accuracy": 0.5,
+      "totalGames": 6,
+      "correctGames": 3
+    },
+    {
+      "date": "2026-03-08",
+      "accuracy": 0.7,
+      "totalGames": 10,
+      "correctGames": 7
+    },
+    {
+      "date": "2026-03-09",
+      "accuracy": 0.6,
+      "totalGames": 5,
+      "correctGames": 3
+    },
+    {
+      "date": "2026-03-10",
+      "accuracy": 0.8181818181818182,
+      "totalGames": 11,
+      "correctGames": 9
+    },
+    {
+      "date": "2026-03-11",
+      "accuracy": 0.8333333333333334,
+      "totalGames": 6,
+      "correctGames": 5
+    },
+    {
+      "date": "2026-03-12",
+      "accuracy": 0.8888888888888888,
+      "totalGames": 9,
+      "correctGames": 8
+    },
+    {
+      "date": "2026-03-13",
+      "accuracy": 0.8571428571428571,
+      "totalGames": 7,
+      "correctGames": 6
+    },
+    {
+      "date": "2026-03-14",
+      "accuracy": 0.5714285714285714,
+      "totalGames": 7,
+      "correctGames": 4
+    },
+    {
+      "date": "2026-03-15",
+      "accuracy": 0.5714285714285714,
+      "totalGames": 7,
+      "correctGames": 4
+    },
+    {
+      "date": "2026-03-16",
+      "accuracy": 0.625,
+      "totalGames": 8,
+      "correctGames": 5
+    },
+    {
+      "date": "2026-03-17",
+      "accuracy": 0.75,
+      "totalGames": 8,
+      "correctGames": 6
+    },
+    {
+      "date": "2026-03-18",
+      "accuracy": 0.7777777777777778,
+      "totalGames": 9,
+      "correctGames": 7
+    },
+    {
+      "date": "2026-03-19",
+      "accuracy": 0.625,
+      "totalGames": 8,
+      "correctGames": 5
+    },
+    {
+      "date": "2026-03-20",
+      "accuracy": 0.6666666666666666,
+      "totalGames": 6,
+      "correctGames": 4
+    },
+    {
+      "date": "2026-03-21",
+      "accuracy": 0.6,
+      "totalGames": 10,
+      "correctGames": 6
+    },
+    {
+      "date": "2026-03-22",
+      "accuracy": 0.6,
+      "totalGames": 5,
+      "correctGames": 3
+    },
+    {
+      "date": "2026-03-23",
+      "accuracy": 0.6,
+      "totalGames": 10,
+      "correctGames": 6
+    },
+    {
+      "date": "2026-03-24",
+      "accuracy": 0.75,
+      "totalGames": 4,
+      "correctGames": 3
+    },
+    {
+      "date": "2026-03-25",
+      "accuracy": 0.6666666666666666,
+      "totalGames": 12,
+      "correctGames": 8
+    },
+    {
+      "date": "2026-03-26",
+      "accuracy": 1.0,
+      "totalGames": 3,
+      "correctGames": 3
+    },
+    {
+      "date": "2026-03-27",
+      "accuracy": 0.8,
+      "totalGames": 10,
+      "correctGames": 8
+    },
+    {
+      "date": "2026-03-28",
+      "accuracy": 0.5,
+      "totalGames": 6,
+      "correctGames": 3
+    },
+    {
+      "date": "2026-03-29",
+      "accuracy": 0.7777777777777778,
+      "totalGames": 9,
+      "correctGames": 7
+    },
+    {
+      "date": "2026-03-30",
+      "accuracy": 0.75,
+      "totalGames": 8,
+      "correctGames": 6
+    },
+    {
+      "date": "2026-03-31",
+      "accuracy": 0.5714285714285714,
+      "totalGames": 7,
+      "correctGames": 4
+    },
+    {
+      "date": "2026-04-01",
+      "accuracy": 0.8888888888888888,
+      "totalGames": 9,
+      "correctGames": 8
+    },
+    {
+      "date": "2026-04-02",
+      "accuracy": 0.8333333333333334,
+      "totalGames": 6,
+      "correctGames": 5
+    },
+    {
+      "date": "2026-04-03",
+      "accuracy": 1.0,
+      "totalGames": 9,
+      "correctGames": 9
+    },
+    {
+      "date": "2026-04-04",
+      "accuracy": 0.0,
+      "totalGames": 2,
+      "correctGames": 0
+    },
+    {
+      "date": "2026-04-05",
+      "accuracy": 0.5454545454545454,
+      "totalGames": 11,
+      "correctGames": 6
+    },
+    {
+      "date": "2026-04-06",
+      "accuracy": 0.6,
+      "totalGames": 5,
+      "correctGames": 3
+    },
+    {
+      "date": "2026-04-07",
+      "accuracy": 0.4,
+      "totalGames": 10,
+      "correctGames": 4
+    },
+    {
+      "date": "2026-04-08",
+      "accuracy": 0.7142857142857143,
+      "totalGames": 7,
+      "correctGames": 5
+    },
+    {
+      "date": "2026-04-09",
+      "accuracy": 1.0,
+      "totalGames": 6,
+      "correctGames": 6
+    },
+    {
+      "date": "2026-04-10",
+      "accuracy": 0.7333333333333333,
+      "totalGames": 15,
+      "correctGames": 11
+    },
+    {
+      "date": "2026-04-12",
+      "accuracy": 0.6666666666666666,
+      "totalGames": 15,
+      "correctGames": 10
+    },
+    {
+      "date": "2026-04-14",
+      "accuracy": 0.5,
+      "totalGames": 2,
+      "correctGames": 1
     },
     {
       "date": "2026-04-15",
@@ -867,8 +999,14 @@
     {
       "date": "2026-04-17",
       "accuracy": 1.0,
-      "totalGames": 1,
-      "correctGames": 1
+      "totalGames": 2,
+      "correctGames": 2
+    },
+    {
+      "date": "2026-04-18",
+      "accuracy": 0.75,
+      "totalGames": 4,
+      "correctGames": 3
     },
     {
       "date": "2026-04-19",
@@ -891,14 +1029,14 @@
     {
       "date": "2026-04-22",
       "accuracy": 1.0,
-      "totalGames": 1,
-      "correctGames": 1
+      "totalGames": 2,
+      "correctGames": 2
     },
     {
       "date": "2026-04-23",
-      "accuracy": 1.0,
+      "accuracy": 0.6666666666666666,
       "totalGames": 3,
-      "correctGames": 3
+      "correctGames": 2
     },
     {
       "date": "2026-04-24",
@@ -908,21 +1046,21 @@
     },
     {
       "date": "2026-04-25",
-      "accuracy": 0.6666666666666666,
-      "totalGames": 3,
-      "correctGames": 2
-    },
-    {
-      "date": "2026-04-26",
       "accuracy": 0.75,
       "totalGames": 4,
       "correctGames": 3
     },
     {
+      "date": "2026-04-26",
+      "accuracy": 0.5,
+      "totalGames": 4,
+      "correctGames": 2
+    },
+    {
       "date": "2026-04-27",
       "accuracy": 1.0,
-      "totalGames": 2,
-      "correctGames": 2
+      "totalGames": 3,
+      "correctGames": 3
     },
     {
       "date": "2026-04-28",
@@ -932,9 +1070,9 @@
     },
     {
       "date": "2026-04-29",
-      "accuracy": 1.0,
+      "accuracy": 0.6666666666666666,
       "totalGames": 3,
-      "correctGames": 3
+      "correctGames": 2
     },
     {
       "date": "2026-04-30",
@@ -986,27 +1124,27 @@
     },
     {
       "date": "2026-05-08",
-      "accuracy": 1.0,
+      "accuracy": 0.0,
       "totalGames": 2,
-      "correctGames": 2
+      "correctGames": 0
     },
     {
       "date": "2026-05-09",
+      "accuracy": 0.0,
+      "totalGames": 2,
+      "correctGames": 0
+    },
+    {
+      "date": "2026-05-10",
       "accuracy": 0.5,
       "totalGames": 2,
       "correctGames": 1
     },
     {
-      "date": "2026-05-10",
-      "accuracy": 1.0,
-      "totalGames": 2,
-      "correctGames": 2
-    },
-    {
       "date": "2026-05-11",
-      "accuracy": 1.0,
+      "accuracy": 0.5,
       "totalGames": 2,
-      "correctGames": 2
+      "correctGames": 1
     },
     {
       "date": "2026-05-12",
@@ -1022,9 +1160,9 @@
     },
     {
       "date": "2026-05-15",
-      "accuracy": 0.5,
+      "accuracy": 0.0,
       "totalGames": 2,
-      "correctGames": 1
+      "correctGames": 0
     },
     {
       "date": "2026-05-17",
@@ -1057,10 +1195,34 @@
       "correctGames": 1
     },
     {
+      "date": "2026-05-22",
+      "accuracy": 0.0,
+      "totalGames": 1,
+      "correctGames": 0
+    },
+    {
       "date": "2026-05-23",
       "accuracy": 0.0,
       "totalGames": 1,
       "correctGames": 0
+    },
+    {
+      "date": "2026-05-24",
+      "accuracy": 1.0,
+      "totalGames": 1,
+      "correctGames": 1
+    },
+    {
+      "date": "2026-05-25",
+      "accuracy": 0.0,
+      "totalGames": 1,
+      "correctGames": 0
+    },
+    {
+      "date": "2026-05-26",
+      "accuracy": 1.0,
+      "totalGames": 1,
+      "correctGames": 1
     },
     {
       "date": "2026-05-28",
@@ -1086,56 +1248,56 @@
       "label": "> 0.60",
       "thresholdType": "gt",
       "threshold": 0.6,
-      "accuracy": 0.6763285024154589,
-      "sampleSize": 207
+      "accuracy": 0.6996268656716418,
+      "sampleSize": 536
     },
     {
       "label": "<= 0.40",
       "thresholdType": "lt",
       "threshold": 0.4,
-      "accuracy": 0.6727272727272727,
-      "sampleSize": 55
+      "accuracy": 0.6971153846153846,
+      "sampleSize": 208
     }
   ],
   "calibration_metrics": {
     "asOfDate": "2026-06-03",
-    "brierBefore": 0.22473251464929192,
-    "brierAfter": 0.2188063856984278,
-    "logLossBefore": 0.6424190470973625,
-    "logLossAfter": 0.6269336199763372,
-    "fittedGames": 146,
-    "ece": 0.06381050488886723,
-    "calibrationSlope": 0.9608722320690385,
-    "calibrationIntercept": 0.006559553409669867,
-    "avgPredictedProb": 0.5835711126538623,
-    "baseRate": 0.595,
-    "actualWinPct": 0.595,
-    "windowSize": 200
+    "brierBefore": 0.20481225996061517,
+    "brierAfter": 0.20481225996061517,
+    "logLossBefore": 0.597099887333659,
+    "logLossAfter": 0.597099887333659,
+    "fittedGames": 300,
+    "ece": 0.0677837568839506,
+    "calibrationSlope": 1.4629081122945087,
+    "calibrationIntercept": -0.06107158453411561,
+    "avgPredictedProb": 0.5699373478180284,
+    "baseRate": 0.5833333333333334,
+    "actualWinPct": 0.5833333333333334,
+    "windowSize": 300
   },
   "calibration_quality": {
-    "ece": 0.06381050488886723,
-    "calibrationSlope": 0.9608722320690385,
-    "calibrationIntercept": 0.006559553409669867
+    "ece": 0.0677837568839506,
+    "calibrationSlope": 1.4629081122945087,
+    "calibrationIntercept": -0.06107158453411561
   },
-  "home_win_rate_threshold": 0.55,
+  "home_win_rate_threshold": 0.5,
   "home_win_rate_shown_count": 7,
   "strategy_filter_stats": {
-    "window_size": 200,
+    "window_size": 300,
     "matched_games_count": 0,
-    "window_start": "2026-03-29",
+    "window_start": "2026-03-16",
     "window_end": "2026-06-03",
     "filters": [
       {
         "label": "Home win rate min",
-        "value": 0.55
+        "value": 0.5
       },
       {
         "label": "Odds min",
-        "value": 1.6
+        "value": 1.1
       },
       {
         "label": "Odds max",
-        "value": 3.2
+        "value": 3.1
       },
       {
         "label": "Prob min",
@@ -1170,466 +1332,27 @@
     },
     "asOfDate": "2026-06-03"
   },
-  "bankroll_history": [
-    {
-      "date": "2025-12-01",
-      "balance": 0.0,
-      "betsPlaced": 1,
-      "profit": -100.0
-    },
-    {
-      "date": "2025-12-02",
-      "balance": 0.0,
-      "betsPlaced": 2,
-      "profit": 135.0
-    },
-    {
-      "date": "2025-12-03",
-      "balance": 0.0,
-      "betsPlaced": 1,
-      "profit": -100.0
-    },
-    {
-      "date": "2025-12-04",
-      "balance": 0.0,
-      "betsPlaced": 1,
-      "profit": -100.0
-    },
-    {
-      "date": "2025-12-05",
-      "balance": 0.0,
-      "betsPlaced": 2,
-      "profit": 106.0
-    },
-    {
-      "date": "2025-12-07",
-      "balance": 0.0,
-      "betsPlaced": 1,
-      "profit": 62.000000000000014
-    },
-    {
-      "date": "2025-12-09",
-      "balance": 0.0,
-      "betsPlaced": 1,
-      "profit": 88.99999999999999
-    },
-    {
-      "date": "2025-12-13",
-      "balance": 0.0,
-      "betsPlaced": 1,
-      "profit": -100.0
-    },
-    {
-      "date": "2025-12-15",
-      "balance": 0.0,
-      "betsPlaced": 1,
-      "profit": -100.0
-    },
-    {
-      "date": "2025-12-19",
-      "balance": 0.0,
-      "betsPlaced": 1,
-      "profit": -100.0
-    },
-    {
-      "date": "2025-12-20",
-      "balance": 0.0,
-      "betsPlaced": 1,
-      "profit": 64.99999999999999
-    },
-    {
-      "date": "2025-12-25",
-      "balance": 0.0,
-      "betsPlaced": 1,
-      "profit": -100.0
-    },
-    {
-      "date": "2025-12-27",
-      "balance": 0.0,
-      "betsPlaced": 2,
-      "profit": 217.0
-    },
-    {
-      "date": "2025-12-28",
-      "balance": 0.0,
-      "betsPlaced": 1,
-      "profit": 154.0
-    },
-    {
-      "date": "2025-12-29",
-      "balance": 0.0,
-      "betsPlaced": 3,
-      "profit": -86.0
-    },
-    {
-      "date": "2025-12-30",
-      "balance": 0.0,
-      "betsPlaced": 2,
-      "profit": -200.0
-    },
-    {
-      "date": "2025-12-31",
-      "balance": 0.0,
-      "betsPlaced": 2,
-      "profit": -18.0
-    },
-    {
-      "date": "2026-01-01",
-      "balance": 0.0,
-      "betsPlaced": 1,
-      "profit": -100.0
-    },
-    {
-      "date": "2026-01-03",
-      "balance": 0.0,
-      "betsPlaced": 1,
-      "profit": -100.0
-    },
-    {
-      "date": "2026-01-05",
-      "balance": 0.0,
-      "betsPlaced": 1,
-      "profit": 129.99999999999997
-    },
-    {
-      "date": "2026-01-07",
-      "balance": 0.0,
-      "betsPlaced": 2,
-      "profit": -200.0
-    },
-    {
-      "date": "2026-01-09",
-      "balance": 0.0,
-      "betsPlaced": 3,
-      "profit": 0.0
-    },
-    {
-      "date": "2026-01-11",
-      "balance": 0.0,
-      "betsPlaced": 1,
-      "profit": -100.0
-    },
-    {
-      "date": "2026-01-12",
-      "balance": 0.0,
-      "betsPlaced": 1,
-      "profit": -100.0
-    },
-    {
-      "date": "2026-01-15",
-      "balance": 0.0,
-      "betsPlaced": 2,
-      "profit": 45.00000000000003
-    },
-    {
-      "date": "2026-03-14",
-      "balance": 0.0,
-      "betsPlaced": 2,
-      "profit": -49.0
-    }
-  ],
+  "bankroll_history": [],
   "local_matched_games_rows": [],
   "local_matched_games_count": 0,
   "local_matched_games_mismatch": false,
   "local_matched_games_note": "Rows reflect strategy-subset simulated local matched games in the active window.",
-  "bets_2026_settled_rows": [
-    {
-      "date": "2026-01-01",
-      "home_team": "DAL",
-      "away_team": "PHI",
-      "pick_team": "HOME",
-      "odds": 2.14,
-      "stake": 100.0,
-      "win": 0,
-      "pnl": -100.0
-    },
-    {
-      "date": "2026-01-03",
-      "home_team": "MIA",
-      "away_team": "MIN",
-      "pick_team": "HOME",
-      "odds": 2.24,
-      "stake": 100.0,
-      "win": 0,
-      "pnl": -100.0
-    },
-    {
-      "date": "2026-01-05",
-      "home_team": "DET",
-      "away_team": "NYK",
-      "pick_team": "HOME",
-      "odds": 2.3,
-      "stake": 100.0,
-      "win": 1,
-      "pnl": 129.99999999999997
-    },
-    {
-      "date": "2026-01-07",
-      "home_team": "CHO",
-      "away_team": "TOR",
-      "pick_team": "HOME",
-      "odds": 2.1,
-      "stake": 100.0,
-      "win": 0,
-      "pnl": -100.0
-    },
-    {
-      "date": "2026-01-07",
-      "home_team": "MEM",
-      "away_team": "PHO",
-      "pick_team": "HOME",
-      "odds": 2.8,
-      "stake": 100.0,
-      "win": 0,
-      "pnl": -100.0
-    },
-    {
-      "date": "2026-01-09",
-      "home_team": "DEN",
-      "away_team": "ATL",
-      "pick_team": "HOME",
-      "odds": 2.02,
-      "stake": 100.0,
-      "win": 0,
-      "pnl": -100.0
-    },
-    {
-      "date": "2026-01-09",
-      "home_team": "ORL",
-      "away_team": "PHI",
-      "pick_team": "HOME",
-      "odds": 2.3,
-      "stake": 100.0,
-      "win": 0,
-      "pnl": -100.0
-    },
-    {
-      "date": "2026-01-09",
-      "home_team": "POR",
-      "away_team": "HOU",
-      "pick_team": "HOME",
-      "odds": 3.0,
-      "stake": 100.0,
-      "win": 1,
-      "pnl": 200.0
-    },
-    {
-      "date": "2026-01-11",
-      "home_team": "POR",
-      "away_team": "NYK",
-      "pick_team": "HOME",
-      "odds": 2.6,
-      "stake": 100.0,
-      "win": 0,
-      "pnl": -100.0
-    },
-    {
-      "date": "2026-01-12",
-      "home_team": "TOR",
-      "away_team": "PHI",
-      "pick_team": "HOME",
-      "odds": 2.3,
-      "stake": 100.0,
-      "win": 0,
-      "pnl": -100.0
-    },
-    {
-      "date": "2026-01-15",
-      "home_team": "HOU",
-      "away_team": "OKC",
-      "pick_team": "HOME",
-      "odds": 2.42,
-      "stake": 100.0,
-      "win": 0,
-      "pnl": -100.0
-    },
-    {
-      "date": "2026-01-15",
-      "home_team": "POR",
-      "away_team": "ATL",
-      "pick_team": "HOME",
-      "odds": 2.45,
-      "stake": 100.0,
-      "win": 1,
-      "pnl": 145.00000000000003
-    },
-    {
-      "date": "2026-03-14",
-      "home_team": "MIA",
-      "away_team": "ORL",
-      "pick_team": "HOME",
-      "odds": 1.62,
-      "stake": 100.0,
-      "win": 0,
-      "pnl": -100.0
-    },
-    {
-      "date": "2026-03-14",
-      "home_team": "SAS",
-      "away_team": "CHO",
-      "pick_team": "HOME",
-      "odds": 1.51,
-      "stake": 100.0,
-      "win": 1,
-      "pnl": 51.0
-    }
-  ],
-  "bets_2026_settled_count": 14,
+  "bets_2026_settled_rows": [],
+  "bets_2026_settled_count": 0,
   "bets_2026_settled_summary": {
-    "count": 14,
-    "wins": 4,
-    "profit_eur": -474.0,
-    "roi_pct": -33.85714285714286,
-    "avg_odds": 2.2714285714285714
+    "count": 0,
+    "wins": 0,
+    "profit_eur": 0.0,
+    "roi_pct": 0.0,
+    "avg_odds": 0.0
   },
-  "settled_bets_rows": [
-    {
-      "date": "2026-01-01",
-      "home_team": "DAL",
-      "away_team": "PHI",
-      "pick_team": "HOME",
-      "odds": 2.14,
-      "stake": 100.0,
-      "win": 0,
-      "pnl": -100.0
-    },
-    {
-      "date": "2026-01-03",
-      "home_team": "MIA",
-      "away_team": "MIN",
-      "pick_team": "HOME",
-      "odds": 2.24,
-      "stake": 100.0,
-      "win": 0,
-      "pnl": -100.0
-    },
-    {
-      "date": "2026-01-05",
-      "home_team": "DET",
-      "away_team": "NYK",
-      "pick_team": "HOME",
-      "odds": 2.3,
-      "stake": 100.0,
-      "win": 1,
-      "pnl": 129.99999999999997
-    },
-    {
-      "date": "2026-01-07",
-      "home_team": "CHO",
-      "away_team": "TOR",
-      "pick_team": "HOME",
-      "odds": 2.1,
-      "stake": 100.0,
-      "win": 0,
-      "pnl": -100.0
-    },
-    {
-      "date": "2026-01-07",
-      "home_team": "MEM",
-      "away_team": "PHO",
-      "pick_team": "HOME",
-      "odds": 2.8,
-      "stake": 100.0,
-      "win": 0,
-      "pnl": -100.0
-    },
-    {
-      "date": "2026-01-09",
-      "home_team": "DEN",
-      "away_team": "ATL",
-      "pick_team": "HOME",
-      "odds": 2.02,
-      "stake": 100.0,
-      "win": 0,
-      "pnl": -100.0
-    },
-    {
-      "date": "2026-01-09",
-      "home_team": "ORL",
-      "away_team": "PHI",
-      "pick_team": "HOME",
-      "odds": 2.3,
-      "stake": 100.0,
-      "win": 0,
-      "pnl": -100.0
-    },
-    {
-      "date": "2026-01-09",
-      "home_team": "POR",
-      "away_team": "HOU",
-      "pick_team": "HOME",
-      "odds": 3.0,
-      "stake": 100.0,
-      "win": 1,
-      "pnl": 200.0
-    },
-    {
-      "date": "2026-01-11",
-      "home_team": "POR",
-      "away_team": "NYK",
-      "pick_team": "HOME",
-      "odds": 2.6,
-      "stake": 100.0,
-      "win": 0,
-      "pnl": -100.0
-    },
-    {
-      "date": "2026-01-12",
-      "home_team": "TOR",
-      "away_team": "PHI",
-      "pick_team": "HOME",
-      "odds": 2.3,
-      "stake": 100.0,
-      "win": 0,
-      "pnl": -100.0
-    },
-    {
-      "date": "2026-01-15",
-      "home_team": "HOU",
-      "away_team": "OKC",
-      "pick_team": "HOME",
-      "odds": 2.42,
-      "stake": 100.0,
-      "win": 0,
-      "pnl": -100.0
-    },
-    {
-      "date": "2026-01-15",
-      "home_team": "POR",
-      "away_team": "ATL",
-      "pick_team": "HOME",
-      "odds": 2.45,
-      "stake": 100.0,
-      "win": 1,
-      "pnl": 145.00000000000003
-    },
-    {
-      "date": "2026-03-14",
-      "home_team": "MIA",
-      "away_team": "ORL",
-      "pick_team": "HOME",
-      "odds": 1.62,
-      "stake": 100.0,
-      "win": 0,
-      "pnl": -100.0
-    },
-    {
-      "date": "2026-03-14",
-      "home_team": "SAS",
-      "away_team": "CHO",
-      "pick_team": "HOME",
-      "odds": 1.51,
-      "stake": 100.0,
-      "win": 1,
-      "pnl": 51.0
-    }
-  ],
+  "settled_bets_rows": [],
   "settled_bets_summary": {
-    "count": 14,
-    "wins": 4,
-    "profit_eur": -474.0,
-    "roi_pct": -33.85714285714286,
-    "avg_odds": 2.2714285714285714
+    "count": 0,
+    "wins": 0,
+    "profit_eur": 0.0,
+    "roi_pct": 0.0,
+    "avg_odds": 0.0
   },
   "home_win_rates_window": [
     {
@@ -1686,9 +1409,9 @@
     {
       "team": "DEN",
       "totalLast20Games": 20,
-      "totalHomeGames": 13,
-      "homeWins": 12,
-      "homeWinRate": 0.9230769230769231
+      "totalHomeGames": 12,
+      "homeWins": 11,
+      "homeWinRate": 0.9166666666666666
     },
     {
       "team": "TOR",

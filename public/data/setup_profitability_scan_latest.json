@@ -1,7 +1,7 @@
 {
-  "run_date": "2026-06-04",
-  "created_utc": "2026-06-04T18:37:01.406036+00:00",
-  "input_file": "2026/output/LightGBM/combined_nba_predictions_acc_2026-06-04.csv",
+  "run_date": "2026-06-05",
+  "created_utc": "2026-06-05T16:02:24Z",
+  "input_file": "LightGBM/combined_nba_predictions_acc_2026-06-05.csv",
   "thresholds": {
     "base": {
       "home_team_prob_min": 0.6,
@@ -15,16 +15,27 @@
     }
   },
   "candidate_count": 0,
+  "historical_rows_total": 1314,
+  "historical_rows_settled": 1314,
   "general_setup_summary": {
-    "n": 112,
-    "wins": 69,
-    "losses": 43,
-    "win_rate_%": 61.61,
-    "avg_odds": 2.0968,
-    "profit_100_flat": 2871.0,
-    "roi_%": 25.63,
-    "avg_home_team_prob": 0.6667,
-    "avg_home_win_rate": 0.6978
+    "setup": "general_setup",
+    "n": 126,
+    "wins": 73,
+    "losses": 53,
+    "win_rate_%": 57.936507936507944,
+    "avg_odds": 2.1912698412698415,
+    "profit_100_flat": 2469.0,
+    "roi_%": 19.595238095238095,
+    "avg_home_team_prob": 0.6633256912406906,
+    "avg_home_win_rate": 0.7047619047619047
   },
-  "per_game_summaries": []
+  "per_game_summaries": [],
+  "output_files": {
+    "main_latest": "LightGBM/setup_profitability_scan_latest.csv",
+    "main_dated": "LightGBM/setup_profitability_scan_2026-06-05.csv",
+    "matches_latest": "LightGBM/setup_profitability_scan_matches_latest.csv",
+    "matches_dated": "LightGBM/setup_profitability_scan_matches_2026-06-05.csv",
+    "summary_latest": "LightGBM/setup_profitability_scan_summary_latest.json",
+    "summary_dated": "LightGBM/setup_profitability_scan_summary_2026-06-05.json"
+  }
 }
