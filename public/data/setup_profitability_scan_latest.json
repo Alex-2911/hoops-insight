@@ -1,7 +1,7 @@
 {
-  "run_date": "2026-06-05",
-  "created_utc": "2026-06-05T16:02:24Z",
-  "input_file": "LightGBM/combined_nba_predictions_acc_2026-06-05.csv",
+  "run_date": "2026-06-06",
+  "created_utc": "2026-06-06T16:46:48Z",
+  "input_file": "LightGBM/combined_nba_predictions_acc_2026-06-06.csv",
   "thresholds": {
     "base": {
       "home_team_prob_min": 0.6,
@@ -14,7 +14,7 @@
       "home_win_rate": 0.1
     }
   },
-  "candidate_count": 0,
+  "candidate_count": 1,
   "historical_rows_total": 1314,
   "historical_rows_settled": 1314,
   "general_setup_summary": {
@@ -29,13 +29,35 @@
     "avg_home_team_prob": 0.6633256912406906,
     "avg_home_win_rate": 0.7047619047619047
   },
-  "per_game_summaries": [],
+  "per_game_summaries": [
+    {
+      "candidate_rank": 1,
+      "setup": "per_game_similar_bucket",
+      "bucket_key": "2026-06-08__NYK__SAS",
+      "today_home_team": "NYK",
+      "today_away_team": "SAS",
+      "today_game_date": "2026-06-08",
+      "today_home_team_prob": 0.799137632990826,
+      "today_odds_1": 1.74,
+      "today_odds_2": 2.14,
+      "today_home_win_rate": 0.75,
+      "historical_sample_count": 1,
+      "wins": 1,
+      "losses": 0,
+      "win_rate_%": 100.0,
+      "avg_odds": 1.65,
+      "profit_100_flat": 64.99999999999999,
+      "roi_%": 64.99999999999999,
+      "avg_home_team_prob": 0.8188433318453234,
+      "avg_home_win_rate": 0.65
+    }
+  ],
   "output_files": {
     "main_latest": "LightGBM/setup_profitability_scan_latest.csv",
-    "main_dated": "LightGBM/setup_profitability_scan_2026-06-05.csv",
+    "main_dated": "LightGBM/setup_profitability_scan_2026-06-06.csv",
     "matches_latest": "LightGBM/setup_profitability_scan_matches_latest.csv",
-    "matches_dated": "LightGBM/setup_profitability_scan_matches_2026-06-05.csv",
+    "matches_dated": "LightGBM/setup_profitability_scan_matches_2026-06-06.csv",
     "summary_latest": "LightGBM/setup_profitability_scan_summary_latest.json",
-    "summary_dated": "LightGBM/setup_profitability_scan_summary_2026-06-05.json"
+    "summary_dated": "LightGBM/setup_profitability_scan_summary_2026-06-06.json"
   }
 }

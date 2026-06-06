@@ -4,12 +4,12 @@
   "window_size": 300,
   "window_start": "2026-03-16",
   "window_end": "2026-06-03",
-  "active_filters_text": "HW ≥ 0.50 | odds 1.10–3.10 | p ≥ 0.50 | EV ≥ 0 | window 300 (2026-03-16 → 2026-06-03)",
+  "active_filters_text": "HW ≥ 0.50 | odds 1.30–2.60 | p ≥ 0.50 | EV ≥ 0 | window 300 (2026-03-16 → 2026-06-03)",
   "params_used_label": "v1",
   "active_params": {
     "home_win_rate_min": 0.5,
-    "odds_min": 1.1,
-    "odds_max": 3.1,
+    "odds_min": 1.3,
+    "odds_max": 2.6,
     "prob_threshold": 0.5,
     "min_ev": 0.0,
     "window_size": 300.0
@@ -28,7 +28,7 @@
     "bet_log appears stale versus snapshot (29 days behind: 2026-05-05 vs 2026-06-03)"
   ],
   "data_warnings": [],
-  "combined_source_file": "combined_nba_predictions_acc_2026-06-05.csv",
+  "combined_source_file": "combined_nba_predictions_acc_2026-06-06.csv",
   "local_matched_source_file": "local_matched_games_latest.csv",
   "bet_log_source_file": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/bet_log_flat_live.csv",
   "bet_log_source_type": "lightgbm_live",
@@ -36,7 +36,7 @@
   "bet_log_trimmed_to_snapshot": false,
   "strategy_params_source_file": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/strategy_params.txt",
   "metrics_snapshot_source_file": "metrics_snapshot.json",
-  "run_date": "2026-06-05",
+  "run_date": "2026-06-06",
   "strategy_params_source_type": "file",
   "strategy_params_parsed_ok": true,
   "params_source_file": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/strategy_params.txt",
@@ -46,9 +46,9 @@
   "fallback_reason": "used_undated_strategy_params; used_undated_metrics_snapshot; combined_acc_filename_newer_than_latest_settled_row; combined_acc_used; bet_log_lags_snapshot",
   "snapshot_fallback_used": true,
   "snapshot_fallback_reason": "used_undated_strategy_params; used_undated_metrics_snapshot; combined_acc_filename_newer_than_latest_settled_row; combined_acc_used; bet_log_lags_snapshot",
-  "last_update_utc": "2026-06-05T16:02:29Z",
+  "last_update_utc": "2026-06-06T16:46:53Z",
   "sources": {
-    "combined": "combined_nba_predictions_acc_2026-06-05.csv",
+    "combined": "combined_nba_predictions_acc_2026-06-06.csv",
     "local_matched": "local_matched_games_latest.csv",
     "bet_log": "bet_log_flat_live.csv"
   }

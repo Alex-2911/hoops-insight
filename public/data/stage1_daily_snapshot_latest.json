@@ -1,12 +1,12 @@
 {
-  "target_date": "2026-06-05",
+  "target_date": "2026-06-06",
   "status": "ok",
   "daily_games_found": 1,
   "files_missing": [],
-  "daily_predictions_path": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/nba_games_predict_2026-06-05.csv",
+  "daily_predictions_path": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/nba_games_predict_2026-06-06.csv",
   "combined_fallback_path": null,
-  "snapshot_path": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/stage1_snapshot_2026-06-05.csv",
+  "snapshot_path": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/stage1_snapshot_2026-06-06.csv",
   "latest_snapshot_path": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/stage1_daily_snapshot_latest.csv",
   "latest_manifest_path": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/stage1_daily_snapshot_latest.json",
-  "source_path": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/nba_games_predict_2026-06-05.csv"
+  "source_path": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2026/LightGBM/nba_games_predict_2026-06-06.csv"
 }
