@@ -1,0 +1,43 @@
+{
+  "schema_version": "1.0",
+  "report_set": "NBA_2027_2026-10-20",
+  "observed_at_utc": "2026-10-20T19:45:16Z",
+  "gate_definition": {
+    "chronology": "report_observed_at_utc < game_tipoff_utc",
+    "source_asof_evidence": "odds and availability publication timestamps must also be evidenced before tipoff"
+  },
+  "games": [
+    {
+      "game": "BOS-DET",
+      "game_tipoff_utc": "2026-10-20T19:00:00Z",
+      "report_observed_at_utc": "2026-10-20T19:45:16Z",
+      "chronology_gate": "FAIL",
+      "source_asof_gate": "UNVERIFIED",
+      "classification": "RESEARCH_ONLY",
+      "exclude_from_pregame_oos": true,
+      "reason": "The report was observed 45 minutes after the stated tipoff and no earlier prediction_created_at was preserved."
+    },
+    {
+      "game": "PHI-NYK",
+      "game_tipoff_utc": "2026-10-20T23:00:00Z",
+      "report_observed_at_utc": "2026-10-20T19:45:16Z",
+      "chronology_gate": "PASS",
+      "source_asof_gate": "UNVERIFIED",
+      "classification": "TIME_WINDOW_PASS / RESEARCH_ONLY_UNTIL_SOURCE_TIMES_VERIFIED",
+      "exclude_from_pregame_oos": true,
+      "reason": "The report timestamp precedes tipoff, but publication timestamps for every odds and availability input are not fully evidenced."
+    },
+    {
+      "game": "OKC-SAS",
+      "game_tipoff_utc": "2026-10-21T01:30:00Z",
+      "report_observed_at_utc": "2026-10-20T19:45:16Z",
+      "chronology_gate": "PASS",
+      "source_asof_gate": "UNVERIFIED",
+      "classification": "TIME_WINDOW_PASS / RESEARCH_ONLY_UNTIL_SOURCE_TIMES_VERIFIED",
+      "exclude_from_pregame_oos": true,
+      "reason": "The report timestamp precedes tipoff, but publication timestamps for every odds and availability input are not fully evidenced."
+    }
+  ],
+  "model_changes": false,
+  "betting_changes": false
+}
