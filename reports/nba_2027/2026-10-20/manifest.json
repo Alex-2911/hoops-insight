@@ -1,0 +1,43 @@
+{
+  "schema_version": "1.0",
+  "report_set": "NBA_2027_2026-10-20",
+  "observed_at_utc": "2026-10-20T19:45:16Z",
+  "repository": "Alex-2911/hoops-insight",
+  "branch": "main",
+  "status": "READ_ONLY_RESEARCH / NO_BET",
+  "files": [
+    {
+      "path": "reports/nba_2027/2026-10-20/index.md",
+      "sha256": "20cd2d935b27de663733c4218cc3a20d6366dc88f7d78c98e4e977ab3e79d708",
+      "bytes": 638
+    },
+    {
+      "path": "reports/nba_2027/2026-10-20/BOS-DET_pregame.md",
+      "sha256": "5d9ac0e637c8c7399fa6f1c2f2416d0a432da3cb2164324024523f93c09be46b",
+      "bytes": 1120
+    },
+    {
+      "path": "reports/nba_2027/2026-10-20/PHI-NYK_pregame.md",
+      "sha256": "7bdf9bd9470484d232a8d349c26747296696e1323f5ccb0cf1a9b1591d84f9c0",
+      "bytes": 1485
+    },
+    {
+      "path": "reports/nba_2027/2026-10-20/OKC-SAS_pregame.md",
+      "sha256": "6504bec7316b253c1f8410cdd453de9c7aadf968d5f061d2ed092982d9e34a65",
+      "bytes": 1536
+    },
+    {
+      "path": "reports/nba_2027/2026-10-20/SAS_historical_profitability.md",
+      "sha256": "0eabbba0b9d085bad177b42a9c8238283feb209076eae633ef24e115c22c905f",
+      "bytes": 1587
+    }
+  ],
+  "excluded": [
+    "raw snapshots",
+    "databases",
+    "parquet files",
+    "API keys",
+    "private configuration",
+    "local account information"
+  ]
+}
