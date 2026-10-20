@@ -1,20 +1,21 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "report_set": "NBA_2027_2026-10-20",
   "observed_at_utc": "2026-10-20T19:45:16Z",
   "repository": "Alex-2911/hoops-insight",
   "branch": "main",
   "status": "READ_ONLY_RESEARCH / NO_BET",
+  "temporal_gate": "BOS-DET RESEARCH_ONLY; PHI-NYK and OKC-SAS chronology pass but source-as-of evidence incomplete",
   "files": [
     {
       "path": "reports/nba_2027/2026-10-20/index.md",
-      "sha256": "20cd2d935b27de663733c4218cc3a20d6366dc88f7d78c98e4e977ab3e79d708",
-      "bytes": 638
+      "sha256": "d6038b2d6b04257db7f90978a2d39de6c8efff3216bb2f1617d8862863ceb79a",
+      "bytes": 1075
     },
     {
       "path": "reports/nba_2027/2026-10-20/BOS-DET_pregame.md",
-      "sha256": "5d9ac0e637c8c7399fa6f1c2f2416d0a432da3cb2164324024523f93c09be46b",
-      "bytes": 1120
+      "sha256": "be982ccb4b43459e5b451b2f2445aa8f5a148a1974d15e63c41295f74024b73e",
+      "bytes": 1682
     },
     {
       "path": "reports/nba_2027/2026-10-20/PHI-NYK_pregame.md",
@@ -30,6 +31,11 @@
       "path": "reports/nba_2027/2026-10-20/SAS_historical_profitability.md",
       "sha256": "0eabbba0b9d085bad177b42a9c8238283feb209076eae633ef24e115c22c905f",
       "bytes": 1587
+    },
+    {
+      "path": "reports/nba_2027/2026-10-20/temporal_validity_audit.json",
+      "sha256": "32483aa1d839c7537340b9c81ec9a0855db52babb7cc3dd470087dc0b5ee39dc",
+      "bytes": 1793
     }
   ],
   "excluded": [
