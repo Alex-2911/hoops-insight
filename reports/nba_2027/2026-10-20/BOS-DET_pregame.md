@@ -2,9 +2,17 @@
 
 - Game: Boston at Detroit
 - Tipoff source: TeamRankings lists Tuesday 2026-10-20 15:00 local time in Detroit.
-- Observed at: 2026-10-20T19:45:16Z UTC
+- Report observed/published at: 2026-10-20T19:45:16Z UTC
+- Game tipoff: 2026-10-20T19:00:00Z
 - Status: `NO_BET`
 - Challenger: `BLOCKED`
+- Temporal classification: `RESEARCH_ONLY`
+
+## Temporal validity gate
+
+The report timestamp is 45 minutes after the stated tipoff. No earlier `prediction_created_at` was found in the published report set. Therefore this document is excluded from genuine pre-game out-of-sample training and may only be used as a post hoc research record.
+
+The gate checks chronology only. It does not prove that odds or availability were published before the prediction timestamp.
 
 ## Baseline and market reference
 
@@ -22,3 +30,4 @@ Current roster/availability inputs are not sufficient for a roster-adjusted prob
 
 - TeamRankings: https://www.teamrankings.com/nba/matchup/celtics-pistons-2026-10-20
 - Official NBA injury-report index/PDF used by the research pipeline: https://ak-static.cms.nba.com/referee/injury/Injury-Report_2026-10-20_03_15PM.pdf
+- Temporal audit: ./temporal_validity_audit.json
