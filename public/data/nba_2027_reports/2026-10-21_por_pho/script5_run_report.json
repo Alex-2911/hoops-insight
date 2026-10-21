@@ -1,0 +1,47 @@
+{
+  "inputs": {
+    "odds_evidence": null,
+    "odds_evidence_sha256": null,
+    "script4_evidence": "outputs/script4_betting_statistics/20261021TPORPHOReport4/betting_statistics_evidence.csv",
+    "script4_evidence_exists": true,
+    "script4_evidence_sha256": "d52622917df4f18c9d682584b41756dfe23abd7554abe660f7147e228dab055e"
+  },
+  "issues": [],
+  "legacy_script": "Script 5 isotonic-calibrated betting engine",
+  "reason_code": "SCRIPT5_STRATEGY_GATE_READY",
+  "results": {
+    "canonical_params_present": false,
+    "diagnostic_rows": 11,
+    "engine_no_bet_rows": 1,
+    "engine_state": "NO_BET",
+    "metrics_snapshot_csv": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2027/outputs/script5_isotonic_strategy/20261021TPORPHOReport5/metrics_snapshot.csv",
+    "metrics_snapshot_json": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2027/outputs/script5_isotonic_strategy/20261021TPORPHOReport5/metrics_snapshot.json",
+    "no_bet_rows": 11,
+    "odds_missing_rows": 0,
+    "output_csv": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2027/outputs/script5_isotonic_strategy/20261021TPORPHOReport5/strategy_gate_evidence.csv",
+    "pass_filters_only_rows": 1,
+    "rows": 11,
+    "stake_total": 0.0,
+    "watch_reference_params_present": true,
+    "watch_rows": 11
+  },
+  "run_utc": "2026-10-21T18:35:11.607197Z",
+  "safety": {
+    "betting_signals_created": false,
+    "canonical_unlock": false,
+    "execution_path_created": false,
+    "isotonic_live_calibration_applied": false,
+    "kelly_staking_applied": false,
+    "manifold_path_created": false,
+    "metrics_snapshot_only": true,
+    "network_attempted": false,
+    "odds_created": false,
+    "odds_fetched": false,
+    "outcomes_settled": false,
+    "profitability_claim": false,
+    "script5_core_logic_applied": true,
+    "strategy_gate_only": true
+  },
+  "script": "run_isotonic_strategy_2027",
+  "status": "READY"
+}
