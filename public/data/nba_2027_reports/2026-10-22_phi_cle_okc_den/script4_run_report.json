@@ -1,0 +1,33 @@
+{
+  "inputs": {
+    "predictions": "outputs/script3_model_predictions/20261022TScript3BaselineProxy/baseline_2026_predictions.csv",
+    "predictions_exists": true,
+    "predictions_sha256": "f8125e0de2502b7cb998dff07d8833b92fe41674fdb4359ddca64a7bc8834f33"
+  },
+  "issues": [],
+  "reason_code": "BETTING_STATISTICS_EVIDENCE_READY",
+  "results": {
+    "home_prob_max": 0.5565895560651154,
+    "home_prob_mean": 0.4799723655013577,
+    "home_prob_min": 0.4033551749375999,
+    "odds_missing_rows": 2,
+    "output_csv": "outputs/script4_betting_statistics/20261022TScript4Stats/betting_statistics_evidence.csv",
+    "pending_outcomes": 2,
+    "rows": 2
+  },
+  "run_utc": "2026-10-22T18:47:28.543816Z",
+  "safety": {
+    "betting_signals_created": false,
+    "betting_statistics_only": true,
+    "canonical_unlock": false,
+    "execution_path_created": false,
+    "manifold_path_created": false,
+    "network_attempted": false,
+    "odds_created": false,
+    "odds_fetched": false,
+    "outcomes_settled": false,
+    "profitability_claim": false
+  },
+  "script": "calculate_betting_statistics_2027",
+  "status": "READY"
+}

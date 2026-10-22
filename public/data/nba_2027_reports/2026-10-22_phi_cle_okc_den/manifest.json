@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "generated_at_utc": "2026-10-22T19:05:43Z",
+  "package": "NBA 2027 pre-game reports",
+  "games": ["PHI-CLE", "OKC-DEN"],
+  "research_only": true,
+  "canonical_bet_execution": false,
+  "files": {
+    "availability_report.md": "4de9c01492a7d35a1c6bc810484fd90f10f0081c006da1324b317bf9812c70e2",
+    "odds_evidence.csv": "145ddc369ca9ea34e2416e564f94c97671399f7aa2298d2788bd3d58f68faece",
+    "odds_run_report.json": "4d326826f51fc92697922346f3c17dbc3419e3069775fb68966946e5cc4c6812",
+    "prematch_report.md": "604d8bbbee77df38546e117a92080bb4ace49797439708f2d0fdf72f241a1bc4",
+    "script3_predictions.csv": "f8125e0de2502b7cb998dff07d8833b92fe41674fdb4359ddca64a7bc8834f33",
+    "script3_run_report.json": "86855063693a4e7ba24894429b9059842116e2296f47ed05d3a36204ea6cbef2",
+    "script4_betting_statistics.csv": "d69bfc5a2dd15181d28d9820ba4d08391bc3971dcbacf66cb8758967a410cb7f",
+    "script4_run_report.json": "0101988671d454f71a37e96ad1c418e2a913110dbf3679f0e54090915f8e5cdc",
+    "script5_run_report.json": "93bac3e5b89f0d538f0e0d5dbf826d807b60abe6ccea415e2bc2461549a01817",
+    "script5_strategy_gate.csv": "f819c26ca67772332f29007b61eab935218796b92e8b93666ecaa2d9c3809975"
+  },
+  "excluded": ["raw snapshots", "PDF source snapshot", "databases", "API keys", "private configuration", "account data"]
+}

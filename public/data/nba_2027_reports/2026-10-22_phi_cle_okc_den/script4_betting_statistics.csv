@@ -1,0 +1,3 @@
+game_date,home_team,away_team,home_team_prob,prob_iso,home_win_rate,predicted_side,prediction_confidence,odds_1,odds_2,result,accuracy,canonical_decision,watch_label,stake,betting_statistics_status,reason_code,model_source,model_issue
+2026-10-22,OKC,DEN,0.5565895560651154,0.5565895560651154,0.5565895560651154,OKC,0.1131791121302308,,,PENDING,,NO_BET,PREDICTION_ONLY_NO_ODDS,0,EVIDENCE_ONLY,ODDS_MISSING_OUTCOME_PENDING,baseline_2026_lightgbm,
+2026-10-22,PHI,CLE,0.4033551749375999,0.4033551749375999,0.4033551749375999,CLE,0.19328965012480015,,,PENDING,,NO_BET,PREDICTION_ONLY_NO_ODDS,0,EVIDENCE_ONLY,ODDS_MISSING_OUTCOME_PENDING,baseline_2026_lightgbm,

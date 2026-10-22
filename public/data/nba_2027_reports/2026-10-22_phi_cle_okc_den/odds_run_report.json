@@ -1,0 +1,37 @@
+{
+  "inputs": {
+    "games": "data/raw/Gathering_Data/Next_Game/games_df_2026-10-22.csv",
+    "games_exists": true,
+    "games_sha256": "7270e7004b535e9e82bccabb5b49978aed8d3115c1a5b9a52287d65ae49345a2",
+    "preferred_bookmakers": [
+      "draftkings",
+      "fanduel",
+      "betmgm"
+    ]
+  },
+  "issues": [],
+  "legacy_source": "Script 3 fetch_odds / The Odds API h2h",
+  "reason_code": "ODDS_EVIDENCE_READY",
+  "results": {
+    "api_events_matched": 41,
+    "api_events_seen": 41,
+    "odds_missing_rows": 0,
+    "odds_ok_rows": 2,
+    "output_csv": "outputs/the_odds_api_import/20261022TPreGameOddsRefresh/the_odds_api_evidence.csv",
+    "rows": 2
+  },
+  "run_utc": "2026-10-22T18:54:55.501660Z",
+  "safety": {
+    "betting_signals_created": false,
+    "canonical_unlock": false,
+    "execution_path_created": false,
+    "manifold_path_created": false,
+    "network_attempted": true,
+    "odds_import_only": true,
+    "outcomes_settled": false,
+    "predictions_created": false,
+    "profitability_claim": false
+  },
+  "script": "import_the_odds_api_2027",
+  "status": "READY"
+}
