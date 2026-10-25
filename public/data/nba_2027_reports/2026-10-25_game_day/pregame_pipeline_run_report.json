@@ -1,0 +1,109 @@
+{
+  "failed_steps": [],
+  "run_id": "20261025T144015688127Z",
+  "run_utc": "2026-10-25T14:40:22.718789Z",
+  "safety": {
+    "canonical_unlock": false,
+    "execution_path_created": false,
+    "manifold_path_created": false,
+    "numbered_pipeline_order": [
+      "script1_previous_game_day",
+      "script2_next_game_day",
+      "script3_predictions",
+      "script4_statistics",
+      "script5_strategy_gate"
+    ],
+    "odds_are_part_of_script3": true
+  },
+  "script": "run_pregame_game_day_pipeline_2027",
+  "skipped_steps": [
+    "script3_predictions",
+    "script4_statistics",
+    "script5_strategy_gate"
+  ],
+  "status": "SKIPPED",
+  "steps": {
+    "script1_previous_game_day": {
+      "command": [
+        "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2027/.venv/bin/python",
+        "scripts/get_data_previous_game_day_2027.py",
+        "--run-id",
+        "20261025T144015688127Z",
+        "--allow-network"
+      ],
+      "json": {
+        "reason_code": "BBR_RESULTS_IMPORTED",
+        "report": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2027/outputs/previous_game_day/20261025T144015688127Z/run_report.json",
+        "status": "READY"
+      },
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "{\"status\": \"READY\", \"reason_code\": \"BBR_RESULTS_IMPORTED\", \"report\": \"/Users/alexanderrazmyslov/1. Python/1. NBA Script/2027/outputs/previous_game_day/20261025T144015688127Z/run_report.json\"}"
+    },
+    "script2_next_game_day": {
+      "command": [
+        "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2027/.venv/bin/python",
+        "scripts/get_data_next_game_day_2027.py",
+        "--run-id",
+        "20261025T144015688127Z",
+        "--write-csv"
+      ],
+      "json": {
+        "reason_code": "NEXT_GAME_DAY_METADATA_READY",
+        "report": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2027/outputs/next_game_day/20261025T144015688127Z/run_report.json",
+        "status": "READY"
+      },
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "{\"status\": \"READY\", \"reason_code\": \"NEXT_GAME_DAY_METADATA_READY\", \"report\": \"/Users/alexanderrazmyslov/1. Python/1. NBA Script/2027/outputs/next_game_day/20261025T144015688127Z/run_report.json\"}"
+    },
+    "script3_predictions": {
+      "command": [
+        "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2027/.venv/bin/python",
+        "scripts/run_lightgbm_predictions_2027.py",
+        "--run-id",
+        "20261025T144015688127Z"
+      ],
+      "json": {
+        "reason_code": "WAITING_FOR_FIRST_2027_PLAYED_GAME_STATS",
+        "report": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2027/outputs/script3_model_predictions/20261025T144015688127Z/run_report.json",
+        "status": "SKIPPED"
+      },
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "{\"status\": \"SKIPPED\", \"reason_code\": \"WAITING_FOR_FIRST_2027_PLAYED_GAME_STATS\", \"report\": \"/Users/alexanderrazmyslov/1. Python/1. NBA Script/2027/outputs/script3_model_predictions/20261025T144015688127Z/run_report.json\"}"
+    },
+    "script4_statistics": {
+      "command": [
+        "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2027/.venv/bin/python",
+        "scripts/calculate_betting_statistics_2027.py",
+        "--run-id",
+        "20261025T144015688127Z"
+      ],
+      "json": {
+        "reason_code": "SCRIPT3_PREDICTIONS_UNAVAILABLE",
+        "report": null,
+        "status": "SKIPPED"
+      },
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "{\"status\": \"SKIPPED\", \"reason_code\": \"SCRIPT3_PREDICTIONS_UNAVAILABLE\", \"report\": null}"
+    },
+    "script5_strategy_gate": {
+      "command": [
+        "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2027/.venv/bin/python",
+        "scripts/run_isotonic_strategy_2027.py",
+        "--run-id",
+        "20261025T144015688127Z"
+      ],
+      "json": {
+        "reason_code": "SCRIPT4_STATISTICS_UNAVAILABLE",
+        "report": null,
+        "status": "SKIPPED"
+      },
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "{\"status\": \"SKIPPED\", \"reason_code\": \"SCRIPT4_STATISTICS_UNAVAILABLE\", \"report\": null}"
+    }
+  }
+}

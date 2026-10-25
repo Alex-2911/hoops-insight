@@ -1,0 +1,38 @@
+{
+  "all_canonical_no_bet": true,
+  "bets_created": false,
+  "canonical_bets": 0,
+  "canonical_stake_total": 0.0,
+  "created_at_utc": "2026-10-24T13:39:09.241708Z",
+  "executable_edge": "UNVERIFIED_ORDERBOOK_LIQUIDITY_SPREAD_FEES",
+  "forward_evaluation": "PENDING_UNSETTLED_GAMES",
+  "immutable": true,
+  "inputs": {
+    "manifold_snapshot": {
+      "path": "data/raw/market_snapshots/2026-10-24/manifold_week1_mega_market_ui_20261024T130910Z.json",
+      "sha256": "1f807aaa88d87a12906adce9d3b720d83d0a7c7cdcb96dde739257719a2b030a"
+    },
+    "strategy_evidence": {
+      "path": "outputs/script5_isotonic_strategy/20261024TScript5WithOdds/strategy_gate_evidence.csv",
+      "sha256": "81254229b7f824957ff3a908b1987fd6cc8b88fbe5e00f638fa5c50443a10cfb"
+    }
+  },
+  "market_source": "BROWSER_READONLY_MANIFOLD_UI",
+  "market_source_url": "https://manifold.markets/benmanns/week-1-nba-202627-megamarket-all-ga",
+  "observed_at_utc": "2026-10-24T13:09:10Z",
+  "outputs": {
+    "metadata_json": {
+      "path": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2027/outputs/market_disagreement_forward/20261024TMarketDisagreementForwardV1Corrected/snapshot_metadata.json",
+      "sha256": "86f1d73b755db423c8e77f456e3012121c9bea08d521f2d63faac21f44ac48d0"
+    },
+    "snapshot_csv": {
+      "path": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2027/outputs/market_disagreement_forward/20261024TMarketDisagreementForwardV1Corrected/market_disagreement_snapshot.csv",
+      "sha256": "bd43b827abb4cfdf6aa7741b3056bfc5254419ee729fb9543ab0920b13aa769e"
+    }
+  },
+  "probability_edge": "UNVALIDATED",
+  "read_only": true,
+  "rows": 8,
+  "snapshot_type": "NBA_2027_MARKET_DISAGREEMENT_FORWARD_V1",
+  "strategy_changed": false
+}

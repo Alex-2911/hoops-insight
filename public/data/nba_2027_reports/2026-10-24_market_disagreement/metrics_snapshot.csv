@@ -1,0 +1,36 @@
+section,metric,value
+meta,rows,8
+meta,engine_state,NO_BET
+meta,canonical_params_present,False
+meta,watch_reference_params_present,True
+decisions,no_bet_rows,8
+decisions,pass_filters_only_rows,0
+decisions,watch_rules_not_passed_rows,8
+decisions,odds_missing_rows,0
+safety,stake_total,0.0
+safety,canonical_bet_rows,0
+probability,home_team_prob_count,8
+probability,home_team_prob_min,0.183421047864428
+probability,home_team_prob_mean,0.6557719085852078
+probability,home_team_prob_max,0.9240856607409836
+probability,prob_used_count,8
+probability,prob_used_min,0.35
+probability,prob_used_mean,0.5980538126424063
+probability,prob_used_max,0.7622411720213103
+ev,EV_€_per_100_count,8
+ev,EV_€_per_100_min,-12.483432282607671
+ev,EV_€_per_100_mean,3.8672944268987646
+ev,EV_€_per_100_max,83.74999999999999
+market,model_market_gap_count,8
+market,model_market_gap_min,-0.160834271337167
+market,model_market_gap_mean,0.058480833485879694
+market,model_market_gap_max,0.25794311319043084
+rules,rules_passed_count,8
+rules,rules_passed_min,1.0
+rules,rules_passed_mean,1.75
+rules,rules_passed_max,2.0
+blocked_by,Odds<1.30 | EV<=0.00,4
+blocked_by,HWR<0.50 | Prob<0.55 | EV<=0.00,1
+blocked_by,Prob<0.55 | EV<=0.00,1
+blocked_by,MODEL_MARKET_GAP | Prob<0.55 | EV<=0.00,1
+blocked_by,HWR<0.50 | Odds>3.40 | Prob<0.55,1

@@ -1,0 +1,80 @@
+{
+  "anchor_date": "2026-10-25",
+  "message": "Found 7 games for next local schedule date 2026-10-25.",
+  "reason_code": "NEXT_GAME_DAY_METADATA_READY",
+  "results": {
+    "files_copied": [
+      "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2027/data/raw/Gathering_Data_Backup/Next_Game/games_df_2026-10-25.csv"
+    ],
+    "files_created": [
+      "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2027/data/raw/Gathering_Data/Next_Game/games_df_2026-10-25.csv"
+    ],
+    "games": [
+      {
+        "away_team": "IND",
+        "game_date": "2026-10-25",
+        "home_team": "BRK",
+        "tipoff_raw": "2026-10-25T22:00:00Z"
+      },
+      {
+        "away_team": "TOR",
+        "game_date": "2026-10-25",
+        "home_team": "MIN",
+        "tipoff_raw": "2026-10-25T23:00:00Z"
+      },
+      {
+        "away_team": "ORL",
+        "game_date": "2026-10-25",
+        "home_team": "NYK",
+        "tipoff_raw": "2026-10-25T23:00:00Z"
+      },
+      {
+        "away_team": "LAC",
+        "game_date": "2026-10-25",
+        "home_team": "OKC",
+        "tipoff_raw": "2026-10-25T23:00:00Z"
+      },
+      {
+        "away_team": "DET",
+        "game_date": "2026-10-25",
+        "home_team": "PHI",
+        "tipoff_raw": "2026-10-25T23:30:00Z"
+      },
+      {
+        "away_team": "MEM",
+        "game_date": "2026-10-25",
+        "home_team": "SAC",
+        "tipoff_raw": "2026-10-26T01:00:00Z"
+      },
+      {
+        "away_team": "LAL",
+        "game_date": "2026-10-25",
+        "home_team": "UTA",
+        "tipoff_raw": "2026-10-25T21:00:00Z"
+      }
+    ],
+    "games_found": 7,
+    "output_csv": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2027/data/raw/Gathering_Data/Next_Game/games_df_2026-10-25.csv"
+  },
+  "run_utc": "2026-10-25T14:40:22.328994Z",
+  "safety": {
+    "betting_signals_created": false,
+    "canonical_unlock": false,
+    "execution_path_created": false,
+    "manifold_path_created": false,
+    "network_attempted": false,
+    "odds_created": false,
+    "predictions_created": false,
+    "previous_game_statistics_modified": false,
+    "schedule_metadata_only": true,
+    "stats_parser_executed": false
+  },
+  "script": "get_data_next_game_day_2027",
+  "season_end_year": 2027,
+  "source": {
+    "schedule_metadata": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2027/outputs/verified_schedule_import/20261020T120005000000Z/schedule_metadata.csv",
+    "schedule_metadata_exists": true,
+    "schedule_metadata_sha256": "bcc5e209f81eec8ad514445e5bf5ed20f3a561d79006417f863be7023d84b9e8"
+  },
+  "status": "READY"
+}

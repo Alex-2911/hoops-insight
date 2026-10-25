@@ -1,0 +1,116 @@
+{
+  "anchor_date": "2026-10-23",
+  "inputs": {
+    "baseline_2026_stats": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2027/data/processed/whole_statistics_2026.parquet",
+    "baseline_2026_stats_sha256": "ff0d3ad77fd552848fdab11528c24df817e9636ec0587399d6611b8b32d44b09",
+    "merged_2027_stats": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2027/data/processed/whole_statistics_2027_merged_2026-10-22.parquet",
+    "merged_2027_stats_sha256": "4b8128ad4898ce63db91b80c6b4dac0385f430844b133e763b5741eb163bac62",
+    "next_game_file": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2027/data/raw/Gathering_Data/Next_Game/games_df_2026-10-23.csv",
+    "next_game_file_exists": true,
+    "next_game_file_sha256": "a890b857b68706fc490262c42626897dde8b5924333d3c788426c030429fab05",
+    "prediction_artifact": null,
+    "prediction_artifact_sha256": null,
+    "stat_files_2027": [],
+    "stats_dir": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2027/data/raw/Gathering_Data/Whole_Statistic"
+  },
+  "issues": [],
+  "reason_code": "NBA_2027_LIGHTGBM_ROLLING10_CREATED",
+  "results": {
+    "next_games": [
+      {
+        "away_team": "NYK",
+        "game_date": "2026-10-23",
+        "home_team": "BOS"
+      },
+      {
+        "away_team": "ATL",
+        "game_date": "2026-10-23",
+        "home_team": "CHO"
+      },
+      {
+        "away_team": "MEM",
+        "game_date": "2026-10-23",
+        "home_team": "GSW"
+      },
+      {
+        "away_team": "DAL",
+        "game_date": "2026-10-23",
+        "home_team": "IND"
+      },
+      {
+        "away_team": "LAC",
+        "game_date": "2026-10-23",
+        "home_team": "LAL"
+      },
+      {
+        "away_team": "DET",
+        "game_date": "2026-10-23",
+        "home_team": "MIA"
+      },
+      {
+        "away_team": "CHI",
+        "game_date": "2026-10-23",
+        "home_team": "MIL"
+      },
+      {
+        "away_team": "MIN",
+        "game_date": "2026-10-23",
+        "home_team": "ORL"
+      },
+      {
+        "away_team": "POR",
+        "game_date": "2026-10-23",
+        "home_team": "SAC"
+      },
+      {
+        "away_team": "HOU",
+        "game_date": "2026-10-23",
+        "home_team": "SAS"
+      },
+      {
+        "away_team": "NOP",
+        "game_date": "2026-10-23",
+        "home_team": "UTA"
+      },
+      {
+        "away_team": "TOR",
+        "game_date": "2026-10-23",
+        "home_team": "WAS"
+      }
+    ],
+    "next_games_found": 12,
+    "odds": {
+      "api_events_matched": 0,
+      "api_events_seen": 0,
+      "api_key_source": "disabled",
+      "network_attempted": false,
+      "odds_fetch_enabled": false,
+      "odds_missing_rows": 12,
+      "odds_ok_rows": 0
+    },
+    "output_csv": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2027/outputs/script3_model_predictions/20261023T215409023664Z/nba_2027_rolling10_predictions.csv",
+    "predictions_created": true,
+    "predictions_file": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2027/outputs/script3_model_predictions/20261023T215409023664Z/nba_2027_rolling10_predictions.csv",
+    "predictions_rows": 12
+  },
+  "run_utc": "2026-10-23T21:54:09.023664Z",
+  "safety": {
+    "2027_rolling10_mode": true,
+    "baseline_2026_mode": false,
+    "baseline_2026_predictions_are_preseason_proxy": false,
+    "betting_signals_created": false,
+    "canonical_unlock": false,
+    "execution_path_created": false,
+    "lightgbm_fit_called": true,
+    "manifold_path_created": false,
+    "model_step_only": true,
+    "network_attempted": false,
+    "odds_created": false,
+    "predictions_generated_by_script": true,
+    "stats_fallback_to_2026_used": false,
+    "training_executed": true
+  },
+  "script": "run_lightgbm_predictions_2027",
+  "season_end_year": 2027,
+  "status": "READY"
+}

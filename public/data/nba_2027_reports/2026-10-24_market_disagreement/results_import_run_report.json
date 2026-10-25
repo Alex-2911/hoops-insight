@@ -1,0 +1,125 @@
+{
+  "guard": {
+    "existing_2027_stat_file_count": 0,
+    "existing_2027_stat_files": [],
+    "existing_result_file_count": 4,
+    "existing_result_files": [
+      "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2027/data/raw/Gathering_Data/Previous_Game_Day/nba_results_2027-2026-10-20.csv",
+      "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2027/data/raw/Gathering_Data/Previous_Game_Day/nba_results_2027-2026-10-21.csv",
+      "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2027/data/raw/Gathering_Data/Previous_Game_Day/nba_results_2027-2026-10-22.csv",
+      "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2027/data/raw/Gathering_Data/Previous_Game_Day/nba_results_2027-2026-10-23.csv"
+    ],
+    "final_2026_snapshot": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2027/data/baseline_2026/Gathering_Data/Whole_Statistic/nba_games_2026-06-14.csv",
+    "final_2026_snapshot_exists": true,
+    "final_2026_snapshot_rows": 27318,
+    "final_2026_snapshot_sha256": "a361f9f029ec9b3665c45785803a1391f790cef73b4180a4419d0c08e2b6ca5d",
+    "results_dir_2027": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2027/data/raw/Gathering_Data/Previous_Game_Day",
+    "statistics_dir_2027": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2027/data/raw/Gathering_Data/Whole_Statistic"
+  },
+  "message": "Completed BBR game results imported as a result-only snapshot; model statistics remain unavailable.",
+  "reason_code": "BBR_RESULTS_IMPORTED",
+  "results": {
+    "duplicates_checked": true,
+    "files_created": [
+      "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2027/data/raw/Gathering_Data/Previous_Game_Day/nba_results_2027-2026-10-24.csv"
+    ],
+    "files_modified": [],
+    "games": [
+      {
+        "away_score": 110,
+        "away_team": "MIA",
+        "game_date": "2026-10-24",
+        "home_score": 115,
+        "home_team": "CHO",
+        "winner": "CHO"
+      },
+      {
+        "away_score": 116,
+        "away_team": "MIL",
+        "game_date": "2026-10-24",
+        "home_score": 127,
+        "home_team": "PHI",
+        "winner": "PHI"
+      },
+      {
+        "away_score": 121,
+        "away_team": "BRK",
+        "game_date": "2026-10-24",
+        "home_score": 125,
+        "home_team": "CLE",
+        "winner": "CLE"
+      },
+      {
+        "away_score": 122,
+        "away_team": "SAS",
+        "game_date": "2026-10-24",
+        "home_score": 106,
+        "home_team": "DAL",
+        "winner": "SAS"
+      },
+      {
+        "away_score": 124,
+        "away_team": "WAS",
+        "game_date": "2026-10-24",
+        "home_score": 120,
+        "home_team": "CHI",
+        "winner": "WAS"
+      },
+      {
+        "away_score": 121,
+        "away_team": "HOU",
+        "game_date": "2026-10-24",
+        "home_score": 114,
+        "home_team": "ATL",
+        "winner": "HOU"
+      },
+      {
+        "away_score": 135,
+        "away_team": "NOP",
+        "game_date": "2026-10-24",
+        "home_score": 141,
+        "home_team": "DEN",
+        "winner": "DEN"
+      },
+      {
+        "away_score": 122,
+        "away_team": "GSW",
+        "game_date": "2026-10-24",
+        "home_score": 131,
+        "home_team": "PHO",
+        "winner": "PHO"
+      }
+    ],
+    "games_imported": 8,
+    "model_statistics_ready": false,
+    "result_only_snapshot": true,
+    "teams_normalized": "COMPLETED",
+    "timezone_tipoff_checked": false
+  },
+  "run_utc": "2026-10-25T14:40:15.751839Z",
+  "safety": {
+    "betting_signals_created": false,
+    "canonical_unlock": false,
+    "execution_path_created": false,
+    "manifold_path_created": false,
+    "metadata_statistics_only": true,
+    "network_attempted": true,
+    "odds_created": false,
+    "parser_executed": true,
+    "predictions_created": false
+  },
+  "script": "get_data_previous_game_day_2027",
+  "season_end_year": 2027,
+  "source": {
+    "fetch_method": "selenium",
+    "file": null,
+    "kind": "selenium",
+    "last_modified": null,
+    "parser_version": "bbr_schedule_results_v1",
+    "retrieved_at_utc": "2026-10-25T14:40:15.751839Z",
+    "sha256": "cd6f087f1328c23ae5c54f5c44e855d7ce954e6d64fc21892351a96aea7cd380",
+    "url": "https://www.basketball-reference.com/leagues/NBA_2027_games.html"
+  },
+  "status": "READY",
+  "target_collect_date": "2026-10-24"
+}

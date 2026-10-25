@@ -1,0 +1,22 @@
+{
+  "status": "READY",
+  "audit_type": "READ_ONLY_SHADOW_EDGE_AUDIT",
+  "run_utc": "2026-10-23T21:58:46.994132+00:00",
+  "input": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2027/outputs/script5_isotonic_strategy/20261023T215614063304Z/strategy_gate_evidence.csv",
+  "input_sha256": "662d2c5b4a7d07394f1ca039a2af099fdd8dc0c3485672e845023325574cc818",
+  "rows": 12,
+  "arithmetic_check_failures": 0,
+  "positive_nominal_gap_rows": 7,
+  "positive_nominal_ev_rows": 4,
+  "odds_gate_pass_rows": 9,
+  "probability_gate_pass_rows": 5,
+  "canonical_no_bet_rows": 12,
+  "stake_total": 0.0,
+  "forward_evaluation": "PENDING_UNSETTLED_GAMES",
+  "rejected_odds_historical_performance": "NOT_AVAILABLE_FROM_SINGLE_CURRENT_SLATE",
+  "strategy_changed": false,
+  "bets_created": false,
+  "outputs": {
+    "audit_csv": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2027/outputs/shadow_edge_audit/20261023T215846993102Z/shadow_edge_audit.csv"
+  }
+}
