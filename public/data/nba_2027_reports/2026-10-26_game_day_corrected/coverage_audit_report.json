@@ -1,0 +1,22 @@
+{
+  "as_of_date": "2026-10-25",
+  "duplicate_statistics_rows": 0,
+  "end_date": null,
+  "expected_statistics_rows": 86,
+  "extra_statistics_games": [],
+  "incomplete_games": [],
+  "lookahead_dates_excluded": [],
+  "lookahead_detected": false,
+  "missing_games": [],
+  "reason_code": "STATISTICS_COVERAGE_COMPLETE",
+  "result_games": 43,
+  "result_rows": 43,
+  "results_dir": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2027/data/raw/Gathering_Data/Previous_Game_Day",
+  "run_id": "20261026TLocalCoverageAuditAfterOct24",
+  "script": "run_statistics_coverage_audit_2027",
+  "start_date": "2026-10-20",
+  "statistics_games": 43,
+  "statistics_rows": 86,
+  "stats_path": "/Users/alexanderrazmyslov/1. Python/1. NBA Script/2027/data/processed/whole_statistics_2027_merged_2026-10-25.parquet",
+  "status": "READY"
+}
